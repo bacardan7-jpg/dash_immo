@@ -17,10 +17,20 @@ from .auth.auth import auth_bp, login_manager, hash_password, log_audit_action
 from .auth.decorators import admin_required, analyst_required
 
 # Configuration Flask
+from sqlalchemy.pool import NullPool
 app = Flask(__name__)
+
+# Get database URL and ensure SSL is disabled for Render free tier stability
+db_url = os.environ.get('DATABASE_URL', 'postgresql://neondb_owner:npg_ciyfh8H9bZdj@ep-frosty-wind-a4aoph5q-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require')
+# Disable SSL for Render free tier to avoid connection drops
+db_url = db_url.replace('?sslmode=require', '?sslmode=disable').replace('&sslmode=require', '&sslmode=disable')
+
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'votre-secret-key-tres-securise')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://neondb_owner:npg_ciyfh8H9bZdj@ep-frosty-wind-a4aoph5q-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require')
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'poolclass': NullPool,
+}
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key-tres-securise')
 
 # Initialiser la base de données
