@@ -1,7 +1,7 @@
 import os
 from datetime import timedelta
 from sqlalchemy import event
-from sqlalchemy.pool import Pool
+from sqlalchemy.pool import Pool, NullPool
 
 class Config:
     """Configuration de base pour l'application"""
@@ -10,17 +10,13 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'postgresql://neondb_owner:npg_9vrYBWUeT7js@ep-raspy-dust-a4a9f62f-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_size': 2,
-        'max_overflow': 5,
-        'pool_recycle': 60,  # Recycle connections every 60 seconds (very aggressive for Neon)
-        'pool_pre_ping': True,  # Verify connections before using them
-        'pool_echo': False,
+        'poolclass': NullPool,  # Use NullPool to avoid stale SSL connections - create fresh connection for each query
         'connect_args': {
             'connect_timeout': 10,
             'keepalives': 1,
-            'keepalives_idle': 5,  # Check every 5 seconds if idle
-            'keepalives_interval': 3,  # Retry every 3 seconds
-            'keepalives_count': 5,  # Try 5 times before giving up
+            'keepalives_idle': 5,
+            'keepalives_interval': 3,
+            'keepalives_count': 5,
             'sslmode': 'require',
             'application_name': 'dash_immo'
         }

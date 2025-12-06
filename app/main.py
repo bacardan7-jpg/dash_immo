@@ -10,8 +10,6 @@ from flask_caching import Cache
 from flask_jwt_extended import JWTManager
 import redis
 from datetime import datetime, timedelta
-from sqlalchemy import event
-from sqlalchemy.pool import Pool
 
 # Importer les composants
 from .database.models import db, User, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
@@ -28,19 +26,8 @@ app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key-
 # Initialiser la base de données
 db.init_app(app)
 
-# Handle SSL connection drops from Neon - simpler approach
-# SQLAlchemy's pool_pre_ping will handle most cases
-# We just need to ensure connections are recycled frequently enough
-@event.listens_for(Pool, "connect")
-def receive_connect(dbapi_conn, connection_record):
-    """Configure connection settings on new connections."""
-    try:
-        cursor = dbapi_conn.cursor()
-        # Set statement timeout to 30 seconds
-        cursor.execute('SET statement_timeout = 30000')
-        cursor.close()
-    except:
-        pass
+# NullPool will create fresh connections for each query, avoiding stale SSL connections
+# No need for pool event listeners with NullPool
 
 # Configuration Flask-Login
 login_manager.init_app(app)
