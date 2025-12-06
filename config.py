@@ -1,17 +1,18 @@
 import os
 from datetime import timedelta
-from sqlalchemy.pool import NullPool
+from sqlalchemy.pool import QueuePool
 
 class Config:
     """Configuration de base pour l'application"""
     
-    # Base de données
-    # For Render free tier: disable SSL to avoid connection drops
-    _db_url = os.environ.get('DATABASE_URL') or 'postgresql://neondb_owner:npg_9vrYBWUeT7js@ep-raspy-dust-a4a9f62f-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require'
-    SQLALCHEMY_DATABASE_URI = _db_url.replace('?sslmode=require', '?sslmode=disable').replace('&sslmode=require', '&sslmode=disable')
+    # Base de données - Neon requires SSL, use aggressive connection recycling
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'postgresql://neondb_owner:npg_9vrYBWUeT7js@ep-raspy-dust-a4a9f62f-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
-        'poolclass': NullPool,  # Use NullPool to create fresh connection for each query
+        'pool_size': 1,  # Minimal pool for free tier
+        'max_overflow': 2,  # Allow minimal overflow
+        'pool_recycle': 30,  # Recycle every 30 seconds to prevent stale connections
+        'pool_pre_ping': True,  # Test connection before using
         'connect_args': {
             'connect_timeout': 10,
             'application_name': 'dash_immo'

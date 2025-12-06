@@ -17,19 +17,20 @@ from .auth.auth import auth_bp, login_manager, hash_password, log_audit_action
 from .auth.decorators import admin_required, analyst_required
 
 # Configuration Flask
-from sqlalchemy.pool import NullPool
 app = Flask(__name__)
 
-# Get database URL and ensure SSL is disabled for Render free tier stability
-db_url = os.environ.get('DATABASE_URL', 'postgresql://neondb_owner:npg_ciyfh8H9bZdj@ep-frosty-wind-a4aoph5q-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require')
-# Disable SSL for Render free tier to avoid connection drops
-db_url = db_url.replace('?sslmode=require', '?sslmode=disable').replace('&sslmode=require', '&sslmode=disable')
-
+# Database configuration - Neon requires SSL, use aggressive connection recycling
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'votre-secret-key-tres-securise')
-app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://neondb_owner:npg_ciyfh8H9bZdj@ep-frosty-wind-a4aoph5q-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'poolclass': NullPool,
+    'pool_size': 1,  # Minimal pool for free tier
+    'max_overflow': 2,  # Allow minimal overflow
+    'pool_recycle': 30,  # Recycle every 30 seconds to prevent stale connections
+    'pool_pre_ping': True,  # Test connection before using
+    'connect_args': {
+        'connect_timeout': 10,
+    }
 }
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key-tres-securise')
 
