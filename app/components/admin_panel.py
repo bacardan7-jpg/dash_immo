@@ -261,7 +261,6 @@ class AdminPanel:
                                             dmc.Title("Panneau d'Administration", order=3),
                                             dmc.Badge("Admin", c="red", variant="filled")
                                         ],
-                                        justify="space-between",
                                         style={"height": "100%", "padding": "0 20px"}
                                     )
                                 ],
@@ -297,7 +296,6 @@ dmc.SimpleGrid(
                         DashIconify(icon="mdi:account-group", width=30, color="blue"),
                         dmc.Text("Utilisateurs", size="sm", c="dimmed")
                     ],
-                    justify="space-between",
                     mt="md",
                     mb="xs",
                 ),
@@ -316,7 +314,6 @@ dmc.SimpleGrid(
                         DashIconify(icon="mdi:database", width=30, color="green"),
                         dmc.Text("Propriétés", size="sm", c="dimmed")
                     ],
-                    justify="space-between",
                     mt="md",
                     mb="xs",
                 ),
@@ -335,7 +332,6 @@ dmc.SimpleGrid(
                         DashIconify(icon="mdi:history", width=30, color="orange"),
                         dmc.Text("Sessions", size="sm", c="dimmed")
                     ],
-                    justify="space-between",
                     mt="md",
                     mb="xs",
                 ),
@@ -354,7 +350,6 @@ dmc.SimpleGrid(
                         DashIconify(icon="mdi:shield-check", width=30, color="red"),
                         dmc.Text("Sécurité", size="sm", c="dimmed")
                     ],
-                    justify="space-between",
                     mt="md",
                     mb="xs",
                 ),
@@ -442,14 +437,13 @@ dmc.SimpleGrid(
                                                 ),
                                                 dmc.Button(
                                                     "Exporter les données",
-                                                    leftSection=DashIconify(icon="mdi:download", width=16),
+                                                    leftIcon=DashIconify(icon="mdi:download", width=16),
                                                     id="export-users-btn",
                                                     color="blue",
                                                     size="sm"
                                                 )
                                             ])
                                         ],
-                                        justify="space-between",
                                         mb="md"
                                     ),
                                     dash_table.DataTable(
@@ -527,7 +521,6 @@ dmc.SimpleGrid(
                                                 )
                                             ])
                                         ],
-                                        justify="space-between",
                                         mb="md"
                                     ),
                                     dash_table.DataTable(
