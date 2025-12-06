@@ -248,7 +248,6 @@ class MapDashboard:
             radius=0,
             withBorder=True,
             children=dmc.Group(
-                justify="space-between",
                 align="center",
                 style={"height": "60px", "padding": "0 20px"},
                 children=[
@@ -290,7 +289,6 @@ class MapDashboard:
                                 dmc.Card(
                                     children=[
                                         dmc.Group(
-                                            justify="space-between",
                                             children=[
                                                 dmc.Text("Carte des propriétés", size="lg", fw=500),
                                                 dmc.Badge(f"{len(map_data)} propriétés", color="blue", variant="light"),
@@ -350,7 +348,6 @@ class MapDashboard:
                                 dmc.Card(
                                     children=[
                                         dmc.Group(
-                                            justify="space-between",
                                             children=[
                                                 dmc.Text("Détails des propriétés", size="lg", fw=500),
                                                 dmc.Button(

@@ -177,7 +177,6 @@ class AnalyticsDashboard:
                         # Header
                         html.Div(
                             dmc.Group(
-                                justify="space-between",
                                 children=[
                                     dmc.Title("Analyse Approfondie", order=3),
                                     dmc.Button(
