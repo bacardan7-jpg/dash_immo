@@ -21,4 +21,4 @@ COPY config.py .
 EXPOSE 8050
 
 # Commande pour démarrer l'application
-CMD ["gunicorn", "--config", "config.py", "app.main:server"]
+CMD ["gunicorn", "--config", "gunicorn_config.py", "app.main:server"]
