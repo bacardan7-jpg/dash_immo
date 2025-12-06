@@ -1,0 +1,507 @@
+{% extends "base.html" %}
+
+{% block title %}Accueil - ImmoAnalytics{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="display-6 fw-bold text-primary">
+                    <i class="fas fa-home me-3"></i>
+                    Bienvenue sur ImmoAnalytics
+                </h1>
+                <p class="lead text-muted">
+                    Plateforme d'analyse immobilière intelligente pour le marché sénégalais
+                </p>
+            </div>
+            <div class="text-end">
+                <span class="badge bg-primary fs-6">
+                    <i class="fas fa-chart-line me-2"></i>
+                    Live Data
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if not current_user.is_authenticated %}
+<!-- Section d'accueil pour les visiteurs -->
+<div class="row g-4 mb-5">
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="card-title h4 mb-4">
+                    <i class="fas fa-rocket text-primary me-2"></i>
+                    Découvrez notre plateforme
+                </h2>
+                
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-start">
+                            <div class="flex-shrink-0">
+                                <div class="bg-primary bg-opacity-10 rounded-3 p-3">
+                                    <i class="fas fa-chart-bar text-primary fs-4"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h5 class="fw-semibold">Tableaux de bord interactifs</h5>
+                                <p class="text-muted mb-0">
+                                    Visualisez les tendances du marché immobilier avec des graphiques dynamiques et des KPIs en temps réel.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-start">
+                            <div class="flex-shrink-0">
+                                <div class="bg-success bg-opacity-10 rounded-3 p-3">
+                                    <i class="fas fa-search text-success fs-4"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h5 class="fw-semibold">Exploration avancée</h5>
+                                <p class="text-muted mb-0">
+                                    Filtrez et analysez les données selon vos critères avec notre outil d'exploration puissant.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-start">
+                            <div class="flex-shrink-0">
+                                <div class="bg-info bg-opacity-10 rounded-3 p-3">
+                                    <i class="fas fa-map text-info fs-4"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h5 class="fw-semibold">Cartographie interactive</h5>
+                                <p class="text-muted mb-0">
+                                    Localisez les propriétés sur une carte interactive avec visualisation par clusters.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-start">
+                            <div class="flex-shrink-0">
+                                <div class="bg-warning bg-opacity-10 rounded-3 p-3">
+                                    <i class="fas fa-shield-alt text-warning fs-4"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h5 class="fw-semibold">Sécurité renforcée</h5>
+                                <p class="text-muted mb-0">
+                                    Authentification sécurisée avec gestion des rôles et journalisation des actions.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h3 class="card-title h5 mb-4">Commencez maintenant</h3>
+                
+                <div class="d-grid gap-3">
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-sign-in-alt me-2"></i>
+                        Se connecter
+                    </a>
+                    
+                    <a href="{{ url_for('auth.register') }}" class="btn btn-outline-primary btn-lg">
+                        <i class="fas fa-user-plus me-2"></i>
+                        Créer un compte
+                    </a>
+                </div>
+                
+                <hr class="my-4">
+                
+                <div class="text-start">
+                    <h6 class="fw-semibold mb-3">Comptes de démonstration :</h6>
+                    <div class="small">
+                        <p class="mb-2">
+                            <strong>Administrateur :</strong><br>
+                            admin / admin123
+                        </p>
+                        <p class="mb-2">
+                            <strong>Analyste :</strong><br>
+                            analyst / analyst123
+                        </p>
+                        <p class="mb-0">
+                            <strong>Visiteur :</strong><br>
+                            viewer / viewer123
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- Section d'accueil pour les utilisateurs connectés -->
+<div class="row g-4 mb-5">
+    <div class="col-12">
+        <div class="alert alert-success d-flex align-items-center" role="alert">
+            <i class="fas fa-check-circle me-3 fs-4"></i>
+            <div>
+                <h4 class="alert-heading mb-1">Bienvenue, {{ current_user.first_name or current_user.username }} !</h4>
+                <p class="mb-0">Vous êtes maintenant connecté à la plateforme ImmoAnalytics.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cartes d'accès rapide -->
+<div class="row g-4">
+    <div class="col-lg-3 col-md-6">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="kpi-value">4</div>
+                <div class="kpi-label">Dashboards disponibles</div>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-light btn-sm mt-3">
+                    <i class="fas fa-tachometer-alt me-1"></i>
+                    Accéder
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    {% if current_user.is_analyst() %}
+    <div class="col-lg-3 col-md-6">
+        <div class="card kpi-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+            <div class="card-body">
+                <div class="kpi-value">
+                    <i class="fas fa-search"></i>
+                </div>
+                <div class="kpi-label">Explorateur de données</div>
+                <a href="{{ url_for('analytics') }}" class="btn btn-light btn-sm mt-3">
+                    <i class="fas fa-search me-1"></i>
+                    Explorer
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6">
+        <div class="card kpi-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+            <div class="card-body">
+                <div class="kpi-value">
+                    <i class="fas fa-map-marked-alt"></i>
+                </div>
+                <div class="kpi-label">Carte interactive</div>
+                <a href="{{ url_for('map_view') }}" class="btn btn-light btn-sm mt-3">
+                    <i class="fas fa-map me-1"></i>
+                    Voir la carte
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if current_user.is_admin() %}
+    <div class="col-lg-3 col-md-6">
+        <div class="card kpi-card" style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);">
+            <div class="card-body">
+                <div class="kpi-value">
+                    <i class="fas fa-cogs"></i>
+                </div>
+                <div class="kpi-label">Panneau d'admin</div>
+                <a href="{{ url_for('admin') }}" class="btn btn-light btn-sm mt-3">
+                    <i class="fas fa-cog me-1"></i>
+                    Administrer
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Informations sur le compte -->
+<div class="row mt-5">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-user-circle me-2"></i>
+                    Informations du compte
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-sm-4">
+                        <p class="mb-1 text-muted">Nom d'utilisateur</p>
+                        <p class="fw-semibold">{{ current_user.username }}</p>
+                    </div>
+                    <div class="col-sm-4">
+                        <p class="mb-1 text-muted">Email</p>
+                        <p class="fw-semibold">{{ current_user.email }}</p>
+                    </div>
+                    <div class="col-sm-4">
+                        <p class="mb-1 text-muted">Rôle</p>
+                        <p class="fw-semibold">
+                            <span class="badge bg-primary">{{ current_user.role|title }}</span>
+                        </p>
+                    </div>
+                </div>
+                
+                {% if current_user.last_login %}
+                <div class="mt-3">
+                    <p class="mb-1 text-muted">Dernière connexion</p>
+                    <p class="fw-semibold">{{ current_user.last_login.strftime('%d/%m/%Y à %H:%M') }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>
+                    Statistiques rapides
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="border-end">
+                            <h4 class="text-primary mb-1">{{ "4" }}</h4>
+                            <p class="text-muted small mb-0">Sources de données</p>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-success mb-1">{{ "50+" }}</h4>
+                        <p class="text-muted small mb-0">Villes couvertes</p>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="border-end">
+                            <h4 class="text-info mb-1">{{ "3" }}</h4>
+                            <p class="text-muted small mb-0">Types de propriétés</p>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-warning mb-1">{{ "24/7" }}</h4>
+                        <p class="text-muted small mb-0">Disponibilité</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Section des fonctionnalités -->
+<div class="row mt-5">
+    <div class="col-12">
+        <h3 class="mb-4">
+            <i class="fas fa-star text-warning me-2"></i>
+            Fonctionnalités principales
+        </h3>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-center mb-3">
+                    <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                        <i class="fas fa-chart-line text-primary fs-2"></i>
+                    </div>
+                </div>
+                
+                <h5 class="card-title text-center">Tableaux de bord dynamiques</h5>
+                <p class="card-text text-center text-muted">
+                    Visualisez les tendances du marché avec des graphiques interactifs et des indicateurs clés en temps réel.
+                </p>
+                
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Prix moyens et médians
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Distribution par type
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Tendances temporelles
+                    </li>
+                    <li class="mb-0">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Export des données
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-center mb-3">
+                    <div class="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                        <i class="fas fa-search text-success fs-2"></i>
+                    </div>
+                </div>
+                
+                <h5 class="card-title text-center">Explorateur de données</h5>
+                <p class="card-text text-center text-muted">
+                    Analysez approfondiment les données immobilières avec des filtres avancés et des visualisations détaillées.
+                </p>
+                
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Filtres multi-critères
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Recherche full-text
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Analyse par ville
+                    </li>
+                    <li class="mb-0">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Export CSV/Excel
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-center mb-3">
+                    <div class="bg-info bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                        <i class="fas fa-map text-info fs-2"></i>
+                    </div>
+                </div>
+                
+                <h5 class="card-title text-center">Carte interactive</h5>
+                <p class="card-text text-center text-muted">
+                    Localisez les propriétés sur une carte avec visualisation par clusters et filtres géographiques.
+                </p>
+                
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Visualisation Mapbox
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Clusters de propriétés
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Infobulles détaillées
+                    </li>
+                    <li class="mb-0">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Navigation intuitive
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Technologies utilisées -->
+<div class="row mt-5">
+    <div class="col-12">
+        <h3 class="mb-4">
+            <i class="fas fa-code text-primary me-2"></i>
+            Technologies utilisées
+        </h3>
+        
+        <div class="card">
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-lg-3 col-md-6">
+                        <div class="text-center p-3">
+                            <i class="fab fa-python text-warning fs-1 mb-3"></i>
+                            <h6 class="fw-semibold">Python 3.11</h6>
+                            <p class="small text-muted">Backend principal</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-3 col-md-6">
+                        <div class="text-center p-3">
+                            <i class="fas fa-flask text-primary fs-1 mb-3"></i>
+                            <h6 class="fw-semibold">Flask</h6>
+                            <p class="small text-muted">Framework web</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-3 col-md-6">
+                        <div class="text-center p-3">
+                            <i class="fas fa-chart-bar text-success fs-1 mb-3"></i>
+                            <h6 class="fw-semibold">Dash</h6>
+                            <p class="small text-muted">Tableaux de bord</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-3 col-md-6">
+                        <div class="text-center p-3">
+                            <i class="fas fa-database text-info fs-1 mb-3"></i>
+                            <h6 class="fw-semibold">PostgreSQL</h6>
+                            <p class="small text-muted">Base de données</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-3 col-md-6">
+                        <div class="text-center p-3">
+                            <i class="fab fa-docker text-primary fs-1 mb-3"></i>
+                            <h6 class="fw-semibold">Docker</h6>
+                            <p class="small text-muted">Conteneurisation</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-3 col-md-6">
+                        <div class="text-center p-3">
+                            <i class="fas fa-memory text-danger fs-1 mb-3"></i>
+                            <h6 class="fw-semibold">Redis</h6>
+                            <p class="small text-muted">Cache & sessions</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-3 col-md-6">
+                        <div class="text-center p-3">
+                            <i class="fab fa-bootstrap text-purple fs-1 mb-3"></i>
+                            <h6 class="fw-semibold">Bootstrap 5</h6>
+                            <p class="small text-muted">Interface responsive</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-3 col-md-6">
+                        <div class="text-center p-3">
+                            <i class="fas fa-cloud text-secondary fs-1 mb-3"></i>
+                            <h6 class="fw-semibold">Neon PostgreSQL</h6>
+                            <p class="small text-muted">Base de données cloud</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
