@@ -184,7 +184,7 @@ class AnalyticsDashboard:
                                         "Exporter CSV",
                                         id="export-btn",
                                         color="green",
-                                        leftSection=DashIconify(icon="mdi:download", width=16),
+                                        leftIcon=DashIconify(icon="mdi:download", width=16),
                                     ),
                                 ],
                             ),

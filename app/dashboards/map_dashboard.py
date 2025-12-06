@@ -264,7 +264,7 @@ class MapDashboard:
                             ),
                             dmc.Button(
                                 "Vue satellite",
-                                leftSection=DashIconify(icon="mdi:satellite", width=16),
+                                leftIcon=DashIconify(icon="mdi:satellite", width=16),
                                 id="satellite-toggle",
                                 size="sm",
                                 variant="outline",
