@@ -430,7 +430,7 @@ dmc.SimpleGrid(
                                             dmc.Group([
                                                 dmc.Button(
                                                     "Ajouter un utilisateur",
-                                                    leftSection=DashIconify(icon="mdi:plus", width=16),
+                                                    leftIcon=DashIconify(icon="mdi:plus", width=16),
                                                     id="add-user-btn",
                                                     color="green",
                                                     size="sm"
@@ -514,7 +514,7 @@ dmc.SimpleGrid(
                                                 ),
                                                 dmc.Button(
                                                     "Exporter les logs",
-                                                    leftSection=DashIconify(icon="mdi:download", width=16),
+                                                    leftIcon=DashIconify(icon="mdi:download", width=16),
                                                     id="export-audit-btn",
                                                     color="blue",
                                                     size="sm"
