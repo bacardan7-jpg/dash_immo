@@ -28,23 +28,19 @@ app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key-
 # Initialiser la base de données
 db.init_app(app)
 
-# Handle SSL connection drops from Neon by disposing old connections
+# Handle SSL connection drops from Neon - simpler approach
+# SQLAlchemy's pool_pre_ping will handle most cases
+# We just need to ensure connections are recycled frequently enough
 @event.listens_for(Pool, "connect")
 def receive_connect(dbapi_conn, connection_record):
-    """Set connection timeout and keepalive on new connections."""
-    pass
-
-@event.listens_for(Pool, "checkout")
-def receive_checkout(dbapi_conn, connection_record, connection_proxy):
-    """Check connection validity on checkout, dispose if broken."""
+    """Configure connection settings on new connections."""
     try:
-        # Test connection with a simple query
         cursor = dbapi_conn.cursor()
-        cursor.execute('SELECT 1')
+        # Set statement timeout to 30 seconds
+        cursor.execute('SET statement_timeout = 30000')
         cursor.close()
-    except Exception as e:
-        # Connection is broken, raise InvalidRequest to trigger reconnect
-        raise
+    except:
+        pass
 
 # Configuration Flask-Login
 login_manager.init_app(app)

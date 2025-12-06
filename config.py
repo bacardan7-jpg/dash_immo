@@ -10,17 +10,17 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'postgresql://neondb_owner:npg_9vrYBWUeT7js@ep-raspy-dust-a4a9f62f-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_size': 5,
-        'max_overflow': 10,
-        'pool_recycle': 300,  # Recycle every 5 minutes to handle Neon timeouts
-        'pool_pre_ping': True,
+        'pool_size': 2,
+        'max_overflow': 5,
+        'pool_recycle': 60,  # Recycle connections every 60 seconds (very aggressive for Neon)
+        'pool_pre_ping': True,  # Verify connections before using them
         'pool_echo': False,
         'connect_args': {
             'connect_timeout': 10,
             'keepalives': 1,
-            'keepalives_idle': 10,  # More aggressive keepalive
-            'keepalives_interval': 5,
-            'keepalives_count': 3,
+            'keepalives_idle': 5,  # Check every 5 seconds if idle
+            'keepalives_interval': 3,  # Retry every 3 seconds
+            'keepalives_count': 5,  # Try 5 times before giving up
             'sslmode': 'require',
             'application_name': 'dash_immo'
         }
