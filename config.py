@@ -1,23 +1,28 @@
 import os
 from datetime import timedelta
+from sqlalchemy import event
+from sqlalchemy.pool import Pool
 
 class Config:
     """Configuration de base pour l'application"""
     
     # Base de données
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'postgresql://neondb_owner:npg_9vrYBWUeT7js@ep-raspy-dust-a4a9f62f-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'postgresql://neondb_owner:npg_9vrYBWUeT7js@ep-raspy-dust-a4a9f62f-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_size': 10,
-        'pool_recycle': 3600,
+        'pool_size': 5,
+        'max_overflow': 10,
+        'pool_recycle': 300,  # Recycle every 5 minutes to handle Neon timeouts
         'pool_pre_ping': True,
+        'pool_echo': False,
         'connect_args': {
             'connect_timeout': 10,
             'keepalives': 1,
-            'keepalives_idle': 30,
-            'keepalives_interval': 10,
-            'keepalives_count': 5,
-            'sslmode': 'require'
+            'keepalives_idle': 10,  # More aggressive keepalive
+            'keepalives_interval': 5,
+            'keepalives_count': 3,
+            'sslmode': 'require',
+            'application_name': 'dash_immo'
         }
     }
     

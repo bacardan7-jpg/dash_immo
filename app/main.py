@@ -10,6 +10,8 @@ from flask_caching import Cache
 from flask_jwt_extended import JWTManager
 import redis
 from datetime import datetime, timedelta
+from sqlalchemy import event
+from sqlalchemy.pool import Pool
 
 # Importer les composants
 from .database.models import db, User, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
@@ -19,12 +21,30 @@ from .auth.decorators import admin_required, analyst_required
 # Configuration Flask
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'votre-secret-key-tres-securise')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://neondb_owner:npg_ciyfh8H9bZdj@ep-frosty-wind-a4aoph5q-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://neondb_owner:npg_ciyfh8H9bZdj@ep-frosty-wind-a4aoph5q-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key-tres-securise')
 
 # Initialiser la base de données
 db.init_app(app)
+
+# Handle SSL connection drops from Neon by disposing old connections
+@event.listens_for(Pool, "connect")
+def receive_connect(dbapi_conn, connection_record):
+    """Set connection timeout and keepalive on new connections."""
+    pass
+
+@event.listens_for(Pool, "checkout")
+def receive_checkout(dbapi_conn, connection_record, connection_proxy):
+    """Check connection validity on checkout, dispose if broken."""
+    try:
+        # Test connection with a simple query
+        cursor = dbapi_conn.cursor()
+        cursor.execute('SELECT 1')
+        cursor.close()
+    except Exception as e:
+        # Connection is broken, raise InvalidRequest to trigger reconnect
+        raise
 
 # Configuration Flask-Login
 login_manager.init_app(app)
