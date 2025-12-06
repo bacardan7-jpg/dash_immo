@@ -11,6 +11,14 @@ class Config:
         'pool_size': 10,
         'pool_recycle': 3600,
         'pool_pre_ping': True,
+        'connect_args': {
+            'connect_timeout': 10,
+            'keepalives': 1,
+            'keepalives_idle': 30,
+            'keepalives_interval': 10,
+            'keepalives_count': 5,
+            'sslmode': 'require'
+        }
     }
     
     # Sécurité
