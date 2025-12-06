@@ -16,6 +16,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copier le code de l'application
 COPY app/ ./app/
 COPY config.py .
+# Copier le fichier de configuration Gunicorn
+COPY gunicorn_config.py .
 
 # Exposer le port
 EXPOSE 8050
