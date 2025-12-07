@@ -1,7 +1,7 @@
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
-from sqlalchemy import Column, Integer, String, Text, Float, DateTime, Boolean, ForeignKey, Index, Numeric, JSON
+from sqlalchemy import Column, Integer, String, Text, Float, DateTime, Date, Boolean, ForeignKey, Index, Numeric, JSON
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 import uuid
 
