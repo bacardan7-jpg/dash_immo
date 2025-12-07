@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import redis
 import json
 from ..database.models import db, User, AuditLog
+from sqlalchemy.exc import ProgrammingError, OperationalError
 
 auth_bp = Blueprint('auth', __name__)
 login_manager = LoginManager()
@@ -67,7 +68,15 @@ def login():
             return render_template('auth/login.html')
         
         # Rechercher l'utilisateur
-        user = User.query.filter_by(username=username).first()
+        try:
+            user = User.query.filter_by(username=username).first()
+        except (ProgrammingError, OperationalError) as e:
+            # Database schema may be out-of-sync (missing columns/tables).
+            print(f"DB error during login lookup: {e}")
+            if request.is_json:
+                return jsonify({'error': 'Service indisponible, base de données inaccessible'}), 503
+            flash('Service indisponible, veuillez réessayer plus tard', 'error')
+            return render_template('auth/login.html'), 503
         
         if user and verify_password(password, user.password_hash):
             if not user.is_active:
@@ -154,13 +163,31 @@ def register():
             return render_template('auth/register.html')
         
         # Vérifier si l'utilisateur existe déjà
-        if User.query.filter_by(username=username).first():
+        try:
+            username_exists = User.query.filter_by(username=username).first()
+        except (ProgrammingError, OperationalError) as e:
+            print(f"DB error during register username check: {e}")
+            if request.is_json:
+                return jsonify({'error': 'Service indisponible, base de données inaccessible'}), 503
+            flash('Service indisponible, veuillez réessayer plus tard', 'error')
+            return render_template('auth/register.html'), 503
+
+        if username_exists:
             if request.is_json:
                 return jsonify({'error': 'Nom d\'utilisateur déjà pris'}), 400
             flash('Nom d\'utilisateur déjà pris', 'error')
             return render_template('auth/register.html')
-        
-        if User.query.filter_by(email=email).first():
+
+        try:
+            email_exists = User.query.filter_by(email=email).first()
+        except (ProgrammingError, OperationalError) as e:
+            print(f"DB error during register email check: {e}")
+            if request.is_json:
+                return jsonify({'error': 'Service indisponible, base de données inaccessible'}), 503
+            flash('Service indisponible, veuillez réessayer plus tard', 'error')
+            return render_template('auth/register.html'), 503
+
+        if email_exists:
             if request.is_json:
                 return jsonify({'error': 'Email déjà utilisé'}), 400
             flash('Email déjà utilisé', 'error')
@@ -204,7 +231,11 @@ def profile():
             current_user.last_name = data['last_name']
         if 'email' in data:
             # Vérifier si l'email est déjà utilisé
-            existing_user = User.query.filter_by(email=data['email']).first()
+            try:
+                existing_user = User.query.filter_by(email=data['email']).first()
+            except (ProgrammingError, OperationalError) as e:
+                print(f"DB error during profile email check: {e}")
+                return jsonify({'error': 'Service indisponible, base de données inaccessible'}), 503
             if existing_user and existing_user.id != current_user.id:
                 return jsonify({'error': 'Email déjà utilisé'}), 400
             current_user.email = data['email']
