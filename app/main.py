@@ -282,11 +282,10 @@ def health_check():
 
 # Créer les tables et l'utilisateur admin par défaut
 def create_tables():
-    """Créer les tables et l'utilisateur admin par défaut"""
+    """Créer seulement la table users - autres tables sont gérées par Airflow"""
     try:
-        # Drop all existing tables to ensure clean state
-        db.drop_all()
-        # Create all tables
+        # IMPORTANT: Ne pas toucher aux tables créées par Airflow (coinafriqure, expat_dakar_properties, etc)
+        # Créer seulement la table users pour l'authentification
         db.create_all()
         
         # Vérifier si l'utilisateur admin existe déjà

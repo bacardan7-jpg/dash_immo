@@ -55,6 +55,12 @@ class CoinAfrique(db.Model):
     description = Column(Text, nullable=True)
     contact_info = Column(String(200), nullable=True)
     images = Column(Text, nullable=True)  # JSON string for multiple images
+    url = Column(String(500), nullable=True, index=True)  # Ajout pour Airflow
+    adresse = Column(String(500), nullable=True)  # Ajout pour Airflow
+    statut = Column(String(50), nullable=True)  # Ajout pour Airflow
+    latitude = Column(Float, nullable=True)  # Ajout pour Airflow
+    longitude = Column(Float, nullable=True)  # Ajout pour Airflow
+    posted_time = Column(DateTime, nullable=True)  # Ajout pour Airflow
     listing_url = Column(String(500), nullable=True)
     scraped_at = Column(DateTime, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -108,6 +114,10 @@ class ExpatDakarProperty(db.Model):
     description = Column(Text, nullable=True)
     contact_info = Column(String(200), nullable=True)
     images = Column(Text, nullable=True)  # JSON string for multiple images
+    url = Column(String(500), nullable=True, index=True)  # Ajout pour Airflow
+    adresse = Column(String(500), nullable=True)  # Ajout pour Airflow
+    statut = Column(String(50), nullable=True)  # Ajout pour Airflow
+    posted_time = Column(DateTime, nullable=True)  # Ajout pour Airflow
     listing_url = Column(String(500), nullable=True)
     scraped_at = Column(DateTime, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -162,6 +172,10 @@ class LogerDakarProperty(db.Model):
     description = Column(Text, nullable=True)
     contact_info = Column(String(200), nullable=True)
     images = Column(Text, nullable=True)  # JSON string for multiple images
+    url = Column(String(500), nullable=True, index=True)  # Ajout pour Airflow
+    adresse = Column(String(500), nullable=True)  # Ajout pour Airflow
+    statut = Column(String(50), nullable=True)  # Ajout pour Airflow
+    posted_time = Column(DateTime, nullable=True)  # Ajout pour Airflow
     listing_url = Column(String(500), nullable=True)
     scraped_at = Column(DateTime, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -195,6 +209,61 @@ class LogerDakarProperty(db.Model):
             'scraped_at': self.scraped_at.isoformat() if self.scraped_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'source': self.source
+        }
+
+class ProprietesConsolidees(db.Model):
+    """Table consolidée des propriétés de tous les sources (créée par Airflow)"""
+    __tablename__ = 'proprietes_consolidees'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source = Column(String(50), nullable=False, index=True)  # coinafrique, expatdakar, logerdakar
+    original_id = Column(Integer, nullable=True)  # ID original de la source
+    url = Column(String(500), nullable=True, index=True)
+    title = Column(String(500), nullable=False, index=True)
+    price = Column(Float, nullable=True, index=True)
+    city = Column(String(100), nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    property_type = Column(String(100), nullable=False, index=True)
+    bedrooms = Column(Integer, nullable=True)
+    bathrooms = Column(Integer, nullable=True)
+    surface_area = Column(Float, nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    posted_time = Column(DateTime, nullable=True)
+    adresse = Column(String(500), nullable=True)
+    statut = Column(String(50), nullable=True)
+    scraped_at = Column(DateTime, nullable=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Index pour améliorer les performances
+    __table_args__ = (
+        Index('idx_proprietes_source_url', 'source', 'url'),
+        Index('idx_proprietes_city_type', 'city', 'property_type'),
+        Index('idx_proprietes_date', 'scraped_at'),
+    )
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'source': self.source,
+            'original_id': self.original_id,
+            'url': self.url,
+            'title': self.title,
+            'price': self.price,
+            'city': self.city,
+            'description': self.description,
+            'property_type': self.property_type,
+            'bedrooms': self.bedrooms,
+            'bathrooms': self.bathrooms,
+            'surface_area': self.surface_area,
+            'latitude': self.latitude,
+            'longitude': self.longitude,
+            'posted_time': self.posted_time.isoformat() if self.posted_time else None,
+            'adresse': self.adresse,
+            'statut': self.statut,
+            'scraped_at': self.scraped_at.isoformat() if self.scraped_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
         }
 
 class AuditLog(db.Model):
