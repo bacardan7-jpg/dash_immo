@@ -11,6 +11,9 @@ import numpy as np
 from ..database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
 from ..auth.decorators import analyst_required
 
+
+# Enhanced Main Dashboard
+
 class EnhancedMainDashboard:
     """Dashboard principal amélioré avec meilleures visualisations"""
     
