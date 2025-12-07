@@ -39,12 +39,13 @@ class User(UserMixin, db.Model):
 
 class CoinAfrique(db.Model):
     """Modèle pour les propriétés CoinAfrique (créées par Airflow)"""
-    __tablename__ = 'coinafriqure'
+    __tablename__ = 'coinafrique'
     
     id = Column(Integer, primary_key=True)
     title = Column(String(500), nullable=False, index=True)
     price = Column(Float, nullable=False, index=True)
     price_unit = Column(String(50), nullable=True)
+    url = Column(String(500), unique=True)
     city = Column(String(100), nullable=False, index=True)
     country = Column(String(100), nullable=True)
     bedrooms = Column(Integer, nullable=True)
@@ -97,6 +98,7 @@ class ExpatDakarProperty(db.Model):
     title = Column(String(500), nullable=False, index=True)
     price = Column(Float, nullable=False, index=True)
     price_unit = Column(String(50), nullable=True)
+    url = Column(String(500), unique=True)
     city = Column(String(100), nullable=False, index=True)
     country = Column(String(100), nullable=True)
     region = Column(String(100), nullable=True)
@@ -151,6 +153,7 @@ class LogerDakarProperty(db.Model):
     title = Column(String(500), nullable=False, index=True)
     price = Column(Float, nullable=False, index=True)
     price_unit = Column(String(50), nullable=True)
+    url = Column(String(500), unique=True)
     city = Column(String(100), nullable=False, index=True)
     country = Column(String(100), nullable=True)
     district = Column(String(100), nullable=True)

@@ -21,7 +21,7 @@ app = Flask(__name__)
 
 # Database configuration - Neon requires SSL, use aggressive connection recycling
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'votre-secret-key-tres-securise')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://neondb_owner:npg_ciyfh8H9bZdj@ep-frosty-wind-a4aoph5q-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://neondb_owner:npg_9vrYBWUeT7js@ep-raspy-dust-a4a9f62f-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_size': 1,  # Minimal pool for free tier
@@ -286,7 +286,8 @@ def create_tables():
     try:
         # IMPORTANT: Ne pas toucher aux tables créées par Airflow (coinafriqure, expat_dakar_properties, etc)
         # Créer seulement la table users pour l'authentification
-        db.create_all()
+
+        User.__table__.create(db.engine, checkfirst=True)
         
         # Vérifier si l'utilisateur admin existe déjà
         admin_user = User.query.filter_by(username='admin').first()
