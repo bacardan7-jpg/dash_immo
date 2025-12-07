@@ -237,6 +237,12 @@ def profile():
         }
     })
 
+@auth_bp.route('/settings')
+@login_required
+def settings():
+    """Page des paramètres utilisateur"""
+    return render_template('auth/settings.html')
+
 @auth_bp.route('/change-password', methods=['POST'])
 @login_required
 def change_password():

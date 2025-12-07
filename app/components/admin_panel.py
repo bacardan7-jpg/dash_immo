@@ -139,7 +139,7 @@ class AdminPanel:
                 y=counts,
                 mode='lines+markers',
                 name='Connexions par jour',
-                line=dict(c='blue', width=3),
+                line=dict(color='blue', width=3),
                 marker=dict(size=6)
             ))
             
