@@ -38,167 +38,136 @@ class User(UserMixin, db.Model):
         return self.role in ['admin', 'analyst']
 
 class CoinAfrique(db.Model):
-    """Modèle pour les propriétés CoinAfrique (créées par Airflow)"""
+    """Modèle pour les propriétés CoinAfrique (créées par pipeline Scrapy)"""
     __tablename__ = 'coinafrique'
     
-    id = Column(Integer, primary_key=True)
-    title = Column(String(500), nullable=False, index=True)
-    price = Column(Float, nullable=False, index=True)
-    price_unit = Column(String(50), nullable=True)
-    url = Column(String(500), unique=True)
-    city = Column(String(100), nullable=False, index=True)
-    country = Column(String(100), nullable=True)
-    bedrooms = Column(Integer, nullable=True)
-    bathrooms = Column(Integer, nullable=True)
-    surface_area = Column(Float, nullable=True)
-    surface_unit = Column(String(20), nullable=True)
-    property_type = Column(String(100), nullable=False, index=True)
-    description = Column(Text, nullable=True)
-    contact_info = Column(String(200), nullable=True)
-    images = Column(Text, nullable=True)
-    listing_url = Column(String(500), nullable=True)
-    scraped_at = Column(DateTime, nullable=True, index=True)
-    updated_at = Column(DateTime, nullable=True)
-    source = Column(String(50), nullable=True)
-    
-    # Index pour améliorer les performances
-    __table_args__ = (
-        Index('idx_coinafrique_price_city', 'price', 'city'),
-        Index('idx_coinafrique_type_city', 'property_type', 'city'),
-        Index('idx_coinafrique_date', 'scraped_at'),
-    )
+    id = Column(String(32), primary_key=True)
+    url = Column(Text, unique=True)
+    title = Column(Text)
+    price = Column(Integer)
+    surface_area = Column(Float)
+    bedrooms = Column(Integer)
+    bathrooms = Column(Integer)
+    city = Column(String(100))
+    description = Column(Text)
+    source = Column(String(50))
+    latitude = Column(Float)
+    longitude = Column(Float)
+    scraped_at = Column(DateTime)
+    statut = Column(String(50))
+    nb_annonces = Column(Integer)
+    posted_time = Column(String(100))
+    adresse = Column(String(100))
+    property_type = Column(String(100))
     
     def to_dict(self):
         return {
             'id': self.id,
+            'url': self.url,
             'title': self.title,
             'price': self.price,
-            'price_unit': self.price_unit,
-            'city': self.city,
-            'country': self.country,
+            'surface_area': self.surface_area,
             'bedrooms': self.bedrooms,
             'bathrooms': self.bathrooms,
-            'surface_area': self.surface_area,
-            'surface_unit': self.surface_unit,
-            'property_type': self.property_type,
+            'city': self.city,
             'description': self.description,
-            'contact_info': self.contact_info,
-            'images': self.images,
-            'listing_url': self.listing_url,
+            'source': self.source,
+            'latitude': self.latitude,
+            'longitude': self.longitude,
             'scraped_at': self.scraped_at.isoformat() if self.scraped_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'source': self.source
+            'statut': self.statut,
+            'nb_annonces': self.nb_annonces,
+            'posted_time': self.posted_time,
+            'adresse': self.adresse,
+            'property_type': self.property_type
         }
 
 class ExpatDakarProperty(db.Model):
-    """Modèle pour les propriétés ExpatDakar (créées par Airflow)"""
+    """Modèle pour les propriétés ExpatDakar (créées par pipeline Scrapy)"""
     __tablename__ = 'expat_dakar_properties'
     
-    id = Column(Integer, primary_key=True)
-    title = Column(String(500), nullable=False, index=True)
-    price = Column(Float, nullable=False, index=True)
-    price_unit = Column(String(50), nullable=True)
-    url = Column(String(500), unique=True)
-    city = Column(String(100), nullable=False, index=True)
-    country = Column(String(100), nullable=True)
-    region = Column(String(100), nullable=True)
-    bedrooms = Column(Integer, nullable=True)
-    bathrooms = Column(Integer, nullable=True)
-    surface_area = Column(Float, nullable=True)
-    surface_unit = Column(String(20), nullable=True)
-    property_type = Column(String(100), nullable=False, index=True)
-    description = Column(Text, nullable=True)
-    contact_info = Column(String(200), nullable=True)
-    images = Column(Text, nullable=True)
-    listing_url = Column(String(500), nullable=True)
-    scraped_at = Column(DateTime, nullable=True, index=True)
-    updated_at = Column(DateTime, nullable=True)
-    source = Column(String(50), nullable=True)
-    
-    # Index pour améliorer les performances
-    __table_args__ = (
-        Index('idx_expat_price_region', 'price', 'region'),
-        Index('idx_expat_type_region', 'property_type', 'region'),
-        Index('idx_expat_date', 'scraped_at'),
-    )
+    id = Column(String(32), primary_key=True)
+    url = Column(Text, unique=True)
+    title = Column(Text)
+    price = Column(Integer)
+    surface_area = Column(Float)
+    bedrooms = Column(Integer)
+    bathrooms = Column(Integer)
+    city = Column(String(100))
+    region = Column(String(100))
+    description = Column(Text)
+    source = Column(String(50))
+    scraped_at = Column(DateTime)
+    statut = Column(String(50))
+    posted_time = Column(String(100))
+    adresse = Column(String(100))
+    property_type = Column(String(100))
+    member_since = Column(String(50))
     
     def to_dict(self):
         return {
             'id': self.id,
+            'url': self.url,
             'title': self.title,
             'price': self.price,
-            'price_unit': self.price_unit,
-            'city': self.city,
-            'country': self.country,
-            'region': self.region,
+            'surface_area': self.surface_area,
             'bedrooms': self.bedrooms,
             'bathrooms': self.bathrooms,
-            'surface_area': self.surface_area,
-            'surface_unit': self.surface_unit,
-            'property_type': self.property_type,
+            'city': self.city,
+            'region': self.region,
             'description': self.description,
-            'contact_info': self.contact_info,
-            'images': self.images,
-            'listing_url': self.listing_url,
+            'source': self.source,
             'scraped_at': self.scraped_at.isoformat() if self.scraped_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'source': self.source
+            'statut': self.statut,
+            'posted_time': self.posted_time,
+            'adresse': self.adresse,
+            'property_type': self.property_type,
+            'member_since': self.member_since
         }
 
 class LogerDakarProperty(db.Model):
-    """Modèle pour les propriétés Loger Dakar (créées par Airflow)"""
+    """Modèle pour les propriétés Loger Dakar (créées par pipeline Scrapy)"""
     __tablename__ = 'loger_dakar_properties'
     
-    id = Column(Integer, primary_key=True)
-    title = Column(String(500), nullable=False, index=True)
-    price = Column(Float, nullable=False, index=True)
-    price_unit = Column(String(50), nullable=True)
-    url = Column(String(500), unique=True)
-    city = Column(String(100), nullable=False, index=True)
-    country = Column(String(100), nullable=True)
-    district = Column(String(100), nullable=True)
-    bedrooms = Column(Integer, nullable=True)
-    bathrooms = Column(Integer, nullable=True)
-    surface_area = Column(Float, nullable=True)
-    surface_unit = Column(String(20), nullable=True)
-    property_type = Column(String(100), nullable=False, index=True)
-    description = Column(Text, nullable=True)
-    contact_info = Column(String(200), nullable=True)
-    images = Column(Text, nullable=True)
-    listing_url = Column(String(500), nullable=True)
-    scraped_at = Column(DateTime, nullable=True, index=True)
-    updated_at = Column(DateTime, nullable=True)
-    source = Column(String(50), nullable=True)
-    
-    # Index pour améliorer les performances
-    __table_args__ = (
-        Index('idx_loger_price_district', 'price', 'district'),
-        Index('idx_loger_type_district', 'property_type', 'district'),
-        Index('idx_loger_date', 'scraped_at'),
-    )
+    id = Column(String(32), primary_key=True)
+    url = Column(Text, unique=True)
+    title = Column(Text)
+    price = Column(Integer)
+    surface_area = Column(Float)
+    bedrooms = Column(Integer)
+    bathrooms = Column(Integer)
+    city = Column(String(100))
+    region = Column(String(100))
+    description = Column(Text)
+    source = Column(String(50))
+    scraped_at = Column(DateTime)
+    statut = Column(String(50))
+    posted_time = Column(String(100))
+    adresse = Column(String(100))
+    property_type = Column(String(100))
+    listing_id = Column(String(50))
     
     def to_dict(self):
         return {
             'id': self.id,
+            'url': self.url,
             'title': self.title,
             'price': self.price,
-            'price_unit': self.price_unit,
-            'city': self.city,
-            'country': self.country,
-            'district': self.district,
+            'surface_area': self.surface_area,
             'bedrooms': self.bedrooms,
             'bathrooms': self.bathrooms,
-            'surface_area': self.surface_area,
-            'surface_unit': self.surface_unit,
-            'property_type': self.property_type,
+            'city': self.city,
+            'region': self.region,
             'description': self.description,
-            'contact_info': self.contact_info,
-            'images': self.images,
-            'listing_url': self.listing_url,
+            'source': self.source,
             'scraped_at': self.scraped_at.isoformat() if self.scraped_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'source': self.source
+            'statut': self.statut,
+            'posted_time': self.posted_time,
+            'adresse': self.adresse,
+            'property_type': self.property_type,
+            'listing_id': self.listing_id
         }
+
 
 class ProprietesConsolidees(db.Model):
     """Table consolidée des propriétés de tous les sources (créée par Airflow)"""

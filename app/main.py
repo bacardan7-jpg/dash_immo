@@ -8,6 +8,7 @@ from flask import Flask, render_template, request, jsonify, session, redirect, u
 from flask_login import LoginManager, login_required, current_user
 from flask_caching import Cache
 from flask_jwt_extended import JWTManager
+from sqlalchemy.pool import NullPool
 import redis
 from datetime import datetime, timedelta
 
@@ -19,26 +20,21 @@ from .auth.decorators import admin_required, analyst_required
 # Configuration Flask
 app = Flask(__name__)
 
-# Database configuration - Neon requires SSL, use aggressive connection recycling
+# Database configuration - Neon requires SSL, use NullPool for fresh connections
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'votre-secret-key-tres-securise')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://neondb_owner:npg_9vrYBWUeT7js@ep-raspy-dust-a4a9f62f-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_size': 1,  # Minimal pool for free tier
-    'max_overflow': 2,  # Allow minimal overflow
-    'pool_recycle': 30,  # Recycle every 30 seconds to prevent stale connections
-    'pool_pre_ping': True,  # Test connection before using
+    'poolclass': NullPool,  # Fresh connection for each query - avoids stale SSL connections
     'connect_args': {
         'connect_timeout': 10,
+        'sslmode': 'require'
     }
 }
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key-tres-securise')
 
 # Initialiser la base de données
 db.init_app(app)
-
-# NullPool will create fresh connections for each query, avoiding stale SSL connections
-# No need for pool event listeners with NullPool
 
 # Configuration Flask-Login
 login_manager.init_app(app)
@@ -97,6 +93,7 @@ dash_app4.config.suppress_callback_exceptions = True
 def index():
     """Page d'accueil"""
     return render_template('index.html')
+
 
 @app.route('/dashboard')
 @login_required
