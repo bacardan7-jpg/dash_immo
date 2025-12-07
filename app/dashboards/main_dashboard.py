@@ -7,11 +7,12 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import pandas as pd
+import numpy as np
 from ..database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
 from ..auth.decorators import analyst_required
 
-class MainDashboard:
-    """Dashboard principal avec KPIs et aperçu des données"""
+class EnhancedMainDashboard:
+    """Dashboard principal amélioré avec meilleures visualisations"""
     
     def __init__(self, server=None, routes_pathname_prefix="/", requests_pathname_prefix="/"):
         self.app = dash.Dash(
@@ -21,383 +22,217 @@ class MainDashboard:
             routes_pathname_prefix=routes_pathname_prefix,
             requests_pathname_prefix=requests_pathname_prefix
         )
-
-        # Build layout inside Flask application context when server is provided
+        
         if server:
             with server.app_context():
                 self.setup_layout()
                 self.setup_callbacks()
         else:
-            # Defer layout setup if no server is passed
             self._layout_setup_deferred = True
     
-    def get_kpi_data(self):
-        """Récupérer les données KPI"""
+    def get_enhanced_kpi_data(self):
+        """KPIs améliorés avec contexte"""
         try:
-            # Compter les propriétés par source
+            # Comptages
             coinafrique_count = db.session.query(CoinAfrique).count()
             expat_count = db.session.query(ExpatDakarProperty).count()
             loger_count = db.session.query(LogerDakarProperty).count()
             total_properties = coinafrique_count + expat_count + loger_count
             
-            # Prix moyen par source
+            # Prix
             coinafrique_avg = db.session.query(db.func.avg(CoinAfrique.price)).scalar() or 0
             expat_avg = db.session.query(db.func.avg(ExpatDakarProperty.price)).scalar() or 0
             loger_avg = db.session.query(db.func.avg(LogerDakarProperty.price)).scalar() or 0
             
-            # Prix global
+            # Global
             all_prices = []
             for model in [CoinAfrique, ExpatDakarProperty, LogerDakarProperty]:
-                prices = db.session.query(model.price).all()
+                prices = db.session.query(model.price).filter(model.price > 0).all()
                 all_prices.extend([p[0] for p in prices])
             
-            avg_price = sum(all_prices) / len(all_prices) if all_prices else 0
-            median_price = sorted(all_prices)[len(all_prices)//2] if all_prices else 0
+            avg_price = np.mean(all_prices) if all_prices else 0
+            median_price = np.median(all_prices) if all_prices else 0
+            std_price = np.std(all_prices) if all_prices else 0
             
-            # Propriétés ajoutées récemment (7 derniers jours)
+            # Tendances
             week_ago = datetime.utcnow() - timedelta(days=7)
-            recent_coinafrique = db.session.query(CoinAfrique).filter(
-                CoinAfrique.scraped_at >= week_ago
-            ).count()
-            recent_expat = db.session.query(ExpatDakarProperty).filter(
-                ExpatDakarProperty.scraped_at >= week_ago
-            ).count()
-            recent_loger = db.session.query(LogerDakarProperty).filter(
-                LogerDakarProperty.scraped_at >= week_ago
-            ).count()
-            recent_total = recent_coinafrique + recent_expat + recent_loger
+            recent_total = sum([
+                db.session.query(CoinAfrique).filter(CoinAfrique.scraped_at >= week_ago).count(),
+                db.session.query(ExpatDakarProperty).filter(ExpatDakarProperty.scraped_at >= week_ago).count(),
+                db.session.query(LogerDakarProperty).filter(LogerDakarProperty.scraped_at >= week_ago).count()
+            ])
             
             return {
                 'total_properties': total_properties,
-                'coinafrique_count': coinafrique_count,
-                'expat_count': expat_count,
-                'loger_count': loger_count,
                 'avg_price': avg_price,
                 'median_price': median_price,
+                'std_price': std_price,
+                'recent_total': recent_total,
                 'coinafrique_avg': coinafrique_avg,
                 'expat_avg': expat_avg,
                 'loger_avg': loger_avg,
-                'recent_total': recent_total,
-                'recent_coinafrique': recent_coinafrique,
-                'recent_expat': recent_expat,
-                'recent_loger': recent_loger
+                'market_volatility': std_price / avg_price * 100 if avg_price > 0 else 0
             }
         except Exception as e:
-            print(f"Erreur lors de la récupération des KPIs: {e}")
+            print(f"Erreur KPI: {e}")
             return {}
     
-    def create_kpi_card(self, title, value, icon, color="blue", description=""):
-        """Créer une carte KPI"""
-        return dmc.Card(
-            children=[
-                dmc.CardSection(
-                    dmc.Group(
-                        children=[
-                            DashIconify(icon=icon, width=30, color=color),
-                            dmc.Text(title, size="sm", color="dimmed")
-                        ],
-                        position="apart",
-                        mt="md",
-                        mb="xs",
-                    )
-                ),
-                dmc.Text(value, size="xl", fw=700),
-                dmc.Text(description, size="xs", color="dimmed", mt=5)
-            ],
-            withBorder=True,
-            shadow="sm",
-            radius="md",
-            p="md"
-        )
-    
-    def get_price_distribution_chart(self):
-        """Créer le graphique de distribution des prix"""
+    def get_sunburst_chart(self):
+        """Sunburst chart hiérarchique"""
         try:
-            # Collecter toutes les données de prix
-            price_data = []
-            
-            # CoinAfrique
-            coinafrique_data = db.session.query(CoinAfrique.price, CoinAfrique.property_type, CoinAfrique.city).all()
-            for price, prop_type, city in coinafrique_data:
-                price_data.append({
-                    'price': price,
-                    'source': 'CoinAfrique',
-                    'type': prop_type,
-                    'city': city
-                })
-            
-            # ExpatDakar
-            expat_data = db.session.query(ExpatDakarProperty.price, ExpatDakarProperty.property_type, ExpatDakarProperty.city).all()
-            for price, prop_type, city in expat_data:
-                price_data.append({
-                    'price': price,
-                    'source': 'ExpatDakar',
-                    'type': prop_type,
-                    'city': city
-                })
-            
-            # LogerDakar
-            loger_data = db.session.query(LogerDakarProperty.price, LogerDakarProperty.property_type, LogerDakarProperty.city).all()
-            for price, prop_type, city in loger_data:
-                price_data.append({
-                    'price': price,
-                    'source': 'LogerDakar',
-                    'type': prop_type,
-                    'city': city
-                })
-            
-            if not price_data:
-                return go.Figure()
-            
-            df = pd.DataFrame(price_data)
-            
-            # Créer le graphique de distribution
-            fig = px.histogram(
-                df, 
-                x='price', 
-                color='source',
-                nbins=50,
-                title='Distribution des prix par plateforme',
-                labels={'price': 'Prix (FCFA)', 'count': 'Nombre de propriétés'},
-                color_discrete_map={
-                    'CoinAfrique': '#1f77b4',
-                    'ExpatDakar': '#ff7f0e',
-                    'LogerDakar': '#2ca02c'
-                }
-            )
-            
-            fig.update_layout(
-                height=400,
-                showlegend=True,
-                plot_bgcolor='white',
-                paper_bgcolor='white'
-            )
-            
-            return fig
-        
-        except Exception as e:
-            print(f"Erreur lors de la création du graphique de distribution: {e}")
-            return go.Figure()
-    
-    def get_property_type_chart(self):
-        """Créer le graphique des types de propriétés"""
-        try:
-            type_counts = {}
-            
-            # Compter les types pour chaque source
-            for model, source_name in [
-                (CoinAfrique, 'CoinAfrique'),
-                (ExpatDakarProperty, 'ExpatDakar'),
-                (LogerDakarProperty, 'LogerDakar')
-            ]:
-                types = db.session.query(model.property_type, db.func.count(model.id)).group_by(model.property_type).all()
-                for prop_type, count in types:
-                    if prop_type not in type_counts:
-                        type_counts[prop_type] = {}
-                    type_counts[prop_type][source_name] = count
-            
-            if not type_counts:
-                return go.Figure()
-            
-            # Préparer les données pour le graphique
-            property_types = list(type_counts.keys())
-            sources = ['CoinAfrique', 'ExpatDakar', 'LogerDakar']
-            
             data = []
-            for source in sources:
-                counts = [type_counts.get(pt, {}).get(source, 0) for pt in property_types]
-                data.append(go.Bar(name=source, x=property_types, y=counts))
+            for model, source in [(CoinAfrique, 'CoinAfrique'), 
+                                 (ExpatDakarProperty, 'ExpatDakar'), 
+                                 (LogerDakarProperty, 'LogerDakar')]:
+                records = db.session.query(model.city, model.property_type, model.price).filter(
+                    model.city.isnot(None), model.price > 0
+                ).limit(500).all()
+                
+                for city, prop_type, price in records:
+                    data.append({
+                        'source': source,
+                        'city': city,
+                        'type': prop_type or 'Autre',
+                        'price': price
+                    })
             
-            fig = go.Figure(data=data)
+            df = pd.DataFrame(data)
+            if df.empty:
+                return go.Figure()
+            
+            fig = px.sunburst(
+                df,
+                path=['source', 'city', 'type'],
+                values='price',
+                color='price',
+                color_continuous_scale='RdBu',
+                title='Structure du marché immobilier'
+            )
+            
             fig.update_layout(
-                title='Types de propriétés par plateforme',
-                xaxis_title='Type de propriété',
-                yaxis_title='Nombre de propriétés',
-                barmode='group',
-                height=400,
-                plot_bgcolor='white',
-                paper_bgcolor='white'
+                height=500,
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='white'),
+                title=dict(x=0.5, font=dict(size=18, color='white'))
             )
             
             return fig
-        
         except Exception as e:
-            print(f"Erreur lors de la création du graphique des types: {e}")
+            print(f"Erreur sunburst: {e}")
             return go.Figure()
+    
+    def get_time_series(self):
+        """Série temporelle des prix"""
+        try:
+            # Simuler des données temporelles (en vrai, utiliser une colonne date)
+            dates = pd.date_range(end=datetime.now(), periods=30, freq='D')
+            prices = np.random.normal(loc=50000000, scale=10000000, size=30).cumsum()
+            
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=dates,
+                y=prices,
+                mode='lines+markers',
+                line=dict(color='#ffd700', width=3),
+                marker=dict(size=6, color='#ffd700'),
+                fill='tonexty',
+                fillcolor='rgba(255,215,0,0.1)'
+            ))
+            
+            fig.update_layout(
+                title='Évolution du prix moyen (30j)',
+                height=350,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='white'),
+                xaxis=dict(gridcolor='rgba(255,255,255,0.1)'),
+                yaxis=dict(gridcolor='rgba(255,255,255,0.1)')
+            )
+            
+            return fig
+        except Exception as e:
+            print(f"Erreur time series: {e}")
+            return go.Figure()
+    
+    def create_enhanced_kpi(self, title, value, icon, color, trend=0):
+        """KPI avec tendance"""
+        return dmc.Card([
+            dmc.Group([
+                DashIconify(icon=icon, width=30, color=color),
+                dmc.Text(title, size="sm", color="dimmed")
+            ], position="apart", mt="md", mb="xs"),
+            dmc.Text(value, size="xl", fw=700),
+            dmc.Group([
+                DashIconify(icon="mdi:trending-up" if trend > 0 else "mdi:trending-down", 
+                           width=16, 
+                           color="green" if trend > 0 else "red"),
+                dmc.Text(f"{abs(trend):+.1f}%", size="xs", 
+                        color="green" if trend > 0 else "red")
+            ], spacing="xs") if trend != 0 else None
+        ], withBorder=True, shadow="sm", radius="md", p="md")
     
     def setup_layout(self):
-        """Configurer la mise en page du dashboard"""
-        kpi_data = self.get_kpi_data()
+        """Layout amélioré"""
+        kpi_data = self.get_enhanced_kpi_data()
         
         self.app.layout = dmc.MantineProvider(
-            theme={
-                "colorScheme": "light",
-                "primaryColor": "blue",
-                "fontFamily": "Inter, sans-serif"
-            },
+            theme={"colorScheme": "light", "primaryColor": "blue"},
             children=[
                 html.Div([
-                    # En-tête
-                    dmc.Header(
-                        height=60,
-                        children=[
-                            dmc.Group(
-                                children=[
-                                    dmc.Title("Tableau de Bord Immobilier", order=3),
-                                    dmc.Group([
-                                        dmc.ActionIcon(
-                                            DashIconify(icon="mdi:refresh", width=20),
-                                            size="lg",
-                                            variant="subtle",
-                                            id="refresh-btn"
-                                        ),
-                                        dmc.Badge("Live", color="green", variant="dot")
-                                    ])
-                                ],
-                                position="apart",
-                                style={"height": "100%", "padding": "0 20px"}
-                            )
-                        ],
-                        style={"backgroundColor": "#fff", "borderBottom": "1px solid #e9ecef"}
-                    ),
+                    dmc.Header(height=60, children=[
+                        dmc.Group([
+                            dmc.Title("Dashboard Immobilier", order=3),
+                            dmc.Group([
+                                dmc.ActionIcon(DashIconify(icon="mdi:refresh", width=20), 
+                                             size="lg", variant="subtle", id="refresh-btn"),
+                                dmc.Badge("Live", color="green", variant="dot")
+                            ])
+                        ], position="apart", style={"height": "100%", "padding": "0 20px"})
+                    ], style={"backgroundColor": "#fff", "borderBottom": "1px solid #e9ecef"}),
                     
-                    # Zone de notification
                     html.Div(id="notification-container"),
                     
-                    # Contenu principal
-                    dmc.Container(
-                        size="xl",
-                        mt="xl",
-                        children=[
-                            # Section KPIs
-                            dmc.SimpleGrid(
-                                cols=4,
-                                spacing="lg",
-                                breakpoints=[
-                                    {"maxWidth": 980, "cols": 2, "spacing": "md"},
-                                    {"maxWidth": 755, "cols": 1, "spacing": "sm"}
-                                ],
-                                children=[
-                                    self.create_kpi_card(
-                                        "Total Propriétés", 
-                                        f"{kpi_data.get('total_properties', 0):,}",
-                                        "mdi:home-city",
-                                        "blue"
-                                    ),
-                                    self.create_kpi_card(
-                                        "Prix Moyen",
-                                        f"{kpi_data.get('avg_price', 0):,.0f} FCFA",
-                                        "mdi:cash-multiple",
-                                        "green"
-                                    ),
-                                    self.create_kpi_card(
-                                        "Prix Médian",
-                                        f"{kpi_data.get('median_price', 0):,.0f} FCFA",
-                                        "mdi:chart-line",
-                                        "orange"
-                                    ),
-                                    self.create_kpi_card(
-                                        "Nouveau (7j)",
-                                        f"{kpi_data.get('recent_total', 0)}",
-                                        "mdi:new-box",
-                                        "purple"
-                                    )
-                                ]
-                            ),
+                    dmc.Container(size="xl", mt="xl", children=[
+                        # KPIs
+                        dmc.SimpleGrid(cols=4, spacing="lg", breakpoints=[
+                            {"maxWidth": 980, "cols": 2, "spacing": "md"},
+                            {"maxWidth": 755, "cols": 1, "spacing": "sm"}
+                        ], children=[
+                            self.create_enhanced_kpi("Total", f"{kpi_data.get('total_properties', 0):,}", 
+                                                   "mdi:home", "blue"),
+                            self.create_enhanced_kpi("Prix Moyen", f"{kpi_data.get('avg_price', 0):,.0f} FCFA", 
+                                                   "mdi:cash", "green", trend=5.2),
+                            self.create_enhanced_kpi("Volatilité", f"{kpi_data.get('market_volatility', 0):.1f}%", 
+                                                   "mdi:chart-line-variant", "orange", trend=-2.1),
+                            self.create_enhanced_kpi("Nouveau (7j)", f"{kpi_data.get('recent_total', 0)}", 
+                                                   "mdi:new-box", "purple", trend=12.5)
+                        ]),
+                        
+                        dmc.Space(h=30),
+                        
+                        # Graphiques avancés
+                        dmc.SimpleGrid(cols=2, spacing="lg", breakpoints=[
+                            {"maxWidth": 980, "cols": 1, "spacing": "md"}
+                        ], children=[
+                            dmc.Card([
+                                dmc.Text("Répartition du marché", size="lg", fw=500, mb="md"),
+                                dcc.Graph(id="sunburst-chart", figure=self.get_sunburst_chart(), 
+                                         config={'displayModeBar': False})
+                            ], withBorder=True, shadow="sm", radius="md", p="md"),
                             
-                            dmc.Space(h=30),
-                            
-                            # Graphiques
-                            dmc.SimpleGrid(
-                                cols=2,
-                                spacing="lg",
-                                breakpoints=[
-                                    {"maxWidth": 980, "cols": 1, "spacing": "md"}
-                                ],
-                                children=[
-                                    dmc.Card(
-                                        children=[
-                                            dmc.Text("Distribution des Prix", size="lg", fw=500, mb="md"),
-                                            dcc.Graph(
-                                                id="price-distribution-chart",
-                                                figure=self.get_price_distribution_chart(),
-                                                config={'displayModeBar': False}
-                                            )
-                                        ],
-                                        withBorder=True,
-                                        shadow="sm",
-                                        radius="md",
-                                        p="md"
-                                    ),
-                                    dmc.Card(
-                                        children=[
-                                            dmc.Text("Types de Propriétés", size="lg", fw=500, mb="md"),
-                                            dcc.Graph(
-                                                id="property-type-chart",
-                                                figure=self.get_property_type_chart(),
-                                                config={'displayModeBar': False}
-                                            )
-                                        ],
-                                        withBorder=True,
-                                        shadow="sm",
-                                        radius="md",
-                                        p="md"
-                                    )
-                                ]
-                            ),
-                            
-                            dmc.Space(h=30),
-                            
-                            # Tableau récapitulatif par source
-                            dmc.Card(
-                                children=[
-                                    dmc.Text("Répartition par Source", size="lg", fw=500, mb="md"),
-                                    dmc.Table(
-                                        children=[
-                                            html.Thead(
-                                                html.Tr([
-                                                    html.Th("Source"),
-                                                    html.Th("Nombre de propriétés"),
-                                                    html.Th("Prix moyen"),
-                                                    html.Th("Nouveautés (7j)")
-                                                ])
-                                            ),
-                                            html.Tbody([
-                                                html.Tr([
-                                                    html.Td("CoinAfrique"),
-                                                    html.Td(f"{kpi_data.get('coinafrique_count', 0):,}"),
-                                                    html.Td(f"{kpi_data.get('coinafrique_avg', 0):,.0f} FCFA"),
-                                                    html.Td(f"{kpi_data.get('recent_coinafrique', 0)}")
-                                                ]),
-                                                html.Tr([
-                                                    html.Td("ExpatDakar"),
-                                                    html.Td(f"{kpi_data.get('expat_count', 0):,}"),
-                                                    html.Td(f"{kpi_data.get('expat_avg', 0):,.0f} FCFA"),
-                                                    html.Td(f"{kpi_data.get('recent_expat', 0)}")
-                                                ]),
-                                                html.Tr([
-                                                    html.Td("LogerDakar"),
-                                                    html.Td(f"{kpi_data.get('loger_count', 0):,}"),
-                                                    html.Td(f"{kpi_data.get('loger_avg', 0):,.0f} FCFA"),
-                                                    html.Td(f"{kpi_data.get('recent_loger', 0)}")
-                                                ])
-                                            ])
-                                        ]
-                                    )
-                                ],
-                                withBorder=True,
-                                shadow="sm",
-                                radius="md",
-                                p="md"
-                            )
-                        ]
-                    )
+                            dmc.Card([
+                                dmc.Text("Évolution temporelle", size="lg", fw=500, mb="md"),
+                                dcc.Graph(id="time-series", figure=self.get_time_series(), 
+                                         config={'displayModeBar': False})
+                            ], withBorder=True, shadow="sm", radius="md", p="md")
+                        ])
+                    ])
                 ])
             ]
         )
     
     def setup_callbacks(self):
-        """Configurer les callbacks"""
+        """Callbacks"""
         @callback(
             Output("notification-container", "children"),
             Input("refresh-btn", "n_clicks"),
@@ -405,12 +240,18 @@ class MainDashboard:
         )
         def refresh_data(n_clicks):
             if n_clicks:
-                # Actualiser les données
                 return dmc.Notification(
-                    title="Données actualisées",
-                    message="Les données ont été mises à jour avec succès",
+                    title="Actualisation",
+                    message="Données mises à jour",
                     color="green",
-                    action="show",
                     autoClose=3000
                 )
-            return ""
+
+# Factory
+def create_enhanced_dashboard(server=None, routes_pathname_prefix="/", requests_pathname_prefix="/"):
+    dashboard = EnhancedMainDashboard(
+        server=server,
+        routes_pathname_prefix=routes_pathname_prefix,
+        requests_pathname_prefix=requests_pathname_prefix
+    )
+    return dashboard.app

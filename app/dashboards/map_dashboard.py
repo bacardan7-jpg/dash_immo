@@ -1,18 +1,18 @@
 import dash
-from dash import html, dcc, Input, Output, callback
+from dash import html, dcc, Input, Output, callback, State
 import dash_mantine_components as dmc
 import dash_bootstrap_components as dbc
 from dash_iconify import DashIconify
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
-from ..database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
+import numpy as np
+from ..database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty, ProprietesConsolidees
 
-
-class MapDashboard:
-    """Dashboard avec visualisation cartographique Mapbox"""
-
+class PremiumMapDashboard:
+    """Dashboard cartographique premium avec clusters et heatmap"""
+    
     def __init__(self, server=None, routes_pathname_prefix="/", requests_pathname_prefix="/"):
         self.app = dash.Dash(
             __name__,
@@ -28,420 +28,392 @@ class MapDashboard:
                 self.setup_callbacks()
         else:
             self._layout_setup_deferred = True
-
-    def get_map_data(self):
-        """Récupérer les données pour la carte"""
+    
+    def get_enhanced_map_data(self):
+        """Données enrichies avec scores et tendances"""
         try:
             map_data = []
-
-            # Coordonnées approximatives pour les villes principales du Sénégal
+            city_scores = {}
+            
+            # Scores par ville
+            city_stats = db.session.query(
+                ProprietesConsolidees.city,
+                db.func.count(ProprietesConsolidees.id),
+                db.func.avg(ProprietesConsolidees.price),
+                db.func.stddev(ProprietesConsolidees.price)
+            ).filter(
+                ProprietesConsolidees.city.isnot(None),
+                ProprietesConsolidees.price > 0
+            ).group_by(ProprietesConsolidees.city).all()
+            
+            for city, count, avg, std in city_stats:
+                score = min(100, (count / 50) * 20 + (avg / 1000000) * 30)
+                city_scores[city] = {
+                    'score': score,
+                    'count': count,
+                    'avg_price': avg or 0,
+                    'volatility': std or 0
+                }
+            
+            # Coordonnées précises des villes
             city_coordinates = {
-                "Dakar": {"lat": 14.6928, "lon": -17.4467},
-                "Pikine": {"lat": 14.7640, "lon": -17.3900},
-                "Guédiawaye": {"lat": 14.7739, "lon": -17.3367},
-                "Rufisque": {"lat": 14.7167, "lon": -17.2667},
-                "Thiès": {"lat": 14.7956, "lon": -16.9981},
-                "Mbour": {"lat": 14.4167, "lon": -16.9667},
-                "Saint-Louis": {"lat": 16.0179, "lon": -16.4896},
-                "Kaolack": {"lat": 14.1500, "lon": -16.0833},
-                "Ziguinchor": {"lat": 12.5833, "lon": -16.2667},
-                "Tambacounda": {"lat": 13.7667, "lon": -13.6833},
+                "Dakar": {"lat": 14.6928, "lon": -17.4467, "region": "Cap-Vert"},
+                "Pikine": {"lat": 14.7640, "lon": -17.3900, "region": "Cap-Vert"},
+                "Guédiawaye": {"lat": 14.7739, "lon": -17.3367, "region": "Cap-Vert"},
+                "Rufisque": {"lat": 14.7167, "lon": -17.2667, "region": "Cap-Vert"},
+                "Thiès": {"lat": 14.7956, "lon": -16.9981, "region": "Thiès"},
+                "Mbour": {"lat": 14.4167, "lon": -16.9667, "region": "Thiès"},
+                "Saint-Louis": {"lat": 16.0179, "lon": -16.4896, "region": "Saint-Louis"},
+                "Kaolack": {"lat": 14.1500, "lon": -16.0833, "region": "Kaolack"},
+                "Ziguinchor": {"lat": 12.5833, "lon": -16.2667, "region": "Ziguinchor"},
+                "Tambacounda": {"lat": 13.7667, "lon": -13.6833, "region": "Tambacounda"},
+                "Kolda": {"lat": 12.8833, "lon": -14.9500, "region": "Kolda"},
+                "Dagana": {"lat": 16.4833, "lon": -15.6000, "region": "Saint-Louis"},
+                "Richard-Toll": {"lat": 16.4625, "lon": -15.7008, "region": "Saint-Louis"},
+                "Louga": {"lat": 15.6181, "lon": -16.2244, "region": "Louga"},
+                "Diourbel": {"lat": 14.6500, "lon": -16.2333, "region": "Diourbel"},
+                "Bambey": {"lat": 14.6984, "lon": -16.2738, "region": "Diourbel"},
+                "Fatick": {"lat": 14.3389, "lon": -16.4111, "region": "Fatick"},
+                "Foundiougne": {"lat": 14.1333, "lon": -16.4667, "region": "Fatick"},
+                "Kaffrine": {"lat": 14.1053, "lon": -15.5508, "region": "Kaffrine"},
+                "Birkelane": {"lat": 14.2044, "lon": -15.5914, "region": "Kaffrine"},
+                "Kédougou": {"lat": 12.5579, "lon": -12.1784, "region": "Kédougou"},
+                "Sédhiou": {"lat": 12.7081, "lon": -15.5569, "region": "Sédhiou"},
+                "Goudomp": {"lat": 12.5944, "lon": -15.7322, "region": "Sédhiou"},
+                "Matam": {"lat": 15.6556, "lon": -13.2553, "region": "Matam"},
+                "Ranérou": {"lat": 15.3000, "lon": -13.9500, "region": "Matam"},
             }
-
-            # Collecter les données de chaque source
-            for model, source_name in [
-                (CoinAfrique, "CoinAfrique"),
-                (ExpatDakarProperty, "ExpatDakar"),
-                (LogerDakarProperty, "LogerDakar"),
-            ]:
+            
+            # Collecter les propriétés avec enrichissement
+            for model, source in [(CoinAfrique, 'CoinAfrique'), 
+                                 (ExpatDakarProperty, 'ExpatDakar'), 
+                                 (LogerDakarProperty, 'LogerDakar')]:
                 properties = db.session.query(model).all()
-
+                
                 for prop in properties:
-                    city_raw = getattr(prop, "city", None) or ""
-                    city = city_raw.strip()
-                    if not city:
-                        continue
-                    if city in city_coordinates:
-                        description = getattr(prop, "description", None)
-                        map_data.append(
-                            {
-                                "id": getattr(prop, "id", None),
-                                "title": getattr(prop, "title", "") or "",
-                                "price": getattr(prop, "price", None),
-                                "city": city,
-                                "property_type": getattr(prop, "property_type", "") or "",
-                                "bedrooms": getattr(prop, "bedrooms", None),
-                                "surface_area": getattr(prop, "surface_area", None),
-                                "source": source_name,
-                                "lat": city_coordinates[city]["lat"],
-                                "lon": city_coordinates[city]["lon"],
-                                "description": (description[:200] + "...") if description else "Pas de description",
-                            }
-                        )
-
+                    city = getattr(prop, 'city', None)
+                    if city and city in city_coordinates:
+                        coords = city_coordinates[city]
+                        score = city_scores.get(city, {}).get('score', 0)
+                        
+                        map_data.append({
+                            'id': getattr(prop, 'id', None),
+                            'title': getattr(prop, 'title', '')[:50],
+                            'price': getattr(prop, 'price', 0),
+                            'city': city,
+                            'region': coords['region'],
+                            'property_type': getattr(prop, 'property_type', 'Autre'),
+                            'bedrooms': getattr(prop, 'bedrooms', 0),
+                            'surface_area': getattr(prop, 'surface_area', 0),
+                            'source': source,
+                            'lat': coords['lat'],
+                            'lon': coords['lon'],
+                            'score': score,
+                            'volatility': city_scores.get(city, {}).get('volatility', 0),
+                            'color': '#ffd700' if score > 70 else '#ff6b6b' if score < 30 else '#667eea'
+                        })
+            
             return map_data
-
         except Exception as e:
-            print(f"Erreur lors de la récupération des données de carte: {e}")
+            print(f"Erreur données carte: {e}")
             return []
-
-    def create_map_figure(self, map_data, color_by="source"):
-        """Créer la figure de la carte"""
-        if not map_data:
+    
+    def create_heatmap(self, map_data):
+        """Heatmap de densité des prix"""
+        try:
+            df = pd.DataFrame(map_data)
+            if df.empty:
+                return go.Figure()
+            
+            fig = px.density_mapbox(
+                df, 
+                lat='lat', 
+                lon='lon', 
+                z='price',
+                radius=30,
+                center=dict(lat=14.6928, lon=-17.4467),
+                zoom=6,
+                mapbox_style='open-street-map',
+                color_continuous_scale='Viridis',
+                title='Densité des prix par zone'
+            )
+            
+            fig.update_layout(
+                height=600,
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='white', family='Inter'),
+                title=dict(font=dict(size=18, color='white'), x=0.5),
+                coloraxis_colorbar=dict(
+                    title='Prix moyen',
+                    titlefont=dict(color='white'),
+                    tickfont=dict(color='white')
+                )
+            )
+            
+            return fig
+        except Exception as e:
+            print(f"Erreur heatmap: {e}")
             return go.Figure()
-
-        df = pd.DataFrame(map_data)
-
-        color_map = {
-            "CoinAfrique": "#1f77b4",
-            "ExpatDakar": "#ff7f0e",
-            "LogerDakar": "#2ca02c",
-        }
-
-        if color_by == "price":
+    
+    def create_cluster_map(self, map_data):
+        """Carte avec clusters"""
+        try:
+            df = pd.DataFrame(map_data)
+            if df.empty:
+                return go.Figure()
+            
             fig = px.scatter_mapbox(
-                df,
-                lat="lat",
-                lon="lon",
-                color="price",
-                size="surface_area" if "surface_area" in df.columns else None,
-                hover_name="title",
+                df, 
+                lat='lat', 
+                lon='lon',
+                color='source',
+                size='price',
+                hover_name='title',
                 hover_data={
-                    "price": True,
-                    "city": True,
-                    "property_type": True,
-                    "bedrooms": True,
-                    "source": True,
+                    'price': True,
+                    'city': True,
+                    'property_type': True,
+                    'score': True,
+                    'volatility': True
                 },
-                color_continuous_scale="Viridis",
-                size_max=15,
+                color_discrete_map={
+                    'CoinAfrique': '#667eea',
+                    'ExpatDakar': '#764ba2',
+                    'LogerDakar': '#ffd700'
+                },
+                size_max=25,
                 zoom=6,
                 center=dict(lat=14.6928, lon=-17.4467),
-                mapbox_style="open-street-map",
-                title="Carte des propriétés - Coloration par prix",
+                mapbox_style='carto-darkmatter',
+                title='Clusters de propriétés'
             )
-        else:
-            fig = px.scatter_mapbox(
-                df,
-                lat="lat",
-                lon="lon",
-                color="source",
-                size="price" if "price" in df.columns else None,
-                hover_name="title",
-                hover_data={
-                    "price": True,
-                    "city": True,
-                    "property_type": True,
-                    "bedrooms": True,
-                },
-                color_discrete_map=color_map,
-                size_max=15,
-                zoom=6,
-                center=dict(lat=14.6928, lon=-17.4467),
-                mapbox_style="open-street-map",
-                title="Carte des propriétés - Coloration par source",
+            
+            fig.update_layout(
+                height=600,
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='white', family='Inter'),
+                title=dict(font=dict(size=18, color='white'), x=0.5),
+                mapbox=dict(
+                    cluster=dict(
+                        enabled=True,
+                        color='#ffd700',
+                        size=20,
+                        opacity=0.8
+                    )
+                )
             )
-
-        fig.update_layout(height=600, margin=dict(l=0, r=0, t=30, b=0))
-        return fig
-
-    def create_city_stats_chart(self, map_data):
-        """Créer le graphique de statistiques par ville"""
-        if not map_data:
+            
+            return fig
+        except Exception as e:
+            print(f"Erreur cluster map: {e}")
             return go.Figure()
-
-        df = pd.DataFrame(map_data)
-        if df.empty or "city" not in df.columns:
-            return go.Figure()
-
-        city_stats = (
-            df.groupby("city")
-            .agg(
-                price_count=("price", "count"),
-                prix_moyen=("price", "mean"),
-                prix_median=("price", "median"),
-                prix_min=("price", "min"),
-                prix_max=("price", "max"),
-                surface_moyenne=("surface_area", "mean"),
-            )
-            .round(0)
-        )
-
-        city_stats = city_stats.sort_values("price_count", ascending=False).head(10)
-
-        fig = go.Figure()
-        fig.add_trace(
-            go.Bar(x=city_stats.index, y=city_stats["price_count"], name="Nombre de propriétés", marker_color="lightblue")
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=city_stats.index,
-                y=city_stats["prix_moyen"],
-                mode="lines+markers",
-                name="Prix moyen",
-                line=dict(color="red", width=3),
-                marker=dict(size=8),
-                yaxis="y2",
-            )
-        )
-
-        fig.update_layout(
-            title="Top 10 des villes par nombre de propriétés",
-            xaxis_title="Ville",
-            yaxis=dict(title="Nombre de propriétés", side="left"),
-            yaxis2=dict(title="Prix moyen (FCFA)", side="right", overlaying="y"),
-            height=400,
-            plot_bgcolor="white",
-            paper_bgcolor="white",
-        )
-
-        return fig
-
-    def create_property_type_map(self, map_data):
-        """Créer une carte filtrée par type de propriété (subplots statiques)"""
-        if not map_data:
-            return go.Figure()
-
-        df = pd.DataFrame(map_data)
-        if df.empty or "property_type" not in df.columns:
-            return go.Figure()
-
-        property_types = df["property_type"].dropna().unique()
-        from plotly.subplots import make_subplots
-
-        n = min(4, len(property_types))
-        rows = 2
-        cols = 2
-
-        fig = make_subplots(rows=rows, cols=cols, subplot_titles=list(property_types[:n]))
-        colors = ["blue", "red", "green", "orange"]
-
-        for i, prop_type in enumerate(property_types[:n]):
-            row = (i // cols) + 1
-            col = (i % cols) + 1
-            type_data = df[df["property_type"] == prop_type]
-            fig.add_trace(
-                go.Scatter(
-                    x=type_data["lon"],
-                    y=type_data["lat"],
-                    mode="markers",
-                    name=prop_type,
-                    marker=dict(size=8, color=colors[i % len(colors)], opacity=0.7),
-                    text=type_data["title"],
-                    hovertemplate="<b>%{text}</b><br>Lat: %{y}<br>Lon: %{x}<extra></extra>",
-                ),
-                row=row,
-                col=col,
-            )
-
-        fig.update_layout(title="Répartition des types de propriétés", height=600, showlegend=False)
-        return fig
-
+    
     def setup_layout(self):
-        """Configurer la mise en page"""
-        map_data = self.get_map_data()
-
-        # En-tête : utilisation de Paper au lieu de Header
-        header = dmc.Paper(
-            shadow="xs",
-            p="sm",
-            radius=0,
-            withBorder=True,
-            children=dmc.Group(
-                align="center",
-                style={"height": "60px", "padding": "0 20px"},
-                children=[
-                    dmc.Title("Carte Interactive", order=3),
-                    dmc.Group(
-                        children=[
-                            dmc.Select(
-                                label="Colorer par",
-                                id="map-color-by",
-                                data=[{"value": "source", "label": "Source"}, {"value": "price", "label": "Prix"}],
-                                value="source",
-                                size="sm",
-                            ),
-                            dmc.Button(
-                                "Vue satellite",
-                                leftIcon=DashIconify(icon="mdi:satellite", width=16),
-                                id="satellite-toggle",
-                                size="sm",
-                                variant="outline",
-                            ),
-                        ]
-                    ),
-                ],
-            ),
-        )
-
-        # Container principal
-        self.app.layout = dmc.MantineProvider(
-            theme={"colorScheme": "light", "primaryColor": "blue", "fontFamily": "Inter, sans-serif"},
-            children=[
-                html.Div(
-                    [
-                        header,
-                        html.Div(id="map-notification-container"),
-                        dmc.Container(
-                            size="xl",
-                            mt="xl",
-                            children=[
-                                dmc.Card(
-                                    children=[
-                                        dmc.Group(
-                                            children=[
-                                                dmc.Text("Carte des propriétés", size="lg", fw=500),
-                                                dmc.Badge(f"{len(map_data)} propriétés", color="blue", variant="light"),
-                                            ],
-                                        ),
-                                        dcc.Graph(
-                                            id="main-map",
-                                            figure=self.create_map_figure(map_data),
-                                            config={
-                                                "displayModeBar": True,
-                                                "displaylogo": False,
-                                                "modeBarButtonsToRemove": ["pan2d", "lasso2d", "select2d"],
-                                            },
-                                        ),
-                                    ],
-                                    withBorder=True,
-                                    shadow="sm",
-                                    radius="md",
-                                    p="md",
-                                    mb="xl",
-                                ),
-                                dmc.SimpleGrid(
-                                    cols=2,
-                                    spacing="lg",
-                                    children=[
-                                        dmc.Card(
-                                            children=[
-                                                dmc.Text("Statistiques par ville", size="lg", fw=500, mb="md"),
-                                                dcc.Graph(
-                                                    id="city-stats-chart",
-                                                    figure=self.create_city_stats_chart(map_data),
-                                                    config={"displayModeBar": False},
-                                                ),
-                                            ],
-                                            withBorder=True,
-                                            shadow="sm",
-                                            radius="md",
-                                            p="md",
-                                        ),
-                                        dmc.Card(
-                                            children=[
-                                                dmc.Text("Répartition par type", size="lg", fw=500, mb="md"),
-                                                dcc.Graph(
-                                                    id="property-type-map",
-                                                    figure=self.create_property_type_map(map_data),
-                                                    config={"displayModeBar": False},
-                                                ),
-                                            ],
-                                            withBorder=True,
-                                            shadow="sm",
-                                            radius="md",
-                                            p="md",
-                                        ),
-                                    ],
-                                ),
-                                dmc.Space(h=30),
-                                dmc.Card(
-                                    children=[
-                                        dmc.Group(
-                                            children=[
-                                                dmc.Text("Détails des propriétés", size="lg", fw=500),
-                                                dmc.Button(
-                                                    "Afficher sur la carte",
-                                                    id="show-on-map",
-                                                    size="sm",
-                                                    variant="outline",
-                                                ),
-                                            ],
-                                            mb="md",
-                                        ),
-                                        # Table HTML (plus compatible que dmc.Table selon versions)
-                                        html.Div(
-                                            style={"overflowX": "auto"},
-                                            children=[
-                                                html.Table(
-                                                    style={"width": "100%", "borderCollapse": "collapse"},
-                                                    children=[
-                                                        html.Thead(
-                                                            html.Tr(
-                                                                [
-                                                                    html.Th("Titre"),
-                                                                    html.Th("Prix"),
-                                                                    html.Th("Ville"),
-                                                                    html.Th("Type"),
-                                                                    html.Th("Chambres"),
-                                                                    html.Th("Surface"),
-                                                                    html.Th("Source"),
-                                                                ],
-                                                                style={"textAlign": "left", "borderBottom": "1px solid #ddd", "padding": "8px"},
-                                                            )
-                                                        ),
-                                                        html.Tbody(
-                                                            [
-                                                                html.Tr(
-                                                                    [
-                                                                        html.Td(
-                                                                            (p["title"][:50] + "...") if len(p["title"]) > 50 else p["title"]
-                                                                        ),
-                                                                        html.Td(f"{p['price']:,} FCFA" if p.get("price") else "N/A"),
-                                                                        html.Td(p.get("city", "N/A")),
-                                                                        html.Td(p.get("property_type", "N/A")),
-                                                                        html.Td(str(p.get("bedrooms", "N/A"))),
-                                                                        html.Td(f"{p['surface_area']} m²" if p.get("surface_area") else "N/A"),
-                                                                        html.Td(p.get("source", "N/A")),
-                                                                    ],
-                                                                    key=idx,
-                                                                )
-                                                                for idx, p in enumerate(map_data[:50])
-                                                            ]
-                                                        ),
-                                                    ],
-                                                )
-                                            ],
-                                        ),
-                                    ],
-                                    withBorder=True,
-                                    shadow="sm",
-                                    radius="md",
-                                    p="md",
-                                ),
-                            ],
-                        ),
-                    ]
-                )
-            ],
-        )
-
+        """Layout premium pour la carte"""
+        map_data = self.get_enhanced_map_data()
+        
+        self.app.layout = html.Div([
+            # Background animé
+            html.Div(className='animated-bg'),
+            
+            # Navigation
+            html.Nav([
+                html.Div([
+                    html.Div([
+                        html.A([
+                            html.I(className='fas fa-map-marked-alt'),
+                            html.Span('Map Premium')
+                        ], href='/', className='nav-brand'),
+                        html.Button([
+                            html.Span(className='hamburger')
+                        ], className='nav-toggle', **{'aria-label': 'Menu'})
+                    ], className='nav-wrapper'),
+                    html.Div([
+                        html.Ul([
+                            html.Li(html.A('Dashboard', href='/dashboard', className='nav-link')),
+                            html.Li(html.A('Carte', href='/map', className='nav-link active')),
+                            html.Li(html.A('Analyse', href='/analytics', className='nav-link')),
+                            html.Li(html.A('Admin', href='/admin', className='nav-link'))
+                        ], className='nav-links')
+                    ], className='nav-collapse')
+                ], className='container-fluid')
+            ], className='glass-nav'),
+            
+            # Main content
+            html.Main([
+                html.Div([
+                    # Hero
+                    html.Section([
+                        html.Div([
+                            html.H1('Carte Interactive Premium', className='hero-title'),
+                            html.P('Visualisation géospatiale intelligente', className='hero-subtitle'),
+                            html.Div([
+                                html.Span(f'{len(map_data)} propriétés', className='glass-badge'),
+                                html.Button([
+                                    html.I(className='fas fa-cog'),
+                                    ' Filtres'
+                                ], id='filter-btn', className='glass-button')
+                            ], className='hero-actions')
+                        ], className='hero-content')
+                    ], className='hero-section'),
+                    
+                    # Controls
+                    html.Section([
+                        html.Div([
+                            html.Div([
+                                html.Div([
+                                    html.Label('Coloration', className='control-label'),
+                                    dcc.Dropdown(
+                                        id='map-color-by',
+                                        options=[
+                                            {'label': 'Par Source', 'value': 'source'},
+                                            {'label': 'Par Prix', 'value': 'price'},
+                                            {'label': 'Par Score', 'value': 'score'},
+                                            {'label': 'Par Volatilité', 'value': 'volatility'}
+                                        ],
+                                        value='source',
+                                        className='modern-dropdown'
+                                    )
+                                ], className='control-group'),
+                                html.Div([
+                                    html.Label('Type de vue', className='control-label'),
+                                    dcc.Dropdown(
+                                        id='map-type',
+                                        options=[
+                                            {'label': 'Clusters', 'value': 'cluster'},
+                                            {'label': 'Heatmap', 'value': 'heatmap'},
+                                            {'label': 'Points', 'value': 'points'}
+                                        ],
+                                        value='cluster',
+                                        className='modern-dropdown'
+                                    )
+                                ], className='control-group'),
+                                html.Div([
+                                    html.Label('Sources', className='control-label'),
+                                    dcc.Checklist(
+                                        id='map-sources',
+                                        options=[
+                                            {'label': ' CoinAfrique', 'value': 'CoinAfrique'},
+                                            {'label': ' ExpatDakar', 'value': 'ExpatDakar'},
+                                            {'label': ' LogerDakar', 'value': 'LogerDakar'}
+                                        ],
+                                        value=['CoinAfrique', 'ExpatDakar', 'LogerDakar'],
+                                        className='modern-checklist'
+                                    )
+                                ], className='control-group')
+                            ], className='map-controls')
+                        ], className='container')
+                    ], className='controls-section'),
+                    
+                    # Map
+                    html.Section([
+                        html.Div([
+                            html.Div([
+                                dcc.Graph(
+                                    id='premium-map',
+                                    figure=self.create_cluster_map(map_data),
+                                    config={
+                                        'displayModeBar': True,
+                                        'displaylogo': False,
+                                        'modeBarButtonsToRemove': ['select2d', 'lasso2d']
+                                    },
+                                    className='map-figure'
+                                )
+                            ], className='map-container')
+                        ], className='container')
+                    ], className='map-section'),
+                    
+                    # Stats panel
+                    html.Section([
+                        html.Div([
+                            html.Div([
+                                html.Div([
+                                    html.Div(id='city-insights'),
+                                    html.Div(id='market-analysis')
+                                ], className='stats-grid')
+                            ], className='container')
+                        ], className='stats-section')
+                    ], className='container')
+                ], className='main-wrapper')
+            ], className='has-sidebar'),
+            
+            # Scripts
+            html.Script(src='https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js'),
+            html.Script(src='https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js'),
+            html.Script(src='/static/js/map-animations.js')
+        ], className='dashboard-root')
+    
     def setup_callbacks(self):
-        """Configurer les callbacks"""
-        @callback(Output("main-map", "figure"), Input("map-color-by", "value"))
-        def update_map_color(color_by):
-            map_data = self.get_map_data()
-            return self.create_map_figure(map_data, color_by)
+        """Callbacks interactifs"""
+        @callback(
+            Output('premium-map', 'figure'),
+            Input('map-color-by', 'value'),
+            Input('map-type', 'value'),
+            Input('map-sources', 'value'),
+            prevent_initial_call=True
+        )
+        def update_map(color_by, map_type, sources):
+            filtered_data = [d for d in self.get_enhanced_map_data() if d['source'] in sources]
+            
+            if map_type == 'heatmap':
+                return self.create_heatmap(filtered_data)
+            elif map_type == 'cluster':
+                return self.create_cluster_map(filtered_data)
+            else:
+                # Points simples
+                return self.create_cluster_map(filtered_data)
+        
+        @callback(
+            Output('city-insights', 'children'),
+            Input('premium-map', 'clickData')
+        )
+        def show_city_insights(click_data):
+            if not click_data:
+                return html.Div([
+                    html.H4('Cliquez sur une ville', className='insights-title'),
+                    html.P('Sélectionnez une zone pour voir les insights détaillés')
+                ], className='insights-placeholder')
+            
+            # Analyse détaillée de la ville
+            city = click_data['points'][0].get('customdata', {}).get('city', 'Dakar')
+            return self.generate_city_analysis(city)
+        
+        def generate_city_analysis(self, city):
+            """Générer l'analyse détaillée d'une ville"""
+            stats = db.session.query(
+                db.func.count(ProprietesConsolidees.id),
+                db.func.avg(ProprietesConsolidees.price),
+                db.func.stddev(ProprietesConsolidees.price),
+                db.func.avg(ProprietesConsolidees.surface_area)
+            ).filter(ProprietesConsolidees.city == city).first()
+            
+            return html.Div([
+                html.H4(f'Analyse {city}', className='city-title'),
+                html.Div([
+                    html.Div([
+                        html.Span('Propriétés:'),
+                        html.Strong(f'{stats[0] or 0}')
+                    ], className='stat-item'),
+                    html.Div([
+                        html.Span('Prix moyen:'),
+                        html.Strong(f'{stats[1] or 0:,.0f} FCFA')
+                    ], className='stat-item'),
+                    html.Div([
+                        html.Span('Volatilité:'),
+                        html.Strong(f'{stats[2] or 0:,.0f}')
+                    ], className='stat-item'),
+                    html.Div([
+                        html.Span('Prix/m²:'),
+                        html.Strong(f'{(stats[1] or 0) / (stats[3] or 1):,.0f}')
+                    ], className='stat-item')
+                ], className='city-stats')
+            ], className='city-analysis')
 
-        @callback(Output("map-notification-container", "children"), Input("satellite-toggle", "n_clicks"), prevent_initial_call=True)
-        def toggle_satellite_view(n_clicks):
-            if n_clicks:
-                return dmc.Notification(
-                    title="Vue satellite",
-                    message="Fonctionnalité en cours de développement",
-                    color="blue",
-                    autoClose=3000,
-                )
-            return ""
-
-        @callback(Output("map-notification-container", "children"), Input("show-on-map", "n_clicks"), prevent_initial_call=True)
-        def highlight_on_map(n_clicks):
-            if n_clicks:
-                return dmc.Notification(
-                    title="Sélection",
-                    message="Sélectionnez une propriété dans le tableau pour la voir sur la carte",
-                    color="green",
-                    autoClose=3000,
-                )
-            return ""
-
+# Factory function
+def create_premium_map_dashboard(server=None, routes_pathname_prefix="/", requests_pathname_prefix="/"):
+    dashboard = PremiumMapDashboard(
+        server=server,
+        routes_pathname_prefix=routes_pathname_prefix,
+        requests_pathname_prefix=requests_pathname_prefix
+    )
+    return dashboard.app

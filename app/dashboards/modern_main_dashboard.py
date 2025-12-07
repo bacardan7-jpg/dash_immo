@@ -1,18 +1,21 @@
 import dash
-from dash import html, dcc, Input, Output, callback
+from dash import html, dcc, Input, Output, callback, State
 import dash_mantine_components as dmc
 import dash_bootstrap_components as dbc
 from dash_iconify import DashIconify
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 import pandas as pd
-from ..database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
+import numpy as np
+from ..database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty, ProprietesConsolidees
 from ..auth.decorators import analyst_required
+from textblob import TextBlob
 import json
 
 class ModernMainDashboard:
-    """Dashboard principal avec design moderne et animations GSAP"""
+    """Dashboard principal premium avec analytics avancées"""
     
     def __init__(self, server=None, routes_pathname_prefix="/", requests_pathname_prefix="/"):
         self.app = dash.Dash(
@@ -20,76 +23,126 @@ class ModernMainDashboard:
             server=server,
             external_stylesheets=[dbc.themes.BOOTSTRAP],
             routes_pathname_prefix=routes_pathname_prefix,
-            requests_pathname_prefix=requests_pathname_prefix
+            requests_pathname_prefix=requests_pathname_prefix,
+            suppress_callback_exceptions=True
         )
-
-        # If a Flask server is provided, build the layout inside its application context
-        # to allow DB access (db.session / models) during layout construction.
+        
         if server:
             with server.app_context():
                 self.setup_layout()
                 self.setup_callbacks()
         else:
-            # Defer layout setup if no server is passed (e.g. standalone usage)
             self._layout_setup_deferred = True
     
-    def get_kpi_data(self):
-        """Récupérer les données KPI"""
+    def get_advanced_kpi_data(self):
+        """KPIs stratégiques avec tendances"""
         try:
-            # Compter les propriétés par source
+            # Données de base
             coinafrique_count = db.session.query(CoinAfrique).count()
             expat_count = db.session.query(ExpatDakarProperty).count()
             loger_count = db.session.query(LogerDakarProperty).count()
             total_properties = coinafrique_count + expat_count + loger_count
             
-            # Prix moyen par source
+            # Prix moyens
             coinafrique_avg = db.session.query(db.func.avg(CoinAfrique.price)).scalar() or 0
             expat_avg = db.session.query(db.func.avg(ExpatDakarProperty.price)).scalar() or 0
             loger_avg = db.session.query(db.func.avg(LogerDakarProperty.price)).scalar() or 0
             
-            # Prix global
+            # Calcul du marché global
             all_prices = []
             for model in [CoinAfrique, ExpatDakarProperty, LogerDakarProperty]:
-                prices = db.session.query(model.price).all()
+                prices = db.session.query(model.price).filter(model.price > 0).all()
                 all_prices.extend([p[0] for p in prices])
             
-            avg_price = sum(all_prices) / len(all_prices) if all_prices else 0
-            median_price = sorted(all_prices)[len(all_prices)//2] if all_prices else 0
+            avg_price = np.mean(all_prices) if all_prices else 0
+            median_price = np.median(all_prices) if all_prices else 0
+            std_price = np.std(all_prices) if all_prices else 0
             
-            # Propriétés ajoutées récemment (7 derniers jours)
-            week_ago = datetime.utcnow() - timedelta(days=7)
-            recent_coinafrique = db.session.query(CoinAfrique).filter(
-                CoinAfrique.scraped_at >= week_ago
+            # Tendances (comparaison 7 derniers jours vs 7 jours précédents)
+            now = datetime.utcnow()
+            week_ago = now - timedelta(days=7)
+            two_weeks_ago = now - timedelta(days=14)
+            
+            recent_total = db.session.query(CoinAfrique).filter(CoinAfrique.scraped_at >= week_ago).count() + \
+                          db.session.query(ExpatDakarProperty).filter(ExpatDakarProperty.scraped_at >= week_ago).count() + \
+                          db.session.query(LogerDakarProperty).filter(LogerDakarProperty.scraped_at >= week_ago).count()
+            
+            previous_week = db.session.query(CoinAfrique).filter(
+                CoinAfrique.scraped_at.between(two_weeks_ago, week_ago)
+            ).count() + \
+            db.session.query(ExpatDakarProperty).filter(
+                ExpatDakarProperty.scraped_at.between(two_weeks_ago, week_ago)
+            ).count() + \
+            db.session.query(LogerDakarProperty).filter(
+                LogerDakarProperty.scraped_at.between(two_weeks_ago, week_ago)
             ).count()
-            recent_expat = db.session.query(ExpatDakarProperty).filter(
-                ExpatDakarProperty.scraped_at >= week_ago
-            ).count()
-            recent_loger = db.session.query(LogerDakarProperty).filter(
-                LogerDakarProperty.scraped_at >= week_ago
-            ).count()
-            recent_total = recent_coinafrique + recent_expat + recent_loger
+            
+            growth_rate = ((recent_total - previous_week) / previous_week * 100) if previous_week > 0 else 0
+            
+            # Score du marché (indicateur composite)
+            market_score = min(100, (total_properties / 1000) * 10 + (growth_rate / 2) + (len(all_prices) / 100))
+            
+            # Qualité des données (taux de remplissage)
+            filled_fields = 0
+            total_fields = 0
+            
+            for model in [CoinAfrique, ExpatDakarProperty, LogerDakarProperty]:
+                records = db.session.query(model).limit(100).all()
+                for record in records:
+                    fields = ['price', 'city', 'property_type', 'surface_area', 'bedrooms']
+                    for field in fields:
+                        total_fields += 1
+                        if getattr(record, field) is not None:
+                            filled_fields += 1
+            
+            data_quality = (filled_fields / total_fields * 100) if total_fields > 0 else 0
+            
+            # Sentiment analysis sur les descriptions
+            descriptions = []
+            for model in [CoinAfrique, ExpatDakarProperty, LogerDakarProperty]:
+                descs = db.session.query(model.description).filter(model.description.isnot(None)).limit(50).all()
+                descriptions.extend([d[0] for d in descs])
+            
+            sentiment_score = 0
+            if descriptions:
+                sentiments = [TextBlob(desc).sentiment.polarity for desc in descriptions if desc]
+                sentiment_score = np.mean(sentiments) * 100 if sentiments else 0
+            
+            # Ratio prix/surface
+            price_per_m2 = []
+            for model in [CoinAfrique, ExpatDakarProperty, LogerDakarProperty]:
+                data = db.session.query(model.price, model.surface_area).filter(
+                    model.price > 0, model.surface_area > 0
+                ).limit(1000).all()
+                price_per_m2.extend([p[0]/p[1] for p in data if p[1] > 0])
+            
+            avg_price_per_m2 = np.mean(price_per_m2) if price_per_m2 else 0
             
             return {
                 'total_properties': total_properties,
-                'coinafrique_count': coinafrique_count,
-                'expat_count': expat_count,
-                'loger_count': loger_count,
                 'avg_price': avg_price,
                 'median_price': median_price,
+                'std_price': std_price,
+                'growth_rate': growth_rate,
+                'recent_total': recent_total,
+                'market_score': market_score,
+                'data_quality': data_quality,
+                'sentiment_score': sentiment_score,
+                'avg_price_per_m2': avg_price_per_m2,
                 'coinafrique_avg': coinafrique_avg,
                 'expat_avg': expat_avg,
                 'loger_avg': loger_avg,
-                'recent_total': recent_total,
-                'recent_coinafrique': recent_coinafrique,
-                'recent_expat': recent_expat,
-                'recent_loger': recent_loger
+                'price_volatility': std_price / avg_price * 100 if avg_price > 0 else 0
             }
         except Exception as e:
-            print(f"Erreur lors de la récupération des KPIs: {e}")
+            print(f"Erreur KPI avancé: {e}")
             return {}
     
-    def create_modern_kpi_card(self, title, value, icon, color="gold", trend="", description=""):
-        """Créer une carte KPI moderne avec animation"""
+    def create_premium_kpi_card(self, title, value, icon, color="#ffd700", trend=0, subtitle=""):
+        """Carte KPI premium avec tendance animée"""
+        trend_icon = "fa-arrow-up" if trend > 0 else "fa-arrow-down" if trend < 0 else "fa-minus"
+        trend_color = "#28a745" if trend > 0 else "#dc3545" if trend < 0 else "#6c757d"
+        
         return html.Div([
             html.Div([
                 html.Div([
@@ -97,106 +150,202 @@ class ModernMainDashboard:
                         "fontSize": "2.5rem",
                         "color": color,
                         "marginBottom": "1rem",
-                        "animation": "pulse 2s infinite"
+                        "filter": "drop-shadow(0 0 8px rgba(255,215,0,0.5))"
                     }),
-                    html.H3(title, style={
-                        "fontSize": "1.1rem",
-                        "fontWeight": "600",
-                        "color": "rgba(255, 255, 255, 0.8)",
-                        "marginBottom": "0.5rem"
-                    })
-                ], style={"textAlign": "center"}),
+                    html.H3(title, className="kpi-title")
+                ], className="kpi-header"),
                 
                 html.Div([
-                    html.Div(value, className="kpi-value", style={
-                        "fontSize": "2.5rem",
-                        "fontWeight": "800",
-                        "background": f"linear-gradient(45deg, {color}, #ffed4e)",
-                        "WebkitBackgroundClip": "text",
-                        "WebkitTextFillColor": "transparent",
-                        "backgroundClip": "text",
-                        "textAlign": "center",
-                        "marginBottom": "0.5rem"
-                    }),
-                    html.P(trend, style={
-                        "fontSize": "0.9rem",
-                        "color": "rgba(255, 255, 255, 0.7)",
-                        "textAlign": "center",
-                        "marginBottom": "0.5rem"
-                    }) if trend else None,
-                    html.P(description, style={
-                        "fontSize": "0.8rem",
-                        "color": "rgba(255, 255, 255, 0.6)",
-                        "textAlign": "center"
-                    }) if description else None
-                ])
-            ], style={
-                "padding": "2rem",
-                "height": "100%",
-                "display": "flex",
-                "flexDirection": "column",
-                "justifyContent": "space-between"
-            })
-        ], style={
-            "background": "rgba(255, 255, 255, 0.1)",
-            "backdropFilter": "blur(20px)",
-            "border": "1px solid rgba(255, 255, 255, 0.2)",
-            "borderRadius": "16px",
-            "boxShadow": "0 8px 32px 0 rgba(31, 38, 135, 0.37)",
-            "height": "280px",
-            "transition": "all 0.3s ease",
-            "cursor": "pointer"
-        }, className="kpi-card-hover")
+                    html.Div(value, className="kpi-value", 
+                            style={"color": color}),
+                    html.Div([
+                        html.I(className=f"fas {trend_icon}", style={
+                            "color": trend_color,
+                            "fontSize": "0.9rem"
+                        }),
+                        html.Span(f"{abs(trend):+.1f}%", style={
+                            "color": trend_color,
+                            "fontWeight": "600",
+                            "marginLeft": "0.5rem"
+                        })
+                    ], className="kpi-trend", style={"marginTop": "0.5rem"}),
+                    html.P(subtitle, className="kpi-subtitle")
+                ], className="kpi-body")
+            ], className="kpi-content")
+        ], className="premium-kpi-card glass-card", 
+        style={"borderLeft": f"4px solid {color}"})
     
-    def get_price_distribution_chart(self):
-        """Créer le graphique de distribution des prix moderne"""
+    def get_market_treemap(self):
+        """Treemap de la répartition du marché par valeur"""
         try:
-            # Collecter toutes les données de prix
-            price_data = []
+            data = []
+            for model, source in [(CoinAfrique, 'CoinAfrique'), 
+                                 (ExpatDakarProperty, 'ExpatDakar'), 
+                                 (LogerDakarProperty, 'LogerDakar')]:
+                records = db.session.query(model.city, model.property_type, model.price).filter(
+                    model.price > 0
+                ).all()
+                
+                for city, prop_type, price in records:
+                    data.append({
+                        'source': source,
+                        'city': city or 'Inconnu',
+                        'type': prop_type or 'Autre',
+                        'value': price
+                    })
             
-            # CoinAfrique
-            coinafrique_data = db.session.query(CoinAfrique.price, CoinAfrique.property_type, CoinAfrique.city).all()
-            for price, prop_type, city in coinafrique_data:
-                price_data.append({
-                    'price': price,
-                    'source': 'CoinAfrique',
-                    'type': prop_type,
-                    'city': city
-                })
-            
-            # ExpatDakar
-            expat_data = db.session.query(ExpatDakarProperty.price, ExpatDakarProperty.property_type, ExpatDakarProperty.city).all()
-            for price, prop_type, city in expat_data:
-                price_data.append({
-                    'price': price,
-                    'source': 'ExpatDakar',
-                    'type': prop_type,
-                    'city': city
-                })
-            
-            # LogerDakar
-            loger_data = db.session.query(LogerDakarProperty.price, LogerDakarProperty.property_type, LogerDakarProperty.city).all()
-            for price, prop_type, city in loger_data:
-                price_data.append({
-                    'price': price,
-                    'source': 'LogerDakar',
-                    'type': prop_type,
-                    'city': city
-                })
-            
-            if not price_data:
+            df = pd.DataFrame(data)
+            if df.empty:
                 return go.Figure()
             
-            df = pd.DataFrame(price_data)
-            
-            # Créer le graphique de distribution avec style moderne
-            fig = px.histogram(
+            fig = px.treemap(
                 df, 
-                x='price', 
+                path=['source', 'city', 'type'], 
+                values='value',
+                color='value',
+                color_continuous_scale='Viridis',
+                title="Répartition du marché par valeur"
+            )
+            
+            fig.update_layout(
+                height=500,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='white', family='Inter'),
+                title=dict(
+                    font=dict(size=18, color='white'),
+                    x=0.5
+                )
+            )
+            
+            return fig
+        except Exception as e:
+            print(f"Erreur treemap: {e}")
+            return go.Figure()
+    
+    def get_price_correlation_heatmap(self):
+        """Heatmap de corrélation prix/caractéristiques"""
+        try:
+            data = []
+            for model in [CoinAfrique, ExpatDakarProperty, LogerDakarProperty]:
+                records = db.session.query(
+                    model.price, model.surface_area, model.bedrooms, model.bathrooms
+                ).filter(
+                    model.price > 0, model.surface_area > 0
+                ).limit(1000).all()
+                
+                for price, surface, beds, baths in records:
+                    data.append({
+                        'price': price,
+                        'surface': surface or 0,
+                        'bedrooms': beds or 0,
+                        'bathrooms': baths or 0
+                    })
+            
+            df = pd.DataFrame(data)
+            if df.empty:
+                return go.Figure()
+            
+            # Calculer les corrélations
+            corr = df.corr()
+            
+            fig = px.imshow(
+                corr, 
+                text_auto=True, 
+                aspect="auto",
+                color_continuous_scale='RdBu_r',
+                title="Corrélation entre les caractéristiques"
+            )
+            
+            fig.update_layout(
+                height=400,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='white', family='Inter'),
+                title=dict(font=dict(size=18, color='white'), x=0.5)
+            )
+            
+            return fig
+        except Exception as e:
+            print(f"Erreur heatmap: {e}")
+            return go.Figure()
+    
+    def get_3d_price_surface(self):
+        """Graphique 3D prix × surface × source"""
+        try:
+            data = []
+            for model, source in [(CoinAfrique, 'CoinAfrique'), 
+                                 (ExpatDakarProperty, 'ExpatDakar'), 
+                                 (LogerDakarProperty, 'LogerDakar')]:
+                records = db.session.query(model.price, model.surface_area).filter(
+                    model.price > 0, model.surface_area > 0
+                ).limit(500).all()
+                
+                for price, surface in records:
+                    data.append({
+                        'price': price,
+                        'surface': surface,
+                        'source': source
+                    })
+            
+            df = pd.DataFrame(data)
+            if df.empty:
+                return go.Figure()
+            
+            fig = px.scatter_3d(
+                df, 
+                x='surface', 
+                y='price', 
+                z='source',
+                color='price',
+                size='surface',
+                hover_data=['source'],
+                title="Prix en fonction de la surface (3D)",
+                color_continuous_scale='Plasma'
+            )
+            
+            fig.update_layout(
+                height=600,
+                paper_bgcolor='rgba(0,0,0,0)',
+                scene=dict(
+                    bgcolor='rgba(0,0,0,0)',
+                    xaxis=dict(title='Surface (m²)', color='white'),
+                    yaxis=dict(title='Prix (FCFA)', color='white'),
+                    zaxis=dict(title='Source', color='white')
+                ),
+                font=dict(color='white', family='Inter'),
+                title=dict(font=dict(size=18, color='white'), x=0.5)
+            )
+            
+            return fig
+        except Exception as e:
+            print(f"Erreur 3D plot: {e}")
+            return go.Figure()
+    
+    def get_price_violin_plot(self):
+        """Violin plot de la distribution des prix"""
+        try:
+            data = []
+            for model, source in [(CoinAfrique, 'CoinAfrique'), 
+                                 (ExpatDakarProperty, 'ExpatDakar'), 
+                                 (LogerDakarProperty, 'LogerDakar')]:
+                prices = db.session.query(model.price).filter(model.price > 0).limit(1000).all()
+                data.extend([{
+                    'price': p[0],
+                    'source': source
+                } for p in prices])
+            
+            df = pd.DataFrame(data)
+            if df.empty:
+                return go.Figure()
+            
+            fig = px.violin(
+                df, 
+                y='price', 
+                x='source', 
+                box=True,
                 color='source',
-                nbins=50,
-                title='Distribution des prix par plateforme',
-                labels={'price': 'Prix (FCFA)', 'count': 'Nombre de propriétés'},
+                title="Distribution des prix par source",
                 color_discrete_map={
                     'CoinAfrique': '#667eea',
                     'ExpatDakar': '#764ba2',
@@ -204,386 +353,244 @@ class ModernMainDashboard:
                 }
             )
             
-            # Modern styling
             fig.update_layout(
-                height=400,
-                showlegend=True,
-                plot_bgcolor='rgba(0,0,0,0)',
+                height=450,
                 paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='white', family='Inter'),
-                title=dict(
-                    font=dict(size=18, color='white'),
-                    x=0.5,
-                    xanchor='center'
-                ),
+                title=dict(font=dict(size=18, color='white'), x=0.5),
                 xaxis=dict(
                     gridcolor='rgba(255,255,255,0.1)',
-                    tickcolor='rgba(255,255,255,0.3)',
-                    title_font=dict(color='white')
+                    tickcolor='rgba(255,255,255,0.3)'
                 ),
                 yaxis=dict(
                     gridcolor='rgba(255,255,255,0.1)',
-                    tickcolor='rgba(255,255,255,0.3)',
-                    title_font=dict(color='white')
-                ),
-                legend=dict(
-                    bgcolor='rgba(255,255,255,0.1)',
-                    bordercolor='rgba(255,255,255,0.2)',
-                    borderwidth=1
+                    tickcolor='rgba(255,255,255,0.3)'
                 )
             )
             
             return fig
-        
         except Exception as e:
-            print(f"Erreur lors de la création du graphique de distribution: {e}")
-            return go.Figure()
-    
-    def get_property_type_chart(self):
-        """Créer le graphique des types de propriétés moderne"""
-        try:
-            type_counts = {}
-            
-            # Compter les types pour chaque source
-            for model, source_name in [
-                (CoinAfrique, 'CoinAfrique'),
-                (ExpatDakarProperty, 'ExpatDakar'),
-                (LogerDakarProperty, 'LogerDakar')
-            ]:
-                types = db.session.query(model.property_type, db.func.count(model.id)).group_by(model.property_type).all()
-                for prop_type, count in types:
-                    if prop_type not in type_counts:
-                        type_counts[prop_type] = {}
-                    type_counts[prop_type][source_name] = count
-            
-            if not type_counts:
-                return go.Figure()
-            
-            # Préparer les données pour le graphique
-            property_types = list(type_counts.keys())
-            sources = ['CoinAfrique', 'ExpatDakar', 'LogerDakar']
-            
-            data = []
-            colors = ['#667eea', '#764ba2', '#ffd700']
-            
-            for i, source in enumerate(sources):
-                counts = [type_counts.get(pt, {}).get(source, 0) for pt in property_types]
-                data.append(go.Bar(
-                    name=source,
-                    x=property_types,
-                    y=counts,
-                    marker_color=colors[i],
-                    marker_line=dict(width=0),
-                    hovertemplate='<b>%{x}</b><br>%{y} propriétés<extra></extra>'
-                ))
-            
-            fig = go.Figure(data=data)
-            fig.update_layout(
-                title=dict(
-                    text='Types de propriétés par plateforme',
-                    font=dict(size=18, color='white'),
-                    x=0.5,
-                    xanchor='center'
-                ),
-                xaxis_title='Type de propriété',
-                yaxis_title='Nombre de propriétés',
-                barmode='group',
-                height=400,
-                plot_bgcolor='rgba(0,0,0,0)',
-                paper_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='white', family='Inter'),
-                xaxis=dict(
-                    gridcolor='rgba(255,255,255,0.1)',
-                    tickcolor='rgba(255,255,255,0.3)',
-                    title_font=dict(color='white')
-                ),
-                yaxis=dict(
-                    gridcolor='rgba(255,255,255,0.1)',
-                    tickcolor='rgba(255,255,255,0.3)',
-                    title_font=dict(color='white')
-                ),
-                legend=dict(
-                    bgcolor='rgba(255,255,255,0.1)',
-                    bordercolor='rgba(255,255,255,0.2)',
-                    borderwidth=1
-                )
-            )
-            
-            return fig
-        
-        except Exception as e:
-            print(f"Erreur lors de la création du graphique des types: {e}")
+            print(f"Erreur violin plot: {e}")
             return go.Figure()
     
     def setup_layout(self):
-        """Configurer la mise en page moderne du dashboard"""
-        kpi_data = self.get_kpi_data()
+        """Layout premium avec animations"""
+        kpi_data = self.get_advanced_kpi_data()
         
         self.app.layout = html.Div([
             # Animated background
             html.Div(className='animated-bg'),
             
-            # Navigation header
+            # Loading overlay
+            html.Div([
+                html.Div(className='spinner-glow'),
+                html.P('Chargement des données...', className='loading-text')
+            ], id='loading-overlay', className='loading-overlay'),
+            
+            # Navigation
             html.Nav([
                 html.Div([
                     html.Div([
                         html.A([
-                            html.I(className="fas fa-home", style={"marginRight": "0.5rem"}),
-                            "ImmoAnalytics"
-                        ], href="/", className="nav-brand"),
-                        
+                            html.I(className='fas fa-home'),
+                            html.Span('ImmoAnalytics Premium')
+                        ], href='/', className='nav-brand'),
+                        html.Button([
+                            html.Span(className='hamburger')
+                        ], className='nav-toggle', **{'aria-label': 'Menu mobile'})
+                    ], className='nav-wrapper'),
+                    html.Div([
                         html.Ul([
-                            html.Li(html.A("Dashboard", href="/dashboard", className="nav-link active")),
-                            html.Li(html.A("Analyse", href="/analytics", className="nav-link")),
-                            html.Li(html.A("Carte", href="/map", className="nav-link")),
-                            html.Li(html.A("Admin", href="/admin", className="nav-link"))
-                        ], className="nav-links")
-                    ], style={
-                        "display": "flex",
-                        "justifyContent": "space-between",
-                        "alignItems": "center",
-                        "width": "100%"
-                    })
-                ], className="container")
-            ], className="glass-nav"),
-            
-            # Notification container
-            html.Div(id="notification-container"),
+                            html.Li(html.A('Dashboard', href='/dashboard', className='nav-link active')),
+                            html.Li(html.A('Analyse', href='/analytics', className='nav-link')),
+                            html.Li(html.A('Carte', href='/map', className='nav-link')),
+                            html.Li(html.A('Admin', href='/admin', className='nav-link'))
+                        ], className='nav-links'),
+                        html.Div(id='nav-actions')
+                    ], className='nav-collapse', id='navbarNav')
+                ], className='container-fluid')
+            ], className='glass-nav'),
             
             # Main content
-            html.Div([
+            html.Main([
                 html.Div([
-                    # Header section
-                    html.Div([
-                        html.H1("Tableau de Bord Immobilier", style={
-                            "fontSize": "2.5rem",
-                            "fontWeight": "700",
-                            "marginBottom": "0.5rem",
-                            "background": "linear-gradient(45deg, #ffd700, #ffed4e)",
-                            "WebkitBackgroundClip": "text",
-                            "WebkitTextFillColor": "transparent",
-                            "backgroundClip": "text"
-                        }),
+                    # Hero section
+                    html.Section([
                         html.Div([
-                            html.Span("Live", className="badge bg-success"),
-                            html.Button([
-                                html.I(className="fas fa-sync-alt"),
-                                " Actualiser"
-                            ], id="refresh-btn", className="glass-button", style={"marginLeft": "1rem"})
-                        ], style={"display": "flex", "alignItems": "center", "gap": "1rem"})
-                    ], style={
-                        "display": "flex",
-                        "justifyContent": "space-between",
-                        "alignItems": "center",
-                        "marginBottom": "3rem",
-                        "paddingTop": "2rem"
-                    }),
-                    
-                    # KPI Cards Section
-                    html.Div([
-                        self.create_modern_kpi_card(
-                            "Total Propriétés", 
-                            f"{kpi_data.get('total_properties', 0):,}",
-                            "fa-home",
-                            "#ffd700",
-                            f"+{kpi_data.get('recent_total', 0)} cette semaine",
-                            "Propriétés répertoriées"
-                        ),
-                        self.create_modern_kpi_card(
-                            "Prix Moyen",
-                            f"{kpi_data.get('avg_price', 0):,.0f} FCFA",
-                            "fa-chart-line",
-                            "#667eea",
-                            "Prix moyen du marché",
-                            "Basé sur toutes les sources"
-                        ),
-                        self.create_modern_kpi_card(
-                            "Prix Médian",
-                            f"{kpi_data.get('median_price', 0):,.0f} FCFA",
-                            "fa-balance-scale",
-                            "#764ba2",
-                            "Médiane du marché",
-                            "Valeur centrale"
-                        ),
-                        self.create_modern_kpi_card(
-                            "Nouveautés (7j)",
-                            f"{kpi_data.get('recent_total', 0)}",
-                            "fa-calendar-plus",
-                            "#28a745",
-                            "Cette semaine",
-                            "Propriétés récentes"
-                        )
-                    ], className="kpi-grid"),
-                    
-                    # Charts Section
-                    html.Div([
-                        html.Div([
+                            html.H1('Analytics du Marché Immobilier', className='hero-title'),
+                            html.P('Données en temps réel du marché sénégalais', className='hero-subtitle'),
                             html.Div([
-                                html.H3("Distribution des Prix", style={
-                                    "fontSize": "1.4rem",
-                                    "fontWeight": "600",
-                                    "color": "white",
-                                    "marginBottom": "1rem"
-                                }),
-                                dcc.Graph(
-                                    id="price-distribution-chart",
-                                    figure=self.get_price_distribution_chart(),
-                                    config={
-                                        'displayModeBar': False,
-                                        'responsive': True
-                                    },
-                                    style={"height": "400px"}
-                                )
-                            ], className="chart-container")
-                        ], className="col-lg-6 mb-4"),
-                        
-                        html.Div([
-                            html.Div([
-                                html.H3("Types de Propriétés", style={
-                                    "fontSize": "1.4rem",
-                                    "fontWeight": "600",
-                                    "color": "white",
-                                    "marginBottom": "1rem"
-                                }),
-                                dcc.Graph(
-                                    id="property-type-chart",
-                                    figure=self.get_property_type_chart(),
-                                    config={
-                                        'displayModeBar': False,
-                                        'responsive': True
-                                    },
-                                    style={"height": "400px"}
-                                )
-                            ], className="chart-container")
-                        ], className="col-lg-6 mb-4")
-                    ], className="row"),
+                                html.Span('Live Data', className='glass-badge'),
+                                html.Button([
+                                    html.I(className='fas fa-sync-alt'),
+                                    ' Actualiser'
+                                ], id='refresh-btn', className='glass-button')
+                            ], className='hero-actions')
+                        ], className='hero-content')
+                    ], className='hero-section'),
                     
-                    # Table Section
-                    html.Div([
+                    # KPIs premium
+                    html.Section([
                         html.Div([
+                            self.create_premium_kpi_card(
+                                'Score Marché', 
+                                f"{kpi_data.get('market_score', 0):.0f}/100",
+                                'fa-chart-pie',
+                                '#ffd700',
+                                kpi_data.get('growth_rate', 0),
+                                'Performance globale'
+                            ),
+                            self.create_premium_kpi_card(
+                                'Volatilité Prix',
+                                f"{kpi_data.get('price_volatility', 0):.1f}%",
+                                'fa-wave-square',
+                                '#ff6b6b',
+                                -kpi_data.get('price_volatility', 0),
+                                'Indicateur risque'
+                            ),
+                            self.create_premium_kpi_card(
+                                'Qualité Données',
+                                f"{kpi_data.get('data_quality', 0):.0f}%",
+                                'fa-shield-alt',
+                                '#4ecdc4',
+                                kpi_data.get('data_quality', 0),
+                                'Taux de complétion'
+                            ),
+                            self.create_premium_kpi_card(
+                                'Sentiment',
+                                f"{kpi_data.get('sentiment_score', 0):+.0f}",
+                                'fa-smile',
+                                '#95e77e',
+                                kpi_data.get('sentiment_score', 0),
+                                'Analyse descriptions'
+                            )
+                        ], className='kpi-grid')
+                    ], className='container'),
+                    
+                    # Advanced charts grid
+                    html.Section([
+                        html.Div([
+                            # Treemap
                             html.Div([
-                                html.H3("Vue d'ensemble par source", style={
-                                    "fontSize": "1.6rem",
-                                    "fontWeight": "700",
-                                    "color": "white",
-                                    "marginBottom": "2rem",
-                                    "textAlign": "center"
-                                }),
                                 html.Div([
-                                    html.Div([
-                                        html.H4("CoinAfrique", style={
-                                            "color": "#667eea",
-                                            "fontSize": "1.2rem",
-                                            "marginBottom": "0.5rem"
-                                        }),
-                                        html.P(f"{kpi_data.get('coinafrique_count', 0):,} propriétés", style={"fontSize": "2rem", "fontWeight": "700", "color": "#667eea", "marginBottom": "0.5rem"}),
-                                        html.P(f"Prix moyen: {kpi_data.get('coinafrique_avg', 0):,.0f} FCFA", style={"color": "rgba(255,255,255,0.8)"}),
-                                        html.P(f"Nouveau: {kpi_data.get('recent_coinafrique', 0)}", style={"color": "rgba(255,255,255,0.6)", "fontSize": "0.9rem"})
-                                    ], style={
-                                        "background": "rgba(102, 126, 234, 0.1)",
-                                        "border": "1px solid rgba(102, 126, 234, 0.3)",
-                                        "borderRadius": "12px",
-                                        "padding": "1.5rem",
-                                        "textAlign": "center"
-                                    }),
-                                    
-                                    html.Div([
-                                        html.H4("ExpatDakar", style={
-                                            "color": "#764ba2",
-                                            "fontSize": "1.2rem",
-                                            "marginBottom": "0.5rem"
-                                        }),
-                                        html.P(f"{kpi_data.get('expat_count', 0):,} propriétés", style={"fontSize": "2rem", "fontWeight": "700", "color": "#764ba2", "marginBottom": "0.5rem"}),
-                                        html.P(f"Prix moyen: {kpi_data.get('expat_avg', 0):,.0f} FCFA", style={"color": "rgba(255,255,255,0.8)"}),
-                                        html.P(f"Nouveau: {kpi_data.get('recent_expat', 0)}", style={"color": "rgba(255,255,255,0.6)", "fontSize": "0.9rem"})
-                                    ], style={
-                                        "background": "rgba(118, 75, 162, 0.1)",
-                                        "border": "1px solid rgba(118, 75, 162, 0.3)",
-                                        "borderRadius": "12px",
-                                        "padding": "1.5rem",
-                                        "textAlign": "center"
-                                    }),
-                                    
-                                    html.Div([
-                                        html.H4("LogerDakar", style={
-                                            "color": "#ffd700",
-                                            "fontSize": "1.2rem",
-                                            "marginBottom": "0.5rem"
-                                        }),
-                                        html.P(f"{kpi_data.get('loger_count', 0):,} propriétés", style={"fontSize": "2rem", "fontWeight": "700", "color": "#ffd700", "marginBottom": "0.5rem"}),
-                                        html.P(f"Prix moyen: {kpi_data.get('loger_avg', 0):,.0f} FCFA", style={"color": "rgba(255,255,255,0.8)"}),
-                                        html.P(f"Nouveau: {kpi_data.get('recent_loger', 0)}", style={"color": "rgba(255,255,255,0.6)", "fontSize": "0.9rem"})
-                                    ], style={
-                                        "background": "rgba(255, 215, 0, 0.1)",
-                                        "border": "1px solid rgba(255, 215, 0, 0.3)",
-                                        "borderRadius": "12px",
-                                        "padding": "1.5rem",
-                                        "textAlign": "center"
-                                    })
-                                ], style={
-                                    "display": "grid",
-                                    "gridTemplateColumns": "repeat(auto-fit, minmax(250px, 1fr))",
-                                    "gap": "1.5rem",
-                                    "marginTop": "2rem"
-                                })
-                            ], className="glass-card", style={"padding": "2rem"})
-                        ], className="col-12")
-                    ], className="row mb-5")
-                ], className="container")
-            ], style={"minHeight": "100vh", "paddingBottom": "4rem"})
-        ], style={
-            "background": "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)",
-            "minHeight": "100vh",
-            "color": "white",
-            "fontFamily": "Inter, sans-serif"
+                                    html.H3('Répartition du Marché', className='chart-title'),
+                                    dcc.Graph(
+                                        id='market-treemap',
+                                        figure=self.get_market_treemap(),
+                                        config={'displayModeBar': False},
+                                        className='chart-figure'
+                                    )
+                                ], className='chart-container')
+                            ], className='col-12 col-lg-8'),
+                            
+                            # 3D Surface
+                            html.Div([
+                                html.Div([
+                                    html.H3('Analyse 3D Prix×Surface', className='chart-title'),
+                                    dcc.Graph(
+                                        id='price-3d',
+                                        figure=self.get_3d_price_surface(),
+                                        config={'displayModeBar': True},
+                                        className='chart-figure'
+                                    )
+                                ], className='chart-container')
+                            ], className='col-12 col-lg-4')
+                        ], className='row mb-5'),
+                        
+                        # Violin + Heatmap
+                        html.Div([
+                            html.Div([
+                                html.Div([
+                                    html.H3('Distribution des Prix', className='chart-title'),
+                                    dcc.Graph(
+                                        id='price-violin',
+                                        figure=self.get_price_violin_plot(),
+                                        config={'displayModeBar': False},
+                                        className='chart-figure'
+                                    )
+                                ], className='chart-container')
+                            ], className='col-12 col-lg-6'),
+                            
+                            html.Div([
+                                html.Div([
+                                    html.H3('Corrélation des Données', className='chart-title'),
+                                    dcc.Graph(
+                                        id='correlation-heatmap',
+                                        figure=self.get_price_correlation_heatmap(),
+                                        config={'displayModeBar': False},
+                                        className='chart-figure'
+                                    )
+                                ], className='chart-container')
+                            ], className='col-12 col-lg-6')
+                        ], className='row mb-5')
+                    ], className='container')
+                ], className='main-wrapper')
+            ], className='has-sidebar'),
+            
+            # Footer
+            html.Footer([
+                html.Div([
+                    html.Div([
+                        html.Div([
+                            html.H5('ImmoAnalytics Premium'),
+                            html.P('Plateforme d\'analytics immobilière leader au Sénégal')
+                        ], className='footer-brand'),
+                        html.Div([
+                            html.A('À propos', href='#'),
+                            html.A('Documentation', href='#'),
+                            html.A('API', href='#'),
+                            html.A('Support', href='#')
+                        ], className='footer-links'),
+                        html.Div([
+                            html.P('© 2024 ImmoAnalytics. Tous droits réservés.'),
+                            html.P('Propulsé par AI & Big Data')
+                        ], className='footer-legal')
+                    ], className='footer-content')
+                ], className='container')
+            ], className='glass-footer'),
+            
+            # GSAP & Scripts
+            html.Script(src='https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js'),
+            html.Script(src='https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js'),
+            html.Script(src='/static/js/dashboard-animations.js')
+            
+        ], className='dashboard-root', 
+        style={
+            'background': 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)',
+            'minHeight': '100vh',
+            'color': 'white'
         })
     
     def setup_callbacks(self):
-        """Configurer les callbacks avec animations"""
+        """Callbacks avec animations"""
         @callback(
-            Output("notification-container", "children"),
-            Input("refresh-btn", "n_clicks"),
+            Output('loading-overlay', 'className'),
+            Input('refresh-btn', 'n_clicks'),
             prevent_initial_call=True
         )
-        def refresh_data(n_clicks):
+        def show_loading(n_clicks):
             if n_clicks:
-                # Actualiser les données
-                return html.Div([
-                    html.Div([
-                        html.I(className="fas fa-check-circle", style={"color": "#28a745", "marginRight": "0.5rem"}),
-                        "Données actualisées avec succès !"
-                    ], className="notification-content")
-                ], className="notification notification-success show")
-            return ""
+                return 'loading-overlay show'
+            return 'loading-overlay'
         
-        # Hover animations for KPI cards
         @callback(
-            Output({"type": "kpi-card", "index": "all"}, "style"),
-            Input({"type": "kpi-card", "index": "all"}, "n_clicks")
+            Output('market-treemap', 'figure'),
+            Output('price-violin', 'figure'),
+            Output('loading-overlay', 'className'),
+            Input('refresh-btn', 'n_clicks'),
+            prevent_initial_call=True
         )
-        def animate_kpi_card_hover(n_clicks):
+        def refresh_dashboard(n_clicks):
             if n_clicks:
-                return {
-                    "background": "rgba(255, 255, 255, 0.15)",
-                    "transform": "translateY(-5px) scale(1.02)",
-                    "boxShadow": "0 15px 35px rgba(0, 0, 0, 0.3)"
-                }
-            return {
-                "background": "rgba(255, 255, 255, 0.1)",
-                "transform": "translateY(0) scale(1)",
-                "boxShadow": "0 8px 32px 0 rgba(31, 38, 135, 0.37)"
-            }
+                return self.get_market_treemap(), self.get_price_violin_plot(), 'loading-overlay'
+            raise dash.exceptions.PreventUpdate
 
-# Create and export the dashboard
+# Factory function
 def create_modern_dashboard(server=None, routes_pathname_prefix="/", requests_pathname_prefix="/"):
-    """Factory function to create the modern dashboard"""
     dashboard = ModernMainDashboard(
         server=server,
         routes_pathname_prefix=routes_pathname_prefix,
         requests_pathname_prefix=requests_pathname_prefix
     )
     return dashboard.app
-
-if __name__ == "__main__":
-    dashboard = ModernMainDashboard()
-    dashboard.app.run_server(debug=True, port=8050)
