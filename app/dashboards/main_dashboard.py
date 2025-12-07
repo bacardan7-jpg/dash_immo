@@ -13,10 +13,23 @@ from ..auth.decorators import analyst_required
 class MainDashboard:
     """Dashboard principal avec KPIs et aperçu des données"""
     
-    def __init__(self):
-        self.app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
-        self.setup_layout()
-        self.setup_callbacks()
+    def __init__(self, server=None, routes_pathname_prefix="/", requests_pathname_prefix="/"):
+        self.app = dash.Dash(
+            __name__,
+            server=server,
+            external_stylesheets=[dbc.themes.BOOTSTRAP],
+            routes_pathname_prefix=routes_pathname_prefix,
+            requests_pathname_prefix=requests_pathname_prefix
+        )
+
+        # Build layout inside Flask application context when server is provided
+        if server:
+            with server.app_context():
+                self.setup_layout()
+                self.setup_callbacks()
+        else:
+            # Defer layout setup if no server is passed
+            self._layout_setup_deferred = True
     
     def get_kpi_data(self):
         """Récupérer les données KPI"""

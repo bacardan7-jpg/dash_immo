@@ -22,8 +22,16 @@ class ModernMainDashboard:
             routes_pathname_prefix=routes_pathname_prefix,
             requests_pathname_prefix=requests_pathname_prefix
         )
-        self.setup_layout()
-        self.setup_callbacks()
+
+        # If a Flask server is provided, build the layout inside its application context
+        # to allow DB access (db.session / models) during layout construction.
+        if server:
+            with server.app_context():
+                self.setup_layout()
+                self.setup_callbacks()
+        else:
+            # Defer layout setup if no server is passed (e.g. standalone usage)
+            self._layout_setup_deferred = True
     
     def get_kpi_data(self):
         """Récupérer les données KPI"""
