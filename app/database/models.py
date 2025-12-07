@@ -99,7 +99,10 @@ class ProprietesConsolidees(db.Model):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Métadonnées & Scoring
-    metadata = Column(JSONB, default=dict)
+    # NOTE: 'metadata' is a reserved attribute name in SQLAlchemy's Declarative API,
+    # so use a different column attribute name and expose it as 'metadata' in the
+    # `to_dict` output to preserve external contract.
+    metadata_json = Column(JSONB, default=dict)
     quality_score = Column(Float, default=0.0, index=True)
     completeness_score = Column(Float, default=0.0)
     duplication_score = Column(Float, default=0.0)
@@ -172,7 +175,7 @@ class ProprietesConsolidees(db.Model):
         
         if include_metadata:
             data.update({
-                'metadata': self.metadata,
+                'metadata': self.metadata_json,
                 'image_urls': self.image_urls,
                 'contact_phone': self.contact_phone,
                 'author_name': self.author_name,
