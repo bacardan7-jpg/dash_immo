@@ -38,33 +38,27 @@ class User(UserMixin, db.Model):
         return self.role in ['admin', 'analyst']
 
 class CoinAfrique(db.Model):
-    """Modèle pour les propriétés CoinAfrique"""
+    """Modèle pour les propriétés CoinAfrique (créées par Airflow)"""
     __tablename__ = 'coinafriqure'
     
     id = Column(Integer, primary_key=True)
     title = Column(String(500), nullable=False, index=True)
     price = Column(Float, nullable=False, index=True)
-    price_unit = Column(String(50), default='FCFA')
+    price_unit = Column(String(50), nullable=True)
     city = Column(String(100), nullable=False, index=True)
-    country = Column(String(100), default='Sénégal')
-    bedrooms = Column(Integer, nullable=True, index=True)
-    bathrooms = Column(Integer, nullable=True, index=True)
-    surface_area = Column(Float, nullable=True, index=True)
-    surface_unit = Column(String(20), default='m²')
+    country = Column(String(100), nullable=True)
+    bedrooms = Column(Integer, nullable=True)
+    bathrooms = Column(Integer, nullable=True)
+    surface_area = Column(Float, nullable=True)
+    surface_unit = Column(String(20), nullable=True)
     property_type = Column(String(100), nullable=False, index=True)
     description = Column(Text, nullable=True)
     contact_info = Column(String(200), nullable=True)
-    images = Column(Text, nullable=True)  # JSON string for multiple images
-    url = Column(String(500), nullable=True, index=True)  # Ajout pour Airflow
-    adresse = Column(String(500), nullable=True)  # Ajout pour Airflow
-    statut = Column(String(50), nullable=True)  # Ajout pour Airflow
-    latitude = Column(Float, nullable=True)  # Ajout pour Airflow
-    longitude = Column(Float, nullable=True)  # Ajout pour Airflow
-    posted_time = Column(DateTime, nullable=True)  # Ajout pour Airflow
+    images = Column(Text, nullable=True)
     listing_url = Column(String(500), nullable=True)
-    scraped_at = Column(DateTime, default=datetime.utcnow, index=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    source = Column(String(50), default='coinafrique')
+    scraped_at = Column(DateTime, nullable=True, index=True)
+    updated_at = Column(DateTime, nullable=True)
+    source = Column(String(50), nullable=True)
     
     # Index pour améliorer les performances
     __table_args__ = (
@@ -96,32 +90,28 @@ class CoinAfrique(db.Model):
         }
 
 class ExpatDakarProperty(db.Model):
-    """Modèle pour les propriétés ExpatDakar"""
+    """Modèle pour les propriétés ExpatDakar (créées par Airflow)"""
     __tablename__ = 'expat_dakar_properties'
     
     id = Column(Integer, primary_key=True)
     title = Column(String(500), nullable=False, index=True)
     price = Column(Float, nullable=False, index=True)
-    price_unit = Column(String(50), default='FCFA')
+    price_unit = Column(String(50), nullable=True)
     city = Column(String(100), nullable=False, index=True)
-    country = Column(String(100), default='Sénégal')
-    region = Column(String(100), nullable=True, index=True)
-    bedrooms = Column(Integer, nullable=True, index=True)
-    bathrooms = Column(Integer, nullable=True, index=True)
-    surface_area = Column(Float, nullable=True, index=True)
-    surface_unit = Column(String(20), default='m²')
+    country = Column(String(100), nullable=True)
+    region = Column(String(100), nullable=True)
+    bedrooms = Column(Integer, nullable=True)
+    bathrooms = Column(Integer, nullable=True)
+    surface_area = Column(Float, nullable=True)
+    surface_unit = Column(String(20), nullable=True)
     property_type = Column(String(100), nullable=False, index=True)
     description = Column(Text, nullable=True)
     contact_info = Column(String(200), nullable=True)
-    images = Column(Text, nullable=True)  # JSON string for multiple images
-    url = Column(String(500), nullable=True, index=True)  # Ajout pour Airflow
-    adresse = Column(String(500), nullable=True)  # Ajout pour Airflow
-    statut = Column(String(50), nullable=True)  # Ajout pour Airflow
-    posted_time = Column(DateTime, nullable=True)  # Ajout pour Airflow
+    images = Column(Text, nullable=True)
     listing_url = Column(String(500), nullable=True)
-    scraped_at = Column(DateTime, default=datetime.utcnow, index=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    source = Column(String(50), default='expat_dakar')
+    scraped_at = Column(DateTime, nullable=True, index=True)
+    updated_at = Column(DateTime, nullable=True)
+    source = Column(String(50), nullable=True)
     
     # Index pour améliorer les performances
     __table_args__ = (
@@ -154,32 +144,28 @@ class ExpatDakarProperty(db.Model):
         }
 
 class LogerDakarProperty(db.Model):
-    """Modèle pour les propriétés Loger Dakar"""
+    """Modèle pour les propriétés Loger Dakar (créées par Airflow)"""
     __tablename__ = 'loger_dakar_properties'
     
     id = Column(Integer, primary_key=True)
     title = Column(String(500), nullable=False, index=True)
     price = Column(Float, nullable=False, index=True)
-    price_unit = Column(String(50), default='FCFA')
+    price_unit = Column(String(50), nullable=True)
     city = Column(String(100), nullable=False, index=True)
-    country = Column(String(100), default='Sénégal')
-    district = Column(String(100), nullable=True, index=True)
-    bedrooms = Column(Integer, nullable=True, index=True)
-    bathrooms = Column(Integer, nullable=True, index=True)
-    surface_area = Column(Float, nullable=True, index=True)
-    surface_unit = Column(String(20), default='m²')
+    country = Column(String(100), nullable=True)
+    district = Column(String(100), nullable=True)
+    bedrooms = Column(Integer, nullable=True)
+    bathrooms = Column(Integer, nullable=True)
+    surface_area = Column(Float, nullable=True)
+    surface_unit = Column(String(20), nullable=True)
     property_type = Column(String(100), nullable=False, index=True)
     description = Column(Text, nullable=True)
     contact_info = Column(String(200), nullable=True)
-    images = Column(Text, nullable=True)  # JSON string for multiple images
-    url = Column(String(500), nullable=True, index=True)  # Ajout pour Airflow
-    adresse = Column(String(500), nullable=True)  # Ajout pour Airflow
-    statut = Column(String(50), nullable=True)  # Ajout pour Airflow
-    posted_time = Column(DateTime, nullable=True)  # Ajout pour Airflow
+    images = Column(Text, nullable=True)
     listing_url = Column(String(500), nullable=True)
-    scraped_at = Column(DateTime, default=datetime.utcnow, index=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    source = Column(String(50), default='loger_dakar')
+    scraped_at = Column(DateTime, nullable=True, index=True)
+    updated_at = Column(DateTime, nullable=True)
+    source = Column(String(50), nullable=True)
     
     # Index pour améliorer les performances
     __table_args__ = (
