@@ -18,5 +18,6 @@ plotly==5.17.0
 python-dateutil==2.8.2
 marshmallow==3.20.1
 marshmallow-sqlalchemy==0.29.0
+textblob==0.17.1
 gunicorn==21.2.0
 Werkzeug==2.3.7
