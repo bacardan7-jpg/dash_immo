@@ -13,7 +13,7 @@ import redis
 from datetime import datetime, timedelta
 
 # Importer les composants
-from .database.models import db, User, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
+from .database.models import db, User, CoinAfrique, ExpatDakarProperty, LogerDakarProperty, ProprietesConsolidees, AuditLog, DashboardConfig, MarketIndex
 from .auth.auth import auth_bp, login_manager, hash_password, log_audit_action
 from .auth.decorators import admin_required, analyst_required
 
@@ -281,10 +281,24 @@ def health_check():
 def create_tables():
     """Créer seulement la table users - autres tables sont gérées par Airflow"""
     try:
-        # IMPORTANT: Ne pas toucher aux tables créées par Airflow (coinafriqure, expat_dakar_properties, etc)
-        # Créer seulement la table users pour l'authentification
+        # IMPORTANT: Ne pas toucher aux tables créées par Airflow (coinafrique, expat_dakar_properties, loger_dakar_properties, etc)
+        # Créer seulement les tables que l'application gère directement
 
-        User.__table__.create(db.engine, checkfirst=True)
+        # Order matters for FK dependencies: create users first, then tables that reference it
+        tables_to_create = [
+            (User, 'users'),
+            (DashboardConfig, 'dashboard_configs'),
+            (AuditLog, 'audit_logs'),
+            (ProprietesConsolidees, 'proprietes_consolidees'),
+            (MarketIndex, 'market_indices')
+        ]
+
+        for model, name in tables_to_create:
+            try:
+                model.__table__.create(db.engine, checkfirst=True)
+                print(f"Table '{name}' ensured (created if missing)")
+            except Exception as e:
+                print(f"Erreur création table '{name}': {e}")
         
         # Vérifier si l'utilisateur admin existe déjà
         admin_user = User.query.filter_by(username='admin').first()
