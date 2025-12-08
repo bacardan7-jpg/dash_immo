@@ -7,106 +7,79 @@
     body {
         background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
         min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        position: relative;
-        overflow: hidden;
+        display: block;         /* Permet le scroll */
+        overflow-y: auto;       /* Scroll activé */
+        overflow-x: hidden;
+        padding-top: 3rem;
+        padding-bottom: 3rem;
     }
-    
+
     .register-container {
         width: 100%;
-        max-width: 600px;
+        max-width: 650px;
+        margin: 0 auto;
         padding: 2rem;
         position: relative;
         z-index: 10;
     }
-    
+
     .register-card {
         background: var(--glass-bg);
-        backdrop-filter: var(--glass-backdrop);
         border: 1px solid var(--glass-border);
+        backdrop-filter: var(--glass-backdrop);
         border-radius: 20px;
         padding: 3rem 2.5rem;
         box-shadow: var(--glass-shadow);
         animation: cardFloat 6s ease-in-out infinite;
     }
-    
+
     @keyframes cardFloat {
-        0%, 100% { transform: translateY(0px); }
+        0%, 100% { transform: translateY(0); }
         50% { transform: translateY(-10px); }
     }
-    
+
     .register-header {
         text-align: center;
         margin-bottom: 2.5rem;
     }
-    
+
     .register-logo {
         font-size: 2.5rem;
         font-weight: 800;
-        margin-bottom: 1rem;
         background: linear-gradient(45deg, #ffd700, #ffed4e, #ffd700);
         background-size: 200% 200%;
-        -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        background-clip: text;
+        -webkit-background-clip: text;
         animation: gradientShift 3s ease-in-out infinite;
     }
-    
-    .register-subtitle {
-        color: rgba(255, 255, 255, 0.8);
-        font-size: 1.1rem;
-        font-weight: 500;
+
+    @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 100% 50%; }
     }
-    
+
     .form-group {
         margin-bottom: 1.5rem;
     }
-    
-    .form-label {
-        color: rgba(255, 255, 255, 0.9);
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    
+
     .form-input {
+        width: 100%;
+        padding: 1rem 1.5rem;
         background: var(--glass-bg);
-        backdrop-filter: var(--glass-backdrop);
         border: 1px solid var(--glass-border);
         border-radius: 12px;
         color: white;
-        padding: 1rem 1.5rem;
-        width: 100%;
         font-size: 1rem;
-        transition: all var(--transition-medium);
     }
-    
+
     .form-input::placeholder {
         color: rgba(255, 255, 255, 0.6);
     }
-    
-    .form-input:focus {
-        outline: none;
-        border-color: var(--accent-glass);
-        background: rgba(255, 255, 255, 0.15);
-        box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.1);
-        transform: scale(1.02);
-    }
-    
-    .form-text {
-        color: rgba(255, 255, 255, 0.6);
-        font-size: 0.875rem;
-        margin-top: 0.5rem;
-    }
-    
+
     .input-group {
         position: relative;
     }
-    
+
     .password-toggle {
         position: absolute;
         right: 1rem;
@@ -114,47 +87,19 @@
         transform: translateY(-50%);
         background: none;
         border: none;
-        color: rgba(255, 255, 255, 0.7);
-        cursor: pointer;
-        padding: 0.5rem;
-        border-radius: 6px;
-        transition: all var(--transition-fast);
-    }
-    
-    .password-toggle:hover {
-        background: rgba(255, 255, 255, 0.1);
         color: white;
+        cursor: pointer;
     }
-    
-    .form-check-label a {
-        color: #ffd700;
-        text-decoration: none;
-        transition: all var(--transition-fast);
-    }
-    
-    .form-check-label a:hover {
-        text-decoration: underline;
-        color: #ffed4e;
-    }
-    
+
     .security-notice {
         text-align: center;
         margin-top: 2rem;
         color: rgba(255, 255, 255, 0.7);
-        font-size: 0.9rem;
     }
-    
-    .security-notice i {
-        color: #28a745;
-    }
-    
+
     @media (max-width: 768px) {
-        .register-container {
-            padding: 1rem;
-        }
-        
         .register-card {
-            padding: 2rem 1.5rem;
+            padding: 2rem 1.2rem;
         }
     }
 </style>
@@ -163,312 +108,113 @@
 {% block content %}
 <div class="register-container">
     <div class="register-card">
+
         <div class="register-header">
-            <h1 class="register-logo">
-                <i class="fas fa-home"></i>
-                ImmoAnalytics
-            </h1>
-            <p class="register-subtitle">Création de votre compte</p>
+            <h1 class="register-logo"><i class="fas fa-home"></i> ImmoAnalytics</h1>
+            <p class="register-subtitle">Créer votre compte</p>
         </div>
-        
+
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" 
-                         role="alert" 
-                         style="background: rgba(220, 53, 69, 0.2); border: 1px solid rgba(220, 53, 69, 0.3); color: white; margin-bottom: 1.5rem; border-radius: 8px; padding: 1rem;">
+                    <div class="alert alert-danger alert-dismissible fade show"
+                         style="background: rgba(220,53,69,0.20); border: 1px solid rgba(220,53,69,0.40); color:white;">
                         {{ message }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert" style="filter: invert(1);"></button>
                     </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
-        
+
+        <!-- FORMULAIRE -->
         <form method="POST" action="{{ url_for('auth.register') }}" id="registerForm">
+
             <div class="row">
                 <div class="col-md-6">
-                    <div class="form-group">
-                        <label for="first_name" class="form-label">
-                            <i class="fas fa-user me-1"></i>
-                            Prénom
-                        </label>
-                        <input type="text" 
-                               class="form-input" 
-                               id="first_name" 
-                               name="first_name" 
-                               placeholder="Votre prénom" 
-                               required
-                               aria-label="Prénom"
-                               autocomplete="given-name">
-                    </div>
+                    <label class="form-label">Prénom</label>
+                    <input type="text" class="form-input" name="first_name" required>
                 </div>
-                
+
                 <div class="col-md-6">
-                    <div class="form-group">
-                        <label for="last_name" class="form-label">
-                            <i class="fas fa-user me-1"></i>
-                            Nom
-                        </label>
-                        <input type="text" 
-                               class="form-input" 
-                               id="last_name" 
-                               name="last_name" 
-                               placeholder="Votre nom" 
-                               required
-                               aria-label="Nom"
-                               autocomplete="family-name">
-                    </div>
+                    <label class="form-label">Nom</label>
+                    <input type="text" class="form-input" name="last_name" required>
                 </div>
             </div>
-            
+
             <div class="form-group">
-                <label for="username" class="form-label">
-                    <i class="fas fa-at me-1"></i>
-                    Nom d'utilisateur
-                </label>
-                <input type="text" 
-                       class="form-input" 
-                       id="username" 
-                       name="username" 
-                       placeholder="Choisissez un nom d'utilisateur" 
-                       required
-                       aria-label="Nom d'utilisateur"
-                       autocomplete="username">
-                <div class="form-text">
-                    Le nom d'utilisateur doit contenir entre 3 et 20 caractères.
-                </div>
+                <label class="form-label">Nom d'utilisateur</label>
+                <input type="text" class="form-input" name="username" required>
             </div>
-            
+
             <div class="form-group">
-                <label for="email" class="form-label">
-                    <i class="fas fa-envelope me-1"></i>
-                    Adresse email
-                </label>
-                <input type="email" 
-                       class="form-input" 
-                       id="email" 
-                       name="email" 
-                       placeholder="votre@email.com" 
-                       required
-                       aria-label="Adresse email"
-                       autocomplete="email">
+                <label class="form-label">Adresse email</label>
+                <input type="email" class="form-input" name="email" placeholder="exemple@gmail.com" required>
             </div>
-            
+
             <div class="form-group">
-                <label for="password" class="form-label">
-                    <i class="fas fa-lock me-1"></i>
-                    Mot de passe
-                </label>
+                <label class="form-label">Mot de passe</label>
                 <div class="input-group">
-                    <input type="password" 
-                           class="form-input" 
-                           id="password" 
-                           name="password" 
-                           placeholder="Créez un mot de passe fort" 
-                           required
-                           aria-label="Mot de passe"
-                           autocomplete="new-password">
-                    <button type="button" class="password-toggle" id="togglePassword" aria-label="Afficher/Masquer le mot de passe">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                </div>
-                <div class="form-text">
-                    Le mot de passe doit contenir au moins 8 caractères, dont une majuscule, un chiffre et un caractère spécial.
-                </div>
-                <div id="passwordStrength" class="password-strength mt-2"></div>
-            </div>
-            
-            <div class="form-group">
-                <label for="confirm_password" class="form-label">
-                    <i class="fas fa-lock me-1"></i>
-                    Confirmer le mot de passe
-                </label>
-                <div class="input-group">
-                    <input type="password" 
-                           class="form-input" 
-                           id="confirm_password" 
-                           name="confirm_password" 
-                           placeholder="Confirmez votre mot de passe" 
-                           required
-                           aria-label="Confirmer le mot de passe"
-                           autocomplete="new-password">
-                    <button type="button" class="password-toggle" id="toggleConfirmPassword" aria-label="Afficher/Masquer la confirmation">
+                    <input type="password" class="form-input" id="password" name="password" required>
+                    <button type="button" class="password-toggle" id="togglePassword">
                         <i class="fas fa-eye"></i>
                     </button>
                 </div>
             </div>
-            
-            <div class="form-group mb-4">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="terms" name="terms" required>
-                    <label class="form-check-label" for="terms">
-                        J'accepte les <a href="#" target="_blank">conditions d'utilisation</a> 
-                        et la <a href="#" target="_blank">politique de confidentialité</a>
-                    </label>
+
+            <div class="form-group">
+                <label class="form-label">Confirmer mot de passe</label>
+                <div class="input-group">
+                    <input type="password" class="form-input" id="confirm_password" name="confirm_password" required>
+                    <button type="button" class="password-toggle" id="toggleConfirmPassword">
+                        <i class="fas fa-eye"></i>
+                    </button>
                 </div>
             </div>
-            
-            <div class="form-group">
-                <button type="submit" class="glass-button btn-primary btn-lg">
-                    <i class="fas fa-user-plus me-2"></i>
-                    Créer mon compte
-                </button>
-            </div>
+
+            <button type="submit" class="glass-button btn-primary btn-lg" style="width:100%; margin-top:1rem;">
+                <i class="fas fa-user-plus me-2"></i>Créer mon compte
+            </button>
         </form>
-        
+
         <div class="text-center mt-4">
             <a href="{{ url_for('auth.login') }}" class="glass-button btn-secondary">
-                <i class="fas fa-sign-in-alt me-2"></i>
-                J'ai déjà un compte
+                <i class="fas fa-sign-in-alt me-2"></i>J'ai déjà un compte
             </a>
         </div>
-    </div>
-    
-    <div class="security-notice">
-        <p>
-            <i class="fas fa-shield-alt"></i>
-            Vos données sont sécurisées et protégées
-        </p>
+
+        <div class="security-notice">
+            <p><i class="fas fa-shield-alt"></i> Vos données sont protégées</p>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Password toggle functionality
-        function setupPasswordToggle(toggleId, inputId) {
-            const toggle = document.getElementById(toggleId);
-            const input = document.getElementById(inputId);
-            
-            toggle.addEventListener('click', function() {
-                const type = input.type === 'password' ? 'text' : 'password';
-                input.type = type;
-                
-                this.innerHTML = type === 'password' 
-                    ? '<i class="fas fa-eye"></i>' 
-                    : '<i class="fas fa-eye-slash"></i>';
-            });
-        }
-        
-        setupPasswordToggle('togglePassword', 'password');
-        setupPasswordToggle('toggleConfirmPassword', 'confirm_password');
-        
-        // Password strength checker
-        const passwordInput = document.getElementById('password');
-        const confirmInput = document.getElementById('confirm_password');
-        const strengthDiv = document.getElementById('passwordStrength');
-        
-        passwordInput.addEventListener('input', function() {
-            const password = this.value;
-            const strength = checkPasswordStrength(password);
-            
-            let strengthText = '';
-            let strengthColor = '';
-            
-            if (password.length === 0) {
-                strengthDiv.innerHTML = '';
-                return;
-            }
-            
-            switch(strength) {
-                case 0:
-                    strengthText = 'Très faible';
-                    strengthColor = '#dc3545';
-                    break;
-                case 1:
-                    strengthText = 'Faible';
-                    strengthColor = '#dc3545';
-                    break;
-                case 2:
-                    strengthText = 'Moyen';
-                    strengthColor = '#ffc107';
-                    break;
-                case 3:
-                    strengthText = 'Fort';
-                    strengthColor = '#28a745';
-                    break;
-                case 4:
-                    strengthText = 'Très fort';
-                    strengthColor = '#28a745';
-                    break;
-            }
-            
-            strengthDiv.innerHTML = `
-                <div class="progress" style="height: 6px; border-radius: 3px;">
-                    <div class="progress-bar" style="width: ${(strength + 1) * 20}%; background: ${strengthColor};"></div>
-                </div>
-                <small style="color: ${strengthColor};">${strengthText}</small>
-            `;
+    function setupToggle(buttonId, inputId) {
+        const btn = document.getElementById(buttonId);
+        const input = document.getElementById(inputId);
+
+        btn.addEventListener("click", () => {
+            const type = input.type === "password" ? "text" : "password";
+            input.type = type;
+            btn.innerHTML = type === "password"
+                ? '<i class="fas fa-eye"></i>'
+                : '<i class="fas fa-eye-slash"></i>';
         });
-        
-        // Password match validation
-        confirmInput.addEventListener('input', function() {
-            const password = passwordInput.value;
-            const confirm = this.value;
-            
-            if (confirm && password !== confirm) {
-                this.setCustomValidity('Les mots de passe ne correspondent pas');
-                this.style.borderColor = '#dc3545';
-            } else {
-                this.setCustomValidity('');
-                this.style.borderColor = '';
-            }
-        });
-        
-        // Form validation
-        const form = document.getElementById('registerForm');
-        form.addEventListener('submit', function(e) {
-            const password = passwordInput.value;
-            const confirm = confirmInput.value;
-            
-            if (password !== confirm) {
-                e.preventDefault();
-                
-                gsap.to([passwordInput, confirmInput], {
-                    x: [-10, 10, -10, 10, 0],
-                    duration: 0.5,
-                    ease: 'power2.inOut'
-                });
-                
-                if (window.animationController) {
-                    window.animationController.showNotification(
-                        'Les mots de passe ne correspondent pas',
-                        'error'
-                    );
-                }
-            }
-            
-            if (password.length < 8) {
-                e.preventDefault();
-                
-                if (window.animationController) {
-                    window.animationController.showNotification(
-                        'Le mot de passe doit contenir au moins 8 caractères',
-                        'error'
-                    );
-                }
-            }
-        });
-        
-        // Loading state
-        form.addEventListener('submit', function() {
-            const submitBtn = form.querySelector('button[type="submit"]');
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Création du compte...';
-            submitBtn.disabled = true;
-        });
-    });
-    
-    function checkPasswordStrength(password) {
-        let strength = 0;
-        
-        if (password.length >= 8) strength++;
-        if (password.length >= 12) strength++;
-        if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
-        if (/\d/.test(password)) strength++;
-        if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) strength++;
-        
-        return strength;
     }
+
+    setupToggle("togglePassword", "password");
+    setupToggle("toggleConfirmPassword", "confirm_password");
+
+    // Vérifier correspondance
+    document.getElementById("registerForm").addEventListener("submit", function(e) {
+        const p = document.getElementById("password").value;
+        const c = document.getElementById("confirm_password").value;
+        if (p !== c) {
+            e.preventDefault();
+            alert("Les mots de passe ne correspondent pas.");
+        }
+    });
 </script>
 {% endblock %}
