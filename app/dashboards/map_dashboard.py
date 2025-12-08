@@ -194,14 +194,11 @@ class PremiumMapDashboard:
                 font=dict(color='white', family='Inter'),
                 title=dict(font=dict(size=18, color='white'), x=0.5),
                 mapbox=dict(
-                    cluster=dict(
-                        enabled=True,
-                        color='#ffd700',
-                        size=20,
-                        opacity=0.8
-                    )
+                    style="open-street-map",
+                    zoom=5
                 )
             )
+
             
             return fig
         except Exception as e:
