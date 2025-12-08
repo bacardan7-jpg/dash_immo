@@ -15,7 +15,7 @@ import json
 import io
 import base64
 
-class PremiumAnalyticsDashboard:
+class AnalyticsDashboard:
     """Dashboard d'analytics premium avec modèle de données enrichi"""
 
     def __init__(self, server=None, routes_pathname_prefix="/", requests_pathname_prefix="/"):
