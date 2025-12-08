@@ -12,7 +12,7 @@ from ..database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarPro
 from ..auth.decorators import analyst_required
 
 
-# Enhance
+# E
 
 class EnhancedMainDashboard:
     """Dashboard principal amélioré avec meilleures visualisations"""
