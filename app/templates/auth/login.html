@@ -7,17 +7,18 @@
     body {
         background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
         min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
         position: relative;
-        overflow: hidden;
+        overflow-x: hidden;
+        overflow-y: auto; /* Permet le scroll */
+        padding-top: 3rem; 
+        padding-bottom: 3rem;
     }
     
     .login-container {
         width: 100%;
         max-width: 450px;
-        padding: 2rem;
+        margin: 0 auto;
+        padding: 1.5rem;
         position: relative;
         z-index: 10;
     }
@@ -59,7 +60,12 @@
         font-size: 1.1rem;
         font-weight: 500;
     }
-    
+
+    @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 100% 50%; }
+    }
+
     .form-group {
         margin-bottom: 1.5rem;
     }
@@ -353,7 +359,6 @@
                     }, 1000);
                 });
                 
-                // Show notification
                 if (window.animationController) {
                     window.animationController.showNotification(
                         'Veuillez remplir tous les champs',

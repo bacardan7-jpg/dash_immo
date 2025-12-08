@@ -7,8 +7,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app.main import app
-from app.database.models import db   # ← À vérifier : module où tu initialises SQLAlchemy
-from app.database import models          # ← Important pour que les modèles soient connus par SQLAlchemy
+from app.database.models import db   
+from app.database import models        
 
 
 if __name__ == '__main__':
@@ -27,5 +27,5 @@ if __name__ == '__main__':
     app.run(
         debug=True,
         host='0.0.0.0',
-        port=8050
+        port=int(os.environ.get("PORT", 8050))
     )
