@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block title %}Inscription - ImmoAnalytics{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+        min-height: 100vh;
+        display: block;         /* Permet le scroll */
+        overflow-y: auto;       /* Scroll activé */
+        overflow-x: hidden;
+        padding-top: 3rem;
+        padding-bottom: 3rem;
+    }
+
+    .register-container {
+        width: 100%;
+        max-width: 650px;
+        margin: 0 auto;
+        padding: 2rem;
+        position: relative;
+        z-index: 10;
+    }
+
+    .register-card {
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        backdrop-filter: var(--glass-backdrop);
+        border-radius: 20px;
+        padding: 3rem 2.5rem;
+        box-shadow: var(--glass-shadow);
+        animation: cardFloat 6s ease-in-out infinite;
+    }
+
+    @keyframes cardFloat {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+    }
+
+    .register-header {
+        text-align: center;
+        margin-bottom: 2.5rem;
+    }
+
+    .register-logo {
+        font-size: 2.5rem;
+        font-weight: 800;
+        background: linear-gradient(45deg, #ffd700, #ffed4e, #ffd700);
+        background-size: 200% 200%;
+        -webkit-text-fill-color: transparent;
+        -webkit-background-clip: text;
+        animation: gradientShift 3s ease-in-out infinite;
+    }
+
+    @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 100% 50%; }
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: 1rem 1.5rem;
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        color: white;
+        font-size: 1rem;
+    }
+
+    .form-input::placeholder {
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .input-group {
+        position: relative;
+    }
+
+    .password-toggle {
+        position: absolute;
+        right: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: white;
+        cursor: pointer;
+    }
+
+    .security-notice {
+        text-align: center;
+        margin-top: 2rem;
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    @media (max-width: 768px) {
+        .register-card {
+            padding: 2rem 1.2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="register-container">
+    <div class="register-card">
+
+        <div class="register-header">
+            <h1 class="register-logo"><i class="fas fa-home"></i> ImmoAnalytics</h1>
+            <p class="register-subtitle">Créer votre compte</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-danger alert-dismissible fade show"
+                         style="background: rgba(220,53,69,0.20); border: 1px solid rgba(220,53,69,0.40); color:white;">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" style="filter: invert(1);"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- FORMULAIRE -->
+        <form method="POST" action="{{ url_for('auth.register') }}" id="registerForm">
+
+            <div class="row">
+                <div class="col-md-6">
+                    <label class="form-label">Prénom</label>
+                    <input type="text" class="form-input" name="first_name" required>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">Nom</label>
+                    <input type="text" class="form-input" name="last_name" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Nom d'utilisateur</label>
+                <input type="text" class="form-input" name="username" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Adresse email</label>
+                <input type="email" class="form-input" name="email" placeholder="exemple@gmail.com" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Mot de passe</label>
+                <div class="input-group">
+                    <input type="password" class="form-input" id="password" name="password" required>
+                    <button type="button" class="password-toggle" id="togglePassword">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Confirmer mot de passe</label>
+                <div class="input-group">
+                    <input type="password" class="form-input" id="confirm_password" name="confirm_password" required>
+                    <button type="button" class="password-toggle" id="toggleConfirmPassword">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" class="glass-button btn-primary btn-lg" style="width:100%; margin-top:1rem;">
+                <i class="fas fa-user-plus me-2"></i>Créer mon compte
+            </button>
+        </form>
+
+        <div class="text-center mt-4">
+            <a href="{{ url_for('auth.login') }}" class="glass-button btn-secondary">
+                <i class="fas fa-sign-in-alt me-2"></i>J'ai déjà un compte
+            </a>
+        </div>
+
+        <div class="security-notice">
+            <p><i class="fas fa-shield-alt"></i> Vos données sont protégées</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function setupToggle(buttonId, inputId) {
+        const btn = document.getElementById(buttonId);
+        const input = document.getElementById(inputId);
+
+        btn.addEventListener("click", () => {
+            const type = input.type === "password" ? "text" : "password";
+            input.type = type;
+            btn.innerHTML = type === "password"
+                ? '<i class="fas fa-eye"></i>'
+                : '<i class="fas fa-eye-slash"></i>';
+        });
+    }
+
+    setupToggle("togglePassword", "password");
+    setupToggle("toggleConfirmPassword", "confirm_password");
+
+    // Vérifier correspondance
+    document.getElementById("registerForm").addEventListener("submit", function(e) {
+        const p = document.getElementById("password").value;
+        const c = document.getElementById("confirm_password").value;
+        if (p !== c) {
+            e.preventDefault();
+            alert("Les mots de passe ne correspondent pas.");
+        }
+    });
+</script>
+{% endblock %}

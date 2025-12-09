@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+
+{% block title %}Paramètres - ImmoAnalytics{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card border-0 shadow-lg">
+                <div class="card-header bg-gradient" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <h2 class="mb-0">
+                        <i class="fas fa-sliders-h me-2"></i>
+                        Paramètres
+                    </h2>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Onglets -->
+                    <ul class="nav nav-tabs mb-4" id="settingsTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" 
+                                    type="button" role="tab" aria-controls="profile" aria-selected="true">
+                                <i class="fas fa-user-circle me-2"></i>
+                                Profil
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="security-tab" data-bs-toggle="tab" data-bs-target="#security" 
+                                    type="button" role="tab" aria-controls="security" aria-selected="false">
+                                <i class="fas fa-lock me-2"></i>
+                                Sécurité
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="notifications-tab" data-bs-toggle="tab" data-bs-target="#notifications" 
+                                    type="button" role="tab" aria-controls="notifications" aria-selected="false">
+                                <i class="fas fa-bell me-2"></i>
+                                Notifications
+                            </button>
+                        </li>
+                    </ul>
+                    
+                    <!-- Contenu des onglets -->
+                    <div class="tab-content" id="settingsTabsContent">
+                        
+                        <!-- Onglet Profil -->
+                        <div class="tab-pane fade show active" id="profile" role="tabpanel" aria-labelledby="profile-tab">
+                            <form id="profileForm">
+                                <div class="mb-3">
+                                    <label for="firstName" class="form-label">Prénom</label>
+                                    <input type="text" class="form-control" id="firstName" 
+                                           value="{{ current_user.first_name or '' }}" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="lastName" class="form-label">Nom</label>
+                                    <input type="text" class="form-control" id="lastName" 
+                                           value="{{ current_user.last_name or '' }}" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="email" class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="email" 
+                                           value="{{ current_user.email }}" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="username" class="form-label">Nom d'utilisateur</label>
+                                    <input type="text" class="form-control" id="username" 
+                                           value="{{ current_user.username }}" readonly>
+                                    <small class="text-muted">Le nom d'utilisateur ne peut pas être modifié</small>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>
+                                    Enregistrer les modifications
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <!-- Onglet Sécurité -->
+                        <div class="tab-pane fade" id="security" role="tabpanel" aria-labelledby="security-tab">
+                            <h5 class="mb-4">Changer le mot de passe</h5>
+                            
+                            <form id="passwordForm">
+                                <div class="mb-3">
+                                    <label for="currentPassword" class="form-label">Mot de passe actuel</label>
+                                    <input type="password" class="form-control" id="currentPassword" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="newPassword" class="form-label">Nouveau mot de passe</label>
+                                    <input type="password" class="form-control" id="newPassword" required>
+                                    <small class="text-muted">Au minimum 8 caractères</small>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="confirmPassword" class="form-label">Confirmer le nouveau mot de passe</label>
+                                    <input type="password" class="form-control" id="confirmPassword" required>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-warning">
+                                    <i class="fas fa-key me-2"></i>
+                                    Changer le mot de passe
+                                </button>
+                            </form>
+                            
+                            <hr class="my-4">
+                            
+                            <h5 class="mb-4">Sessions actives</h5>
+                            <p class="text-muted">Vous êtes actuellement connecté. Les autres sessions seront fermées lors de la modification du mot de passe.</p>
+                            
+                            <button type="button" class="btn btn-danger" id="logoutOthersBtn">
+                                <i class="fas fa-sign-out-alt me-2"></i>
+                                Fermer les autres sessions
+                            </button>
+                        </div>
+                        
+                        <!-- Onglet Notifications -->
+                        <div class="tab-pane fade" id="notifications" role="tabpanel" aria-labelledby="notifications-tab">
+                            <h5 class="mb-4">Préférences de notifications</h5>
+                            
+                            <div class="mb-3 form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="emailNotifications" checked>
+                                <label class="form-check-label" for="emailNotifications">
+                                    Recevoir des notifications par email
+                                </label>
+                            </div>
+                            
+                            <div class="mb-3 form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="newPropertiesNotifications" checked>
+                                <label class="form-check-label" for="newPropertiesNotifications">
+                                    Alertes sur les nouvelles propriétés
+                                </label>
+                            </div>
+                            
+                            <div class="mb-3 form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="priceChangeNotifications" checked>
+                                <label class="form-check-label" for="priceChangeNotifications">
+                                    Alertes sur les changements de prix
+                                </label>
+                            </div>
+                            
+                            <div class="mb-3 form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="weeklyReportNotifications">
+                                <label class="form-check-label" for="weeklyReportNotifications">
+                                    Rapport hebdomadaire
+                                </label>
+                            </div>
+                            
+                            <button type="button" class="btn btn-primary" id="saveNotificationsBtn">
+                                <i class="fas fa-save me-2"></i>
+                                Enregistrer les préférences
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alert container for notifications -->
+<div id="alertContainer" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
+
+<script>
+    function showAlert(message, type = 'success') {
+        const alertContainer = document.getElementById('alertContainer');
+        const alertId = 'alert-' + Date.now();
+        
+        const alertHtml = `
+            <div id="${alertId}" class="alert alert-${type} alert-dismissible fade show" role="alert">
+                <i class="fas fa-check-circle me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+        
+        alertContainer.insertAdjacentHTML('beforeend', alertHtml);
+        
+        setTimeout(() => {
+            const alert = document.getElementById(alertId);
+            if (alert) {
+                alert.remove();
+            }
+        }, 5000);
+    }
+    
+    // Profile form submission
+    document.getElementById('profileForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const data = {
+            first_name: document.getElementById('firstName').value,
+            last_name: document.getElementById('lastName').value,
+            email: document.getElementById('email').value
+        };
+        
+        try {
+            const response = await fetch('/auth/profile', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showAlert('Profil mis à jour avec succès', 'success');
+            } else {
+                showAlert(result.error || 'Erreur lors de la mise à jour', 'danger');
+            }
+        } catch (error) {
+            showAlert('Erreur de connexion', 'danger');
+        }
+    });
+    
+    // Password form submission
+    document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        if (newPassword !== confirmPassword) {
+            showAlert('Les mots de passe ne correspondent pas', 'danger');
+            return;
+        }
+        
+        if (newPassword.length < 8) {
+            showAlert('Le mot de passe doit contenir au minimum 8 caractères', 'danger');
+            return;
+        }
+        
+        const data = {
+            current_password: document.getElementById('currentPassword').value,
+            new_password: newPassword
+        };
+        
+        try {
+            const response = await fetch('/auth/change-password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                document.getElementById('passwordForm').reset();
+                showAlert('Mot de passe modifié avec succès', 'success');
+            } else {
+                showAlert(result.error || 'Erreur lors du changement de mot de passe', 'danger');
+            }
+        } catch (error) {
+            showAlert('Erreur de connexion', 'danger');
+        }
+    });
+    
+    // Save notifications preferences
+    document.getElementById('saveNotificationsBtn').addEventListener('click', () => {
+        showAlert('Préférences de notifications enregistrées', 'success');
+    });
+    
+    // Logout other sessions
+    document.getElementById('logoutOthersBtn').addEventListener('click', async () => {
+        if (!confirm('Êtes-vous sûr de vouloir fermer les autres sessions ?')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch('/auth/logout-other-sessions', {
+                method: 'POST'
+            });
+            
+            if (response.ok) {
+                showAlert('Les autres sessions ont été fermées', 'success');
+            } else {
+                showAlert('Erreur lors de la fermeture des sessions', 'danger');
+            }
+        } catch (error) {
+            showAlert('Erreur de connexion', 'danger');
+        }
+    });
+</script>
+{% endblock %}

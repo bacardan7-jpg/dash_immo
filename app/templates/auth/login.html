@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+
+{% block title %}Connexion - ImmoAnalytics{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+        min-height: 100vh;
+        position: relative;
+        overflow-x: hidden;
+        overflow-y: auto; /* Permet le scroll */
+        padding-top: 3rem; 
+        padding-bottom: 3rem;
+    }
+    
+    .login-container {
+        width: 100%;
+        max-width: 450px;
+        margin: 0 auto;
+        padding: 1.5rem;
+        position: relative;
+        z-index: 10;
+    }
+    
+    .login-card {
+        background: var(--glass-bg);
+        backdrop-filter: var(--glass-backdrop);
+        border: 1px solid var(--glass-border);
+        border-radius: 20px;
+        padding: 3rem 2.5rem;
+        box-shadow: var(--glass-shadow);
+        animation: cardFloat 6s ease-in-out infinite;
+    }
+    
+    @keyframes cardFloat {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+    }
+    
+    .login-header {
+        text-align: center;
+        margin-bottom: 2.5rem;
+    }
+    
+    .login-logo {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin-bottom: 1rem;
+        background: linear-gradient(45deg, #ffd700, #ffed4e, #ffd700);
+        background-size: 200% 200%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: gradientShift 3s ease-in-out infinite;
+    }
+    
+    .login-subtitle {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 1.1rem;
+        font-weight: 500;
+    }
+
+    @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 100% 50%; }
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-label {
+        color: rgba(255, 255, 255, 0.9);
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .form-input {
+        background: var(--glass-bg);
+        backdrop-filter: var(--glass-backdrop);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        color: white;
+        padding: 1rem 1.5rem;
+        width: 100%;
+        font-size: 1rem;
+        transition: all var(--transition-medium);
+    }
+    
+    .form-input::placeholder {
+        color: rgba(255, 255, 255, 0.6);
+    }
+    
+    .form-input:focus {
+        outline: none;
+        border-color: var(--accent-glass);
+        background: rgba(255, 255, 255, 0.15);
+        box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.1);
+        transform: scale(1.02);
+    }
+    
+    .input-group {
+        position: relative;
+    }
+    
+    .password-toggle {
+        position: absolute;
+        right: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: rgba(255, 255, 255, 0.7);
+        cursor: pointer;
+        padding: 0.5rem;
+        border-radius: 6px;
+        transition: all var(--transition-fast);
+    }
+    
+    .password-toggle:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+    }
+    
+    .demo-accounts {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+    }
+    
+    .demo-title {
+        color: #ffd700;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+    
+    .demo-account {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+    }
+    
+    .demo-account:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: translateX(5px);
+    }
+    
+    .demo-role {
+        color: #ffd700;
+        font-weight: 600;
+        display: block;
+        margin-bottom: 0.25rem;
+    }
+    
+    .security-notice {
+        text-align: center;
+        margin-top: 2rem;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 0.9rem;
+    }
+    
+    .security-notice i {
+        color: #28a745;
+    }
+    
+    @media (max-width: 768px) {
+        .login-container {
+            padding: 1rem;
+        }
+        
+        .login-card {
+            padding: 2rem 1.5rem;
+        }
+        
+        .login-logo {
+            font-size: 2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-header">
+            <h1 class="login-logo">
+                <i class="fas fa-home"></i>
+                ImmoAnalytics
+            </h1>
+            <p class="login-subtitle">Connexion à votre compte</p>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" 
+                         role="alert" 
+                         style="background: rgba(220, 53, 69, 0.2); border: 1px solid rgba(220, 53, 69, 0.3); color: white; margin-bottom: 1.5rem; border-radius: 8px; padding: 1rem;">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" style="filter: invert(1);"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm">
+            <div class="form-group">
+                <label for="username" class="form-label">
+                    <i class="fas fa-user"></i>
+                    Nom d'utilisateur
+                </label>
+                <input type="text" 
+                       class="form-input" 
+                       id="username" 
+                       name="username" 
+                       placeholder="Entrez votre nom d'utilisateur" 
+                       required 
+                       autofocus
+                       aria-label="Nom d'utilisateur"
+                       autocomplete="username">
+            </div>
+            
+            <div class="form-group">
+                <label for="password" class="form-label">
+                    <i class="fas fa-lock"></i>
+                    Mot de passe
+                </label>
+                <div class="input-group">
+                    <input type="password" 
+                           class="form-input" 
+                           id="password" 
+                           name="password" 
+                           placeholder="Entrez votre mot de passe" 
+                           required
+                           aria-label="Mot de passe"
+                           autocomplete="current-password">
+                    <button type="button" class="password-toggle" id="togglePassword" aria-label="Afficher/Masquer le mot de passe">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="form-group mb-4">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="remember" name="remember">
+                    <label class="form-check-label" for="remember" style="color: rgba(255,255,255,0.8);">
+                        Se souvenir de moi
+                    </label>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <button type="submit" class="glass-button btn-primary btn-lg">
+                    <i class="fas fa-sign-in-alt me-2"></i>
+                    Se connecter
+                </button>
+            </div>
+        </form>
+        
+        <div class="text-center mt-4">
+            <a href="{{ url_for('auth.register') }}" class="glass-button btn-secondary">
+                <i class="fas fa-user-plus me-2"></i>
+                Créer un compte
+            </a>
+        </div>
+        
+        <div class="demo-accounts">
+            <h6 class="demo-title">
+                <i class="fas fa-info-circle"></i>
+                Comptes de démonstration
+            </h6>
+            
+            <div class="demo-account">
+                <span class="demo-role">
+                    <i class="fas fa-user-shield"></i> Administrateur
+                </span>
+                <code>admin / admin123</code>
+            </div>
+            
+            <div class="demo-account">
+                <span class="demo-role">
+                    <i class="fas fa-user-tie"></i> Analyste
+                </span>
+                <code>analyst / analyst123</code>
+            </div>
+            
+            <div class="demo-account">
+                <span class="demo-role">
+                    <i class="fas fa-user"></i> Visiteur
+                </span>
+                <code>viewer / viewer123</code>
+            </div>
+        </div>
+    </div>
+    
+    <div class="security-notice">
+        <p>
+            <i class="fas fa-shield-alt"></i>
+            Votre sécurité est notre priorité - Connexion SSL
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Auto-focus
+        document.getElementById('username').focus();
+        
+        // Password toggle
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
+        
+        togglePassword.addEventListener('click', function() {
+            const type = passwordInput.type === 'password' ? 'text' : 'password';
+            passwordInput.type = type;
+            
+            this.innerHTML = type === 'password' 
+                ? '<i class="fas fa-eye"></i>' 
+                : '<i class="fas fa-eye-slash"></i>';
+        });
+        
+        // Form validation
+        const form = document.getElementById('loginForm');
+        form.addEventListener('submit', function(e) {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            
+            if (!username || !password) {
+                e.preventDefault();
+                
+                // Shake animation for empty fields
+                const emptyFields = [];
+                if (!username) emptyFields.push('username');
+                if (!password) emptyFields.push('password');
+                
+                emptyFields.forEach(fieldId => {
+                    const field = document.getElementById(fieldId);
+                    gsap.to(field, {
+                        x: [-10, 10, -10, 10, 0],
+                        duration: 0.5,
+                        ease: 'power2.inOut'
+                    });
+                    
+                    field.style.borderColor = '#dc3545';
+                    setTimeout(() => {
+                        field.style.borderColor = '';
+                    }, 1000);
+                });
+                
+                if (window.animationController) {
+                    window.animationController.showNotification(
+                        'Veuillez remplir tous les champs',
+                        'error'
+                    );
+                }
+            }
+        });
+        
+        // Loading state
+        form.addEventListener('submit', function() {
+            const submitBtn = form.querySelector('button[type="submit"]');
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Connexion...';
+            submitBtn.disabled = true;
+        });
+    });
+</script>
+{% endblock %}
