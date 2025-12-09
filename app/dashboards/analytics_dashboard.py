@@ -839,7 +839,7 @@ class AnalyticsDashboard:
 
 # Factory function
 def create_premium_analytics_dashboard(server=None, routes_pathname_prefix="/", requests_pathname_prefix="/"):
-    dashboard = PremiumAnalyticsDashboard(
+    dashboard = AnalyticsDashboard(
         server=server,
         routes_pathname_prefix=routes_pathname_prefix,
         requests_pathname_prefix=requests_pathname_prefix

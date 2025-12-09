@@ -1,4 +1,5 @@
 import os
+from app.dashboards.main_dashboard import create_enhanced_dashboard
 import dash
 from dash import html, dcc
 import dash_mantine_components as dmc
@@ -62,7 +63,7 @@ from .components.admin_panel import AdminPanel
 
 # Initialize Dash apps immediately (before first request)
 # modern dashboard -> served at /dashboard/
-dash_app1 = create_modern_dashboard(server=app,
+dash_app1 = create_enhanced_dashboard(server=app,
                                     routes_pathname_prefix="/dashboard/",
                                     requests_pathname_prefix="/dashboard/")
 # analytics -> served at /analytics/
