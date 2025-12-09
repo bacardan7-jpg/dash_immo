@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 from sqlalchemy import func
-from database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
+from ..database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
 
 
 class CompleteDashboard:
