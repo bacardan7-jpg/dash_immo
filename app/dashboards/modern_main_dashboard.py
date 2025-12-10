@@ -1,8 +1,8 @@
 """
-🎨 OBSERVATOIRE IMMOBILIER SÉNÉGALAIS - DESIGN ULTRA-MODERNE V2
-Dashboard Premium avec Layout Optimisé et Graphiques Côte à Côte
+🟦 OBSERVATOIRE IMMOBILIER - VERSION ULTRA-COMPLÈTE ET ROBUSTE
+Dashboard Institutionnel Professionnel avec Gestion d'Erreurs Exhaustive
+Toutes les 10 sections + méthodologie
 Auteur: Cos - ENSAE Dakar
-Version: 3.0 Premium
 """
 
 import dash
@@ -18,23 +18,17 @@ from sqlalchemy import func
 import traceback
 
 
-class ObservatoireModerne:
-    """Observatoire Immobilier - Design Ultra-Moderne Premium"""
+class ObservatoireComplet:
+    """Observatoire Immobilier Complet - 10 Sections"""
     
     COLORS = {
-        'primary': '#6366F1',
-        'secondary': '#8B5CF6',
-        'success': '#10B981',
-        'warning': '#F59E0B',
-        'danger': '#EF4444',
-        'info': '#3B82F6',
-        'dark': '#1F2937',
-        'light': '#F9FAFB',
-        'gradient1': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        'gradient2': 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-        'gradient3': 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-        'gradient4': 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-        'gradient5': 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+        'primary': '#1E40AF',
+        'secondary': '#7C3AED',
+        'success': '#059669',
+        'warning': '#D97706',
+        'danger': '#DC2626',
+        'info': '#0891B2',
+        'neutral': '#6B7280'
     }
     
     def __init__(self, server=None, routes_pathname_prefix="/", requests_pathname_prefix="/"):
@@ -42,245 +36,18 @@ class ObservatoireModerne:
             __name__,
             server=server,
             external_stylesheets=[
-                'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap',
-                'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap'
+                'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
             ],
             routes_pathname_prefix=routes_pathname_prefix,
             requests_pathname_prefix=requests_pathname_prefix,
             suppress_callback_exceptions=True,
-            meta_tags=[
-                {"name": "viewport", "content": "width=device-width, initial-scale=1"},
-                {"name": "theme-color", "content": "#6366F1"}
-            ]
+            meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1"}]
         )
         
         if server:
             with server.app_context():
                 self.setup_layout()
                 self.setup_callbacks()
-    
-    # ==================== CSS MODERNE ====================
-    
-    def get_modern_styles(self):
-        """Styles CSS ultra-modernes avec animations"""
-        return """
-        <style>
-            :root {
-                --primary: #6366F1;
-                --secondary: #8B5CF6;
-                --success: #10B981;
-                --warning: #F59E0B;
-                --danger: #EF4444;
-            }
-            
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            
-            body {
-                font-family: 'Inter', sans-serif;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                min-height: 100vh;
-            }
-            
-            .animated-bg {
-                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                z-index: -1;
-            }
-            
-            .animated-bg::before {
-                content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-                background: 
-                    radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.4) 0%, transparent 50%),
-                    radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.4) 0%, transparent 50%),
-                    radial-gradient(circle at 40% 20%, rgba(16, 185, 129, 0.3) 0%, transparent 50%);
-                animation: float 20s ease-in-out infinite;
-            }
-            
-            @keyframes float {
-                0%, 100% { transform: translate(0, 0); }
-                33% { transform: translate(30px, -30px); }
-                66% { transform: translate(-20px, 20px); }
-            }
-            
-            .dashboard-container {
-                max-width: 1600px; margin: 0 auto; padding: 24px;
-            }
-            
-            .modern-header {
-                background: rgba(255, 255, 255, 0.95);
-                backdrop-filter: blur(20px) saturate(180%);
-                border-radius: 24px; padding: 32px; margin-bottom: 24px;
-                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-                border: 1px solid rgba(255, 255, 255, 0.18);
-                animation: slideDown 0.6s ease-out;
-            }
-            
-            @keyframes slideDown {
-                from { opacity: 0; transform: translateY(-30px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-            
-            .header-title {
-                font-family: 'Poppins', sans-serif; font-size: 42px; font-weight: 800;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-                margin-bottom: 8px; letter-spacing: -1px;
-            }
-            
-            .badge-live {
-                background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-                color: white; padding: 6px 16px; border-radius: 20px;
-                font-size: 12px; font-weight: 600; display: inline-flex;
-                align-items: center; gap: 6px; animation: pulse 2s ease-in-out infinite;
-            }
-            
-            @keyframes pulse {
-                0%, 100% { opacity: 1; transform: scale(1); }
-                50% { opacity: 0.8; transform: scale(1.05); }
-            }
-            
-            .pulse-dot {
-                width: 8px; height: 8px; background: white;
-                border-radius: 50%; animation: pulse-dot 1.5s ease-in-out infinite;
-            }
-            
-            @keyframes pulse-dot {
-                0%, 100% { transform: scale(1); opacity: 1; }
-                50% { transform: scale(1.3); opacity: 0.7; }
-            }
-            
-            .kpi-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                gap: 20px; margin-bottom: 24px;
-            }
-            
-            .kpi-card {
-                background: rgba(255, 255, 255, 0.95);
-                backdrop-filter: blur(20px) saturate(180%);
-                border-radius: 20px; padding: 24px;
-                border: 1px solid rgba(255, 255, 255, 0.18);
-                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-                cursor: pointer; position: relative; overflow: hidden;
-            }
-            
-            .kpi-card::before {
-                content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
-                background: var(--gradient); transform: scaleX(0);
-                transition: transform 0.4s ease;
-            }
-            
-            .kpi-card:hover {
-                transform: translateY(-6px) scale(1.02);
-                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-            }
-            
-            .kpi-card:hover::before { transform: scaleX(1); }
-            .kpi-card:hover .kpi-icon { transform: rotate(10deg) scale(1.1); }
-            
-            .kpi-icon {
-                width: 48px; height: 48px; border-radius: 14px;
-                display: flex; align-items: center; justify-content: center;
-                margin-bottom: 12px; font-size: 24px; color: white;
-                transition: transform 0.3s ease;
-            }
-            
-            .kpi-label {
-                font-size: 13px; font-weight: 600; color: #6B7280;
-                text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
-            }
-            
-            .kpi-value {
-                font-size: 28px; font-weight: 800; color: #1F2937;
-                font-family: 'Poppins', sans-serif;
-            }
-            
-            .kpi-change {
-                font-size: 12px; font-weight: 600;
-                display: flex; align-items: center; gap: 4px; margin-top: 4px;
-            }
-            
-            .change-positive { color: #10B981; }
-            .change-negative { color: #EF4444; }
-            
-            .section-card {
-                background: rgba(255, 255, 255, 0.95);
-                backdrop-filter: blur(20px) saturate(180%);
-                border-radius: 20px; padding: 24px; margin-bottom: 24px;
-                border: 1px solid rgba(255, 255, 255, 0.18);
-                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-                transition: all 0.3s ease;
-            }
-            
-            .section-card:hover {
-                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-                transform: translateY(-2px);
-            }
-            
-            .grid-2 {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-                gap: 20px;
-            }
-            
-            .section-title {
-                font-family: 'Poppins', sans-serif;
-                font-size: 20px; font-weight: 700;
-                color: #1F2937; margin-bottom: 20px;
-                display: flex; align-items: center; gap: 12px;
-            }
-            
-            .section-icon {
-                width: 40px; height: 40px; border-radius: 12px;
-                display: flex; align-items: center; justify-content: center;
-                font-size: 20px; color: white;
-            }
-            
-            .methodology-box {
-                background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
-                border: 2px solid #F59E0B; border-radius: 16px;
-                padding: 20px; margin-bottom: 24px;
-            }
-            
-            .methodology-title {
-                font-size: 18px; font-weight: 700;
-                color: #92400E; margin-bottom: 12px;
-                display: flex; align-items: center; gap: 8px;
-            }
-            
-            .methodology-list {
-                font-size: 13px; line-height: 1.8;
-                color: #78350F; list-style: none; padding: 0;
-            }
-            
-            .methodology-list li {
-                padding-left: 24px; position: relative;
-            }
-            
-            .methodology-list li::before {
-                content: "✓"; position: absolute; left: 0;
-                color: #10B981; font-weight: 700;
-            }
-            
-            @media (max-width: 1200px) {
-                .grid-2 { grid-template-columns: 1fr; }
-            }
-            
-            @media (max-width: 768px) {
-                .dashboard-container { padding: 16px; }
-                .header-title { font-size: 28px; }
-                .kpi-grid { grid-template-columns: 1fr; }
-            }
-            
-            ::-webkit-scrollbar { width: 10px; height: 10px; }
-            ::-webkit-scrollbar-track { background: #F3F4F6; border-radius: 10px; }
-            ::-webkit-scrollbar-thumb {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                border-radius: 10px; border: 2px solid #F3F4F6;
-            }
-        </style>
-        """
     
     # ==================== DATA LOADING ====================
     
@@ -294,7 +61,7 @@ class ObservatoireModerne:
                 from app.database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
                 return db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
             except Exception as e:
-                print(f"❌ Erreur import models: {e}")
+                print(f"Erreur import models: {e}")
                 return None, None, None, None
     
     def safe_get_data(self, property_type=None, limit=1000):
@@ -303,7 +70,7 @@ class ObservatoireModerne:
             db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty = self.safe_import_models()
             
             if not db:
-                print("⚠️ Impossible d'importer les modèles")
+                print("Impossible d'importer les modèles")
                 return pd.DataFrame()
             
             all_data = []
@@ -348,7 +115,7 @@ class ObservatoireModerne:
                             continue
                             
                 except Exception as e:
-                    print(f"⚠️ Erreur requête {model.__name__}: {e}")
+                    print(f"Erreur requête {model.__name__}: {e}")
                     continue
             
             if not all_data:
@@ -368,7 +135,7 @@ class ObservatoireModerne:
             return df
             
         except Exception as e:
-            print(f"❌ Erreur globale chargement: {e}")
+            print(f"Erreur globale chargement: {e}")
             traceback.print_exc()
             return pd.DataFrame()
     
@@ -379,9 +146,7 @@ class ObservatoireModerne:
             'avg_price_m2': 0,
             'active_listings': 0,
             'median_surface': 0,
-            'median_age': 0,
-            'price_change': 0,
-            'listings_change': 0
+            'median_age': 0
         }
         
         if df.empty:
@@ -399,10 +164,8 @@ class ObservatoireModerne:
             # Prix médian
             try:
                 kpi['median_price'] = float(df['price'].median()) if df['price'].notna().sum() > 0 else 0
-                kpi['price_change'] = np.random.uniform(-5, 15)
             except:
                 kpi['median_price'] = 0
-                kpi['price_change'] = 0
             
             # Prix/m² moyen
             try:
@@ -416,10 +179,8 @@ class ObservatoireModerne:
             # Nombre d'annonces
             try:
                 kpi['active_listings'] = int(len(df))
-                kpi['listings_change'] = np.random.uniform(-10, 20)
             except:
                 kpi['active_listings'] = 0
-                kpi['listings_change'] = 0
             
             # Surface médiane
             try:
@@ -429,48 +190,41 @@ class ObservatoireModerne:
             
             # Âge médian
             try:
-                kpi['median_age'] = int(df['age_days'].median()) if df['age_days'].notna().sum() > 0 else 0
+                if 'age_days' in df.columns:
+                    kpi['median_age'] = float(df['age_days'].median()) if df['age_days'].notna().sum() > 0 else 0
+                else:
+                    kpi['median_age'] = 0
             except:
                 kpi['median_age'] = 0
             
             return kpi
             
         except Exception as e:
-            print(f"❌ Erreur calcul KPI: {e}")
+            print(f"Erreur calcul KPI: {e}")
             return default_kpi
     
-    # ==================== COMPONENTS ====================
+    # ==================== VISUALIZATIONS ====================
     
-    def create_modern_kpi_card(self, icon, label, value, change, gradient, unit=""):
-        """Créer une carte KPI moderne"""
-        change_icon = "mdi:trending-up" if change >= 0 else "mdi:trending-down"
-        change_class = "change-positive" if change >= 0 else "change-negative"
-        change_symbol = "+" if change >= 0 else ""
-        
-        if isinstance(value, (int, float)):
-            if value >= 1_000_000:
-                formatted_value = f"{value/1_000_000:.1f}M"
-            elif value >= 1_000:
-                formatted_value = f"{value/1_000:.1f}K"
-            else:
-                formatted_value = f"{value:.0f}"
-        else:
-            formatted_value = str(value)
-        
-        return html.Div([
-            html.Div([
-                DashIconify(icon=icon, width=24, height=24)
-            ], className="kpi-icon", style={'background': gradient}),
-            html.Div(label, className="kpi-label"),
-            html.Div([
-                html.Span(formatted_value, className="kpi-value"),
-                html.Span(unit, style={'fontSize': '16px', 'color': '#6B7280', 'fontWeight': 600})
-            ], style={'display': 'flex', 'alignItems': 'baseline', 'gap': '4px'}),
-            html.Div([
-                DashIconify(icon=change_icon, width=14, height=14),
-                html.Span(f"{change_symbol}{change:.1f}%")
-            ], className=f"kpi-change {change_class}")
-        ], className="kpi-card", style={'--gradient': gradient})
+    def create_kpi_card(self, icon, label, value, color, suffix=""):
+        """Carte KPI robuste"""
+        try:
+            return html.Div([
+                html.Div([
+                    DashIconify(icon=icon, width=32, color=color),
+                ], style={'marginBottom': '8px'}),
+                html.Div(label, style={'fontSize': '13px', 'color': '#6B7280', 'marginBottom': '4px'}),
+                html.Div(f"{value:,.0f}{suffix}", 
+                        style={'fontSize': '22px', 'fontWeight': 700, 'color': color})
+            ], style={
+                'background': 'white',
+                'padding': '20px',
+                'borderRadius': '12px',
+                'boxShadow': '0 1px 3px rgba(0,0,0,0.1)',
+                'textAlign': 'center',
+                'border': '1px solid #E5E7EB'
+            })
+        except:
+            return html.Div("Erreur KPI")
     
     def create_empty_figure(self, message="Aucune donnée disponible"):
         """Figure vide avec message"""
@@ -480,46 +234,19 @@ class ObservatoireModerne:
             xref="paper", yref="paper",
             x=0.5, y=0.5,
             showarrow=False,
-            font=dict(size=16, color='gray', family='Inter')
+            font=dict(size=16, color='gray')
         )
         fig.update_layout(
-            height=350,
+            height=400,
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
             xaxis=dict(showgrid=False, showticklabels=False),
-            yaxis=dict(showgrid=False, showticklabels=False),
-            margin=dict(l=0, r=0, t=0, b=0)
+            yaxis=dict(showgrid=False, showticklabels=False)
         )
         return fig
     
-    def get_modern_layout(self):
-        """Layout moderne pour les graphiques"""
-        return dict(
-            font=dict(family='Inter', size=12, color='#6B7280'),
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            margin=dict(l=40, r=20, t=40, b=40),
-            hovermode='closest',
-            hoverlabel=dict(
-                bgcolor='rgba(31, 41, 55, 0.95)',
-                font=dict(family='Inter', size=11, color='white'),
-                bordercolor='rgba(255, 255, 255, 0.1)'
-            ),
-            xaxis=dict(
-                showgrid=True, gridwidth=1, gridcolor='#F3F4F6',
-                zeroline=False, showline=True, linewidth=1, linecolor='#E5E7EB'
-            ),
-            yaxis=dict(
-                showgrid=True, gridwidth=1, gridcolor='#F3F4F6',
-                zeroline=False, showline=True, linewidth=1, linecolor='#E5E7EB'
-            ),
-            height=350
-        )
-    
-    # ==================== VISUALIZATIONS ====================
-    
-    def create_type_distribution(self, df):
-        """Répartition par type de propriété"""
+    def create_section_1(self, df):
+        """Section 1: Répartition par type"""
         try:
             if df.empty:
                 return self.create_empty_figure()
@@ -529,28 +256,29 @@ class ObservatoireModerne:
             fig = go.Figure(go.Bar(
                 x=type_counts.index,
                 y=type_counts.values,
-                marker=dict(
-                    color=['#6366F1', '#8B5CF6', '#3B82F6', '#10B981', 
-                           '#F59E0B', '#EF4444', '#EC4899', '#14B8A6'][:len(type_counts)],
-                    line=dict(color='white', width=2)
-                ),
+                marker_color=self.COLORS['primary'],
                 text=type_counts.values,
                 textposition='outside',
-                textfont=dict(size=11, weight=600),
                 hovertemplate='<b>%{x}</b><br>Annonces: %{y}<extra></extra>'
             ))
             
-            fig.update_layout(**self.get_modern_layout())
-            fig.update_xaxis(title="")
-            fig.update_yaxis(title="Nombre d'annonces")
+            fig.update_layout(
+                title='<b>Répartition par Type de Logement</b>',
+                xaxis_title="Type",
+                yaxis_title="Nombre d'annonces",
+                height=400,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter', size=12)
+            )
             
             return fig
         except Exception as e:
-            print(f"❌ Erreur type_distribution: {e}")
-            return self.create_empty_figure("Erreur")
+            print(f"Erreur section 1: {e}")
+            return self.create_empty_figure("Erreur de chargement")
     
-    def create_bedrooms_distribution(self, df):
-        """Répartition par nombre de chambres"""
+    def create_section_2(self, df):
+        """Section 2: Répartition par chambres"""
         try:
             if df.empty or df['bedrooms'].isna().all():
                 return self.create_empty_figure()
@@ -560,29 +288,33 @@ class ObservatoireModerne:
             
             fig = go.Figure()
             
-            colors = ['#6366F1', '#8B5CF6', '#3B82F6', '#10B981', '#F59E0B']
-            for i, ptype in enumerate(bedrooms_counts['property_type'].unique()[:5]):
+            for ptype in bedrooms_counts['property_type'].unique()[:5]:
                 data = bedrooms_counts[bedrooms_counts['property_type'] == ptype]
                 fig.add_trace(go.Bar(
                     name=ptype,
                     x=data['bedrooms'],
                     y=data['count'],
-                    marker_color=colors[i % len(colors)],
                     hovertemplate=f'<b>{ptype}</b><br>Chambres: %{{x}}<br>Annonces: %{{y}}<extra></extra>'
                 ))
             
-            fig.update_layout(**self.get_modern_layout())
-            fig.update_layout(barmode='stack', legend=dict(orientation="h", y=1.1))
-            fig.update_xaxis(title="Nombre de chambres")
-            fig.update_yaxis(title="Nombre d'annonces")
+            fig.update_layout(
+                title='<b>Répartition par Nombre de Chambres</b>',
+                barmode='stack',
+                xaxis_title="Nombre de chambres",
+                yaxis_title="Nombre d'annonces",
+                height=400,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter', size=12)
+            )
             
             return fig
         except Exception as e:
-            print(f"❌ Erreur bedrooms: {e}")
-            return self.create_empty_figure("Erreur")
+            print(f"Erreur section 2: {e}")
+            return self.create_empty_figure("Erreur de chargement")
     
-    def create_surface_distribution(self, df):
-        """Distribution des surfaces"""
+    def create_section_3(self, df):
+        """Section 3: Distribution des surfaces"""
         try:
             if df.empty or df['surface_area'].isna().all():
                 return self.create_empty_figure()
@@ -591,25 +323,28 @@ class ObservatoireModerne:
             
             fig = go.Figure(go.Histogram(
                 x=surfaces,
-                nbinsx=25,
-                marker=dict(
-                    color='#3B82F6',
-                    line=dict(color='white', width=1)
-                ),
+                nbinsx=30,
+                marker_color=self.COLORS['info'],
                 hovertemplate='Surface: %{x:.0f}m²<br>Fréquence: %{y}<extra></extra>'
             ))
             
-            fig.update_layout(**self.get_modern_layout())
-            fig.update_xaxis(title="Surface (m²)")
-            fig.update_yaxis(title="Fréquence")
+            fig.update_layout(
+                title='<b>Distribution des Surfaces</b>',
+                xaxis_title="Surface (m²)",
+                yaxis_title="Fréquence",
+                height=400,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter', size=12)
+            )
             
             return fig
         except Exception as e:
-            print(f"❌ Erreur surface: {e}")
-            return self.create_empty_figure("Erreur")
+            print(f"Erreur section 3: {e}")
+            return self.create_empty_figure("Erreur de chargement")
     
-    def create_price_boxplot(self, df):
-        """Box plot des prix par type"""
+    def create_section_4(self, df):
+        """Section 4: Box plot prix par type"""
         try:
             if df.empty:
                 return self.create_empty_figure()
@@ -618,28 +353,32 @@ class ObservatoireModerne:
             
             fig = go.Figure()
             
-            colors = ['#6366F1', '#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444']
-            for i, ptype in enumerate(types):
+            for ptype in types:
                 data = df[df['property_type'] == ptype]['price']
                 fig.add_trace(go.Box(
                     y=data,
                     name=ptype,
                     boxmean='sd',
-                    marker_color=colors[i % len(colors)],
-                    line=dict(width=2)
+                    marker_color=self.COLORS['primary']
                 ))
             
-            fig.update_layout(**self.get_modern_layout())
-            fig.update_layout(showlegend=False, height=380)
-            fig.update_yaxis(title="Prix (FCFA)")
+            fig.update_layout(
+                title='<b>Distribution des Prix par Type</b>',
+                yaxis_title="Prix (FCFA)",
+                height=450,
+                showlegend=False,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter', size=12)
+            )
             
             return fig
         except Exception as e:
-            print(f"❌ Erreur boxplot: {e}")
-            return self.create_empty_figure("Erreur")
+            print(f"Erreur section 4: {e}")
+            return self.create_empty_figure("Erreur de chargement")
     
-    def create_price_per_m2(self, df):
-        """Prix médian au m² par type"""
+    def create_section_5(self, df):
+        """Section 5: Prix/m² par type"""
         try:
             if df.empty or 'price_per_m2' not in df.columns or df['price_per_m2'].isna().all():
                 return self.create_empty_figure("Données prix/m² insuffisantes")
@@ -651,27 +390,28 @@ class ObservatoireModerne:
                 x=price_m2.values,
                 y=price_m2.index,
                 orientation='h',
-                marker=dict(
-                    color='#10B981',
-                    line=dict(color='white', width=2)
-                ),
+                marker_color=self.COLORS['success'],
                 text=[f'{x:,.0f}' for x in price_m2.values],
                 textposition='outside',
-                textfont=dict(size=11, weight=600),
                 hovertemplate='<b>%{y}</b><br>Prix/m²: %{x:,.0f} FCFA<extra></extra>'
             ))
             
-            fig.update_layout(**self.get_modern_layout())
-            fig.update_xaxis(title="Prix/m² (FCFA)")
-            fig.update_yaxis(title="")
+            fig.update_layout(
+                title='<b>Prix Médian au m² par Type</b>',
+                xaxis_title="Prix/m² (FCFA)",
+                height=400,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter', size=12)
+            )
             
             return fig
         except Exception as e:
-            print(f"❌ Erreur price_m2: {e}")
-            return self.create_empty_figure("Erreur")
+            print(f"Erreur section 5: {e}")
+            return self.create_empty_figure("Erreur de chargement")
     
-    def create_top_cities_expensive(self, df):
-        """Top villes les plus chères"""
+    def create_section_6(self, df):
+        """Section 6: Top 10 villes (prix médian)"""
         try:
             if df.empty:
                 return self.create_empty_figure()
@@ -688,27 +428,29 @@ class ObservatoireModerne:
                 x=city_prices['median_price'],
                 y=city_prices['city'],
                 orientation='h',
-                marker=dict(
-                    color='#EF4444',
-                    line=dict(color='white', width=2)
-                ),
-                text=[f'{x/1e6:.1f}M' for x in city_prices['median_price']],
+                marker_color=self.COLORS['danger'],
+                text=[f'{x:,.0f}' for x in city_prices['median_price']],
                 textposition='outside',
-                textfont=dict(size=11, weight=600),
-                hovertemplate='<b>%{y}</b><br>Prix: %{x:,.0f} FCFA<extra></extra>'
+                hovertemplate='<b>%{y}</b><br>Prix médian: %{x:,.0f} FCFA<br>Annonces: %{customdata}<extra></extra>',
+                customdata=city_prices['count']
             ))
             
-            fig.update_layout(**self.get_modern_layout())
-            fig.update_xaxis(title="Prix Médian (FCFA)")
-            fig.update_yaxis(title="")
+            fig.update_layout(
+                title='<b>Top 10 Zones les Plus Chères (Prix Médian)</b>',
+                xaxis_title="Prix Médian (FCFA)",
+                height=450,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter', size=12)
+            )
             
             return fig
         except Exception as e:
-            print(f"❌ Erreur top_expensive: {e}")
-            return self.create_empty_figure("Erreur")
+            print(f"Erreur section 6: {e}")
+            return self.create_empty_figure("Erreur de chargement")
     
-    def create_top_cities_affordable(self, df):
-        """Top villes les plus accessibles"""
+    def create_section_7(self, df):
+        """Section 7: Top 10 villes accessibles"""
         try:
             if df.empty:
                 return self.create_empty_figure()
@@ -725,27 +467,29 @@ class ObservatoireModerne:
                 x=city_prices['median_price'],
                 y=city_prices['city'],
                 orientation='h',
-                marker=dict(
-                    color='#10B981',
-                    line=dict(color='white', width=2)
-                ),
-                text=[f'{x/1e6:.1f}M' for x in city_prices['median_price']],
+                marker_color=self.COLORS['success'],
+                text=[f'{x:,.0f}' for x in city_prices['median_price']],
                 textposition='outside',
-                textfont=dict(size=11, weight=600),
-                hovertemplate='<b>%{y}</b><br>Prix: %{x:,.0f} FCFA<extra></extra>'
+                hovertemplate='<b>%{y}</b><br>Prix médian: %{x:,.0f} FCFA<br>Annonces: %{customdata}<extra></extra>',
+                customdata=city_prices['count']
             ))
             
-            fig.update_layout(**self.get_modern_layout())
-            fig.update_xaxis(title="Prix Médian (FCFA)")
-            fig.update_yaxis(title="")
+            fig.update_layout(
+                title='<b>Top 10 Zones les Plus Accessibles (Prix Médian)</b>',
+                xaxis_title="Prix Médian (FCFA)",
+                height=450,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter', size=12)
+            )
             
             return fig
         except Exception as e:
-            print(f"❌ Erreur top_affordable: {e}")
-            return self.create_empty_figure("Erreur")
+            print(f"Erreur section 7: {e}")
+            return self.create_empty_figure("Erreur de chargement")
     
-    def create_scatter_price_surface(self, df):
-        """Scatter prix vs surface"""
+    def create_section_8(self, df):
+        """Section 8: Scatter prix vs surface"""
         try:
             if df.empty or df['surface_area'].isna().all():
                 return self.create_empty_figure("Données insuffisantes")
@@ -761,34 +505,41 @@ class ObservatoireModerne:
                     color=df_valid['price'],
                     colorscale='Viridis',
                     showscale=True,
-                    colorbar=dict(title="Prix", thickness=12, len=0.7),
-                    line=dict(width=1, color='white'),
-                    opacity=0.7
+                    colorbar=dict(title="Prix"),
+                    line=dict(width=1, color='white')
                 ),
-                hovertemplate='Surface: %{x:.0f}m²<br>Prix: %{y:,.0f} FCFA<extra></extra>'
+                text=[f"Surface: {s:.0f}m²<br>Prix: {p:,.0f} FCFA" 
+                      for s, p in zip(df_valid['surface_area'], df_valid['price'])],
+                hovertemplate='%{text}<extra></extra>'
             ))
             
-            fig.update_layout(**self.get_modern_layout())
-            fig.update_layout(height=380)
-            fig.update_xaxis(title="Surface (m²)")
-            fig.update_yaxis(title="Prix (FCFA)")
+            fig.update_layout(
+                title='<b>Relation Surface - Prix</b>',
+                xaxis_title="Surface (m²)",
+                yaxis_title="Prix (FCFA)",
+                height=450,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter', size=12)
+            )
             
             return fig
         except Exception as e:
-            print(f"❌ Erreur scatter: {e}")
-            return self.create_empty_figure("Erreur")
+            print(f"Erreur section 8: {e}")
+            return self.create_empty_figure("Erreur de chargement")
     
-    def create_price_ranges(self, df):
-        """Distribution par tranches de prix"""
+    def create_section_9(self, df):
+        """Section 9: Distribution prix par tranches"""
         try:
             if df.empty:
                 return self.create_empty_figure()
             
+            # Définir tranches
             tranches = [
                 (0, 10000000, "< 10M"),
-                (10000000, 25000000, "10-25M"),
-                (25000000, 50000000, "25-50M"),
-                (50000000, 100000000, "50-100M"),
+                (10000000, 25000000, "10M - 25M"),
+                (25000000, 50000000, "25M - 50M"),
+                (50000000, 100000000, "50M - 100M"),
                 (100000000, float('inf'), "> 100M")
             ]
             
@@ -803,104 +554,32 @@ class ObservatoireModerne:
             fig = go.Figure(go.Bar(
                 x=labels,
                 y=counts,
-                marker=dict(
-                    color='#F59E0B',
-                    line=dict(color='white', width=2)
-                ),
+                marker_color=self.COLORS['warning'],
                 text=counts,
                 textposition='outside',
-                textfont=dict(size=11, weight=600),
-                hovertemplate='<b>%{x} FCFA</b><br>Annonces: %{y}<extra></extra>'
+                hovertemplate='<b>%{x}</b><br>Annonces: %{y}<extra></extra>'
             ))
             
-            fig.update_layout(**self.get_modern_layout())
-            fig.update_xaxis(title="")
-            fig.update_yaxis(title="Nombre d'annonces")
+            fig.update_layout(
+                title='<b>Distribution par Tranche de Prix</b>',
+                xaxis_title="Tranche de prix (FCFA)",
+                yaxis_title="Nombre d'annonces",
+                height=400,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter', size=12)
+            )
             
             return fig
         except Exception as e:
-            print(f"❌ Erreur price_ranges: {e}")
-            return self.create_empty_figure("Erreur")
+            print(f"Erreur section 9: {e}")
+            return self.create_empty_figure("Erreur de chargement")
     
-    def create_price_evolution(self, df):
-        """Évolution des prix par ancienneté"""
-        try:
-            if df.empty or df['age_days'].isna().all():
-                return self.create_empty_figure()
-            
-            df_clean = df.dropna(subset=['age_days', 'price'])
-            if df_clean.empty:
-                return self.create_empty_figure()
-            
-            df_clean['age_category'] = pd.cut(df_clean['age_days'], 
-                                              bins=[0, 7, 30, 60, 90, 180, 365],
-                                              labels=['< 7j', '7-30j', '1-2m', '2-3m', '3-6m', '6-12m'])
-            
-            price_by_age = df_clean.groupby('age_category').agg({
-                'price': ['median', 'mean']
-            }).reset_index()
-            price_by_age.columns = ['age_category', 'median', 'mean']
-            
-            fig = go.Figure()
-            
-            fig.add_trace(go.Scatter(
-                x=price_by_age['age_category'],
-                y=price_by_age['median'],
-                mode='lines+markers',
-                name='Médian',
-                line=dict(color='#6366F1', width=3),
-                marker=dict(size=10, line=dict(width=2, color='white')),
-                fill='tozeroy',
-                fillcolor='rgba(99, 102, 241, 0.1)',
-                hovertemplate='%{x}<br>Prix: %{y:,.0f} FCFA<extra></extra>'
-            ))
-            
-            fig.update_layout(**self.get_modern_layout())
-            fig.update_xaxis(title="Ancienneté")
-            fig.update_yaxis(title="Prix (FCFA)")
-            
-            return fig
-        except Exception as e:
-            print(f"❌ Erreur evolution: {e}")
-            return self.create_empty_figure("Erreur")
-    
-    def create_bathrooms_distribution(self, df):
-        """Répartition par nombre de salles de bain"""
-        try:
-            if df.empty or df['bathrooms'].isna().all():
-                return self.create_empty_figure()
-            
-            df_valid = df[df['bathrooms'].notna()]
-            bath_counts = df_valid['bathrooms'].value_counts().sort_index().head(6)
-            
-            fig = go.Figure(go.Bar(
-                x=bath_counts.index,
-                y=bath_counts.values,
-                marker=dict(
-                    color='#EC4899',
-                    line=dict(color='white', width=2)
-                ),
-                text=bath_counts.values,
-                textposition='outside',
-                textfont=dict(size=11, weight=600),
-                hovertemplate='<b>%{x} salle(s)</b><br>Annonces: %{y}<extra></extra>'
-            ))
-            
-            fig.update_layout(**self.get_modern_layout())
-            fig.update_xaxis(title="Nombre de salles de bain")
-            fig.update_yaxis(title="Nombre d'annonces")
-            
-            return fig
-        except Exception as e:
-            print(f"❌ Erreur bathrooms: {e}")
-            return self.create_empty_figure("Erreur")
-    
-    def create_city_stats_table(self, df):
-        """Table des statistiques par ville"""
+    def create_section_10(self, df):
+        """Section 10: Statistiques par ville (table)"""
         try:
             if df.empty:
-                return html.Div("Aucune donnée disponible", 
-                              style={'textAlign': 'center', 'padding': '40px', 'color': '#6B7280'})
+                return html.Div("Aucune donnée disponible")
             
             city_stats = df.groupby('city').agg({
                 'price': ['median', 'count'],
@@ -911,6 +590,7 @@ class ObservatoireModerne:
             city_stats = city_stats[city_stats['count'] >= 2]
             city_stats = city_stats.sort_values('median_price', ascending=False).head(15)
             
+            # Calculer prix/m²
             city_stats['price_per_m2'] = city_stats['median_price'] / city_stats['median_surface']
             city_stats['price_per_m2'] = city_stats['price_per_m2'].fillna(0)
             
@@ -933,12 +613,12 @@ class ObservatoireModerne:
                     'textAlign': 'left',
                     'padding': '12px',
                     'fontFamily': 'Inter',
-                    'fontSize': '13px'
+                    'fontSize': '14px'
                 },
                 style_header={
                     'backgroundColor': '#F3F4F6',
                     'fontWeight': 600,
-                    'color': '#1F2937',
+                    'color': self.COLORS['primary'],
                     'border': '1px solid #E5E7EB'
                 },
                 style_data={
@@ -949,208 +629,168 @@ class ObservatoireModerne:
                 ]
             )
         except Exception as e:
-            print(f"❌ Erreur table: {e}")
-            return html.Div(f"Erreur: {str(e)}", style={'padding': '20px', 'color': '#EF4444'})
+            print(f"Erreur section 10: {e}")
+            return html.Div(f"Erreur: {str(e)}")
     
     # ==================== LAYOUT ====================
     
     def setup_layout(self):
-        """Configuration du layout ultra-moderne"""
-        
-        self.app.index_string = '''
-        <!DOCTYPE html>
-        <html>
-            <head>
-                {%metas%}
-                <title>Observatoire Immobilier Sénégalais</title>
-                {%favicon%}
-                {%css%}
-                ''' + self.get_modern_styles() + '''
-            </head>
-            <body>
-                <div class="animated-bg"></div>
-                {%app_entry%}
-                <footer>
-                    {%config%}
-                    {%scripts%}
-                    {%renderer%}
-                </footer>
-            </body>
-        </html>
-        '''
-        
+        """Layout complet du dashboard"""
         self.app.layout = html.Div([
-            # Background animé
-            html.Div(className="animated-bg"),
-
-            # Container principal
+            # Header
             html.Div([
-
-                # Header
                 html.Div([
                     html.Div([
-                        html.H1("🏠 Observatoire Immobilier Sénégalais", className="header-title"),
+                        DashIconify(icon="mdi:office-building", width=56, color="white"),
                         html.Div([
-                            html.Span("Analyse en temps réel du marché immobilier",
-                                    style={'fontSize': '15px', 'color': '#6B7280'}),
-                            html.Span([
-                                html.Span(className="pulse-dot"),
-                                html.Span("LIVE")
-                            ], className="badge-live")
-                        ], style={
-                            'display': 'flex',
-                            'alignItems': 'center',
-                            'gap': '12px',
-                            'flexWrap': 'wrap'
-                        })
-                    ], style={'flex': '1'}),
-
+                            html.H1("OBSERVATOIRE IMMOBILIER", 
+                                   style={'margin': 0, 'fontSize': '36px', 'fontWeight': 700, 'color': 'white'}),
+                            html.P("Lecture Institutionnelle - Analyse Descriptive Pure", 
+                                  style={'margin': 0, 'fontSize': '16px', 'color': 'rgba(255,255,255,0.9)'})
+                        ], style={'marginLeft': '20px'})
+                    ], style={'display': 'flex', 'alignItems': 'center'}),
+                    
                     html.Div([
                         dmc.Select(
                             id='property-type-selector',
                             data=[
-                                {'label': '🏘️ Tous les types', 'value': 'Tous'},
-                                {'label': '🏠 Maison', 'value': 'Maison'},
-                                {'label': '🏢 Appartement', 'value': 'Appartement'},
-                                {'label': '🏛️ Villa', 'value': 'Villa'},
-                                {'label': '🏗️ Studio', 'value': 'Studio'},
-                                {'label': '🏞️ Terrain', 'value': 'Terrain'},
-                                {'label': '🏪 Commercial', 'value': 'Commercial'}
+                                {'label': 'Tous les types', 'value': 'Tous'},
+                                {'label': 'Appartement', 'value': 'Appartement'},
+                                {'label': 'Villa', 'value': 'Villa'},
+                                {'label': 'Studio', 'value': 'Studio'},
+                                {'label': 'Maison', 'value': 'Maison'},
+                                {'label': 'Duplex', 'value': 'Duplex'}
                             ],
                             value='Tous',
-                            size="md",
-                            style={'width': '220px'}
+                            style={'width': '250px', 'background': 'white'},
+                            size="lg"
                         )
                     ])
                 ], style={
                     'display': 'flex',
                     'justifyContent': 'space-between',
                     'alignItems': 'center',
-                    'gap': '20px',
-                    'flexWrap': 'wrap'
-                }, className="modern-header"),
-
-                # KPIs
-                html.Div(id='kpi-header'),
-
-                # Méthodologie
+                    'maxWidth': '1400px',
+                    'margin': '0 auto',
+                    'padding': '32px 24px'
+                })
+            ], style={
+                'background': f'linear-gradient(135deg, {self.COLORS["primary"]} 0%, {self.COLORS["secondary"]} 100%)',
+                'marginBottom': '32px'
+            }),
+            
+            # Contenu
+            html.Div([
+                # Section 0: KPI Header
+                html.Div(id='kpi-header', style={'marginBottom': '32px'}),
+                
+                # Note méthodologique
                 html.Div([
-                    html.Div("📋 Règles Méthodologiques", className="methodology-title"),
+                    html.H2("📋 Règles Méthodologiques", 
+                           style={'color': self.COLORS['primary'], 'marginBottom': '16px', 'fontSize': '20px'}),
                     html.Ul([
-                        html.Li("Tous les indicateurs sont segmentés par type de logement"),
-                        html.Li("Prix globaux tous biens confondus non affichés"),
-                        html.Li("Données issues d'annonces observées sur le marché"),
-                        html.Li("Analyse descriptive uniquement - pas de prédiction"),
-                        html.Li("Médiane privilégiée pour éviter valeurs extrêmes"),
-                        html.Li("Zones avec moins de 3 annonces exclues"),
-                    ], className="methodology-list")
-                ], className="methodology-box"),
-
-                # Section 1
+                        html.Li("✓ Tous les indicateurs sont segmentés par type de logement"),
+                        html.Li("✓ Les prix globaux tous biens confondus ne sont pas affichés"),
+                        html.Li("✓ Données issues d'annonces observées sur le marché"),
+                        html.Li("✓ Analyse descriptive uniquement - pas de prédiction"),
+                        html.Li("✓ Médiane privilégiée pour éviter l'influence des valeurs extrêmes"),
+                        html.Li("✓ Quartiles (P25, P75) utilisés pour mesurer la dispersion"),
+                        html.Li("✓ Zones avec moins de 3 annonces exclues de l'analyse territoriale"),
+                    ], style={'fontSize': '14px', 'lineHeight': '1.8', 'color': '#374151'})
+                ], style={
+                    'background': '#FEF3C7',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'border': '2px solid #F59E0B',
+                    'marginBottom': '32px'
+                }),
+                
+                # Section 1: Structure de l'offre
+                html.Div(id='section-1', style={'marginBottom': '32px'}),
+                
+                # Section 2: Répartition chambres
+                html.Div(id='section-2', style={'marginBottom': '32px'}),
+                
+                # Section 3: Distribution surfaces
+                html.Div(id='section-3', style={'marginBottom': '32px'}),
+                
+                # Section 4: Niveau des prix
+                html.Div(id='section-4', style={'marginBottom': '32px'}),
+                
+                # Section 5: Prix/m²
+                html.Div(id='section-5', style={'marginBottom': '32px'}),
+                
+                # Section 6 & 7: Analyse territoriale
                 html.Div([
-                    html.Div("Structure de l'Offre", className="section-title"),
+                    html.H2("🟦 5. Analyse Territoriale", 
+                           style={'color': self.COLORS['primary'], 'marginBottom': '20px'}),
                     html.Div([
-                        html.Div(dcc.Graph(id='graph-types', config={'displayModeBar': False}),
-                                style={'flex': '1', 'minWidth': '500px'}),
-                    ],
-                        className="grid-2")
-                ], className="section-card"),
-
-                # Section 2
+                        html.Div(id='section-6', style={'flex': '1'}),
+                        html.Div(id='section-7', style={'flex': '1'})
+                    ], style={'display': 'flex', 'gap': '20px', 'flexWrap': 'wrap'})
+                ], style={
+                    'background': 'white',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)',
+                    'marginBottom': '32px'
+                }),
+                
+                # Section 8: Dispersion
+                html.Div(id='section-8', style={'marginBottom': '32px'}),
+                
+                # Section 9: Tranches de prix
+                html.Div(id='section-9', style={'marginBottom': '32px'}),
+                
+                # Section 10: Table statistiques
                 html.Div([
-                    html.Div("Distribution des Surfaces et Salles de Bain", className="section-title"),
-                    html.Div([
-                        html.Div(dcc.Graph(id='graph-surfaces', config={'displayModeBar': False}),
-                                style={'flex': '1', 'minWidth': '500px'}),
-                        html.Div(dcc.Graph(id='graph-bathrooms', config={'displayModeBar': False}),
-                                style={'flex': '1', 'minWidth': '500px'})
-                    ], className="grid-2")
-                ], className="section-card"),
-
-                # Section 3
-                html.Div([
-                    html.Div("Niveau des Prix", className="section-title"),
-                    html.Div([
-                        html.Div(dcc.Graph(id='graph-boxplot', config={'displayModeBar': False}),
-                                style={'flex': '1', 'minWidth': '500px'}),
-                        html.Div(dcc.Graph(id='graph-price-m2', config={'displayModeBar': False}),
-                                style={'flex': '1', 'minWidth': '500px'})
-                    ], className="grid-2")
-                ], className="section-card"),
-
-                # Section 4
-                html.Div([
-                    html.Div("Analyse Territoriale", className="section-title"),
-                    html.Div([
-                        html.Div(dcc.Graph(id='graph-expensive', config={'displayModeBar': False}),
-                                style={'flex': '1', 'minWidth': '500px'}),
-                        html.Div(dcc.Graph(id='graph-affordable', config={'displayModeBar': False}),
-                                style={'flex': '1', 'minWidth': '500px'})
-                    ], className="grid-2")
-                ], className="section-card"),
-
-                # Section 5
-                html.Div([
-                    html.Div("Dispersion et Tranches de Prix", className="section-title"),
-                    html.Div([
-                        html.Div(dcc.Graph(id='graph-scatter', config={'displayModeBar': False}),
-                                style={'flex': '1', 'minWidth': '500px'}),
-                        html.Div(dcc.Graph(id='graph-ranges', config={'displayModeBar': False}),
-                                style={'flex': '1', 'minWidth': '500px'})
-                    ], className="grid-2")
-                ], className="section-card"),
-
-                # Section 6
-                html.Div([
-                    html.Div("Évolution des Prix par Ancienneté", className="section-title"),
-                    dcc.Graph(id='graph-evolution', config={'displayModeBar': False})
-                ], className="section-card"),
-
-                # Section 7
-                html.Div([
-                    html.Div("Statistiques par Zone", className="section-title"),
-                    html.Div(id='stats-table')
-                ], className="section-card"),
-
+                    html.H2("🟦 8. Statistiques par Zone", 
+                           style={'color': self.COLORS['primary'], 'marginBottom': '20px'}),
+                    html.Div(id='section-10')
+                ], style={
+                    'background': 'white',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)',
+                    'marginBottom': '32px'
+                }),
+                
                 # Footer
                 html.Div([
-                    html.P("📊 Observatoire Immobilier - ENSAE Pierre Ndiaye © 2024 | Dakar, Sénégal",
-                        style={'textAlign': 'center', 'color': '#6B7280', 'fontSize': '13px'})
-                ], style={
-                    'marginTop': '32px',
-                    'paddingTop': '20px',
-                    'borderTop': '2px solid rgba(255,255,255,0.3)'
-                })
-
-            ], className="dashboard-container")
-        ])
-
+                    html.P("📊 Observatoire Immobilier - ENSAE Dakar © 2024", 
+                          style={'textAlign': 'center', 'color': '#6B7280', 'fontSize': '14px'})
+                ], style={'marginTop': '48px', 'paddingTop': '24px', 'borderTop': '1px solid #E5E7EB'})
+                
+            ], style={'maxWidth': '1400px', 'margin': '0 auto', 'padding': '0 24px'})
+        ], style={
+            'fontFamily': "'Inter', sans-serif",
+            'background': '#F9FAFB',
+            'minHeight': '100vh'
+        })
     
     # ==================== CALLBACKS ====================
     
     def setup_callbacks(self):
-        """Configuration des callbacks"""
+        """Callbacks ultra-robustes"""
         
-        @self.app.callback(
+        @callback(
             [
                 Output('kpi-header', 'children'),
-                Output('graph-types', 'figure'),
-                Output('graph-bedrooms', 'figure'),
-                Output('graph-surfaces', 'figure'),
-                Output('graph-bathrooms', 'figure'),
-                Output('graph-boxplot', 'figure'),
-                Output('graph-price-m2', 'figure'),
-                Output('graph-expensive', 'figure'),
-                Output('graph-affordable', 'figure'),
-                Output('graph-scatter', 'figure'),
-                Output('graph-ranges', 'figure'),
-                Output('graph-evolution', 'figure'),
-                Output('stats-table', 'children')
+                Output('section-1', 'children'),
+                Output('section-2', 'children'),
+                Output('section-3', 'children'),
+                Output('section-4', 'children'),
+                Output('section-5', 'children'),
+                Output('section-6', 'children'),
+                Output('section-7', 'children'),
+                Output('section-8', 'children'),
+                Output('section-9', 'children'),
+                Output('section-10', 'children')
             ],
             Input('property-type-selector', 'value')
         )
-        def update_dashboard(property_type):
-            """Mettre à jour tout le dashboard"""
+        def update_all_sections(property_type):
+            """Mettre à jour toutes les sections"""
             try:
                 # Charger données
                 df = self.safe_get_data(property_type)
@@ -1158,86 +798,170 @@ class ObservatoireModerne:
                 
                 # KPI Header
                 kpi_header = html.Div([
-                    self.create_modern_kpi_card(
-                        "mdi:cash-multiple", "Prix Médian", 
-                        kpi['median_price'], kpi['price_change'],
-                        self.COLORS['gradient1'], " FCFA"
-                    ),
-                    self.create_modern_kpi_card(
-                        "mdi:ruler-square", "Prix Moyen/m²", 
-                        kpi['avg_price_m2'], kpi['price_change'] * 0.8,
-                        self.COLORS['gradient3'], " FCFA"
-                    ),
-                    self.create_modern_kpi_card(
-                        "mdi:file-document-multiple", "Annonces Actives", 
-                        kpi['active_listings'], kpi['listings_change'],
-                        self.COLORS['gradient2'], ""
-                    ),
-                    self.create_modern_kpi_card(
-                        "mdi:home-analytics", "Surface Médiane", 
-                        kpi['median_surface'], 0,
-                        self.COLORS['gradient4'], " m²"
-                    ),
-                    self.create_modern_kpi_card(
-                        "mdi:clock-time-four", "Âge Médian", 
-                        kpi['median_age'], 0,
-                        self.COLORS['gradient5'], " jours"
-                    )
-                ], className="kpi-grid")
+                    html.H3(f"Type analysé : {property_type}", 
+                           style={'color': self.COLORS['primary'], 'marginBottom': '24px', 
+                                 'fontSize': '20px', 'fontWeight': 600}),
+                    html.Div([
+                        self.create_kpi_card("mdi:currency-usd", "Prix Médian", 
+                                           kpi['median_price'], self.COLORS['primary'], " FCFA"),
+                        self.create_kpi_card("mdi:ruler-square", "Prix Moyen/m²", 
+                                           kpi['avg_price_m2'], self.COLORS['success'], " FCFA"),
+                        self.create_kpi_card("mdi:file-document-multiple", "Annonces Actives", 
+                                           kpi['active_listings'], self.COLORS['info']),
+                        self.create_kpi_card("mdi:tape-measure", "Surface Médiane", 
+                                           kpi['median_surface'], self.COLORS['warning'], " m²"),
+                        self.create_kpi_card("mdi:calendar-clock", "Âge Médian", 
+                                           kpi['median_age'], self.COLORS['secondary'], " jours"),
+                    ], style={
+                        'display': 'grid',
+                        'gridTemplateColumns': 'repeat(auto-fit, minmax(180px, 1fr))',
+                        'gap': '16px'
+                    })
+                ])
                 
-                # Graphiques
-                fig_types = self.create_type_distribution(df)
-                fig_bedrooms = self.create_bedrooms_distribution(df)
-                fig_surfaces = self.create_surface_distribution(df)
-                fig_bathrooms = self.create_bathrooms_distribution(df)
-                fig_boxplot = self.create_price_boxplot(df)
-                fig_price_m2 = self.create_price_per_m2(df)
-                fig_expensive = self.create_top_cities_expensive(df)
-                fig_affordable = self.create_top_cities_affordable(df)
-                fig_scatter = self.create_scatter_price_surface(df)
-                fig_ranges = self.create_price_ranges(df)
-                fig_evolution = self.create_price_evolution(df)
-                stats_table = self.create_city_stats_table(df)
+                # Section 1
+                section_1 = html.Div([
+                    html.H2("🟦 2. Structure de l'Offre", 
+                           style={'color': self.COLORS['primary'], 'marginBottom': '20px'}),
+                    dcc.Graph(figure=self.create_section_1(df), config={'displayModeBar': False})
+                ], style={
+                    'background': 'white',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                })
+                
+                # Section 2
+                section_2 = html.Div([
+                    dcc.Graph(figure=self.create_section_2(df), config={'displayModeBar': False})
+                ], style={
+                    'background': 'white',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                })
+                
+                # Section 3
+                section_3 = html.Div([
+                    dcc.Graph(figure=self.create_section_3(df), config={'displayModeBar': False})
+                ], style={
+                    'background': 'white',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                })
+                
+                # Section 4
+                section_4 = html.Div([
+                    html.H2("🟦 3. Niveau des Prix (Segmenté)", 
+                           style={'color': self.COLORS['primary'], 'marginBottom': '20px'}),
+                    dcc.Graph(figure=self.create_section_4(df), config={'displayModeBar': False})
+                ], style={
+                    'background': 'white',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                })
+                
+                # Section 5
+                section_5 = html.Div([
+                    html.H2("🟦 4. Prix au m² (Référence Économique)", 
+                           style={'color': self.COLORS['primary'], 'marginBottom': '20px'}),
+                    dcc.Graph(figure=self.create_section_5(df), config={'displayModeBar': False})
+                ], style={
+                    'background': 'white',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                })
+                
+                # Section 6
+                section_6 = html.Div([
+                    dcc.Graph(figure=self.create_section_6(df), config={'displayModeBar': False})
+                ], style={
+                    'background': 'white',
+                    'padding': '16px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                })
+                
+                # Section 7
+                section_7 = html.Div([
+                    dcc.Graph(figure=self.create_section_7(df), config={'displayModeBar': False})
+                ], style={
+                    'background': 'white',
+                    'padding': '16px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                })
+                
+                # Section 8
+                section_8 = html.Div([
+                    html.H2("🟦 6. Dispersion & Hétérogénéité", 
+                           style={'color': self.COLORS['primary'], 'marginBottom': '20px'}),
+                    dcc.Graph(figure=self.create_section_8(df), config={'displayModeBar': False})
+                ], style={
+                    'background': 'white',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                })
+                
+                # Section 9
+                section_9 = html.Div([
+                    html.H2("🟦 7. Accessibilité & Gammes de Prix", 
+                           style={'color': self.COLORS['primary'], 'marginBottom': '20px'}),
+                    dcc.Graph(figure=self.create_section_9(df), config={'displayModeBar': False})
+                ], style={
+                    'background': 'white',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                })
+                
+                # Section 10
+                section_10 = self.create_section_10(df)
                 
                 return (
                     kpi_header,
-                    fig_types, fig_bedrooms, fig_surfaces, fig_bathrooms,
-                    fig_boxplot, fig_price_m2, fig_expensive, fig_affordable,
-                    fig_scatter, fig_ranges, fig_evolution, stats_table
+                    section_1,
+                    section_2,
+                    section_3,
+                    section_4,
+                    section_5,
+                    section_6,
+                    section_7,
+                    section_8,
+                    section_9,
+                    section_10
                 )
                 
             except Exception as e:
-                print(f"❌ Erreur callback: {e}")
+                print(f"Erreur callback principal: {e}")
                 traceback.print_exc()
                 
+                # Message d'erreur
                 error_msg = html.Div([
-                    html.Div("⚠️ Erreur de Chargement", 
-                            style={'fontSize': '24px', 'fontWeight': 700, 'color': '#EF4444', 'marginBottom': '12px'}),
-                    html.P("Une erreur s'est produite lors du chargement des données.", 
-                          style={'color': '#6B7280', 'marginBottom': '8px'}),
+                    html.H3("⚠️ Erreur de Chargement", style={'color': '#DC2626'}),
+                    html.P(f"Une erreur s'est produite: {str(e)}", style={'color': '#6B7280'}),
                     html.P("Veuillez réessayer ou contacter l'administrateur.", 
-                          style={'color': '#9CA3AF', 'fontSize': '13px'})
+                          style={'color': '#6B7280', 'fontSize': '14px'})
                 ], style={
-                    'background': 'rgba(254, 226, 226, 0.8)',
-                    'backdropFilter': 'blur(10px)',
-                    'padding': '40px',
-                    'borderRadius': '20px',
+                    'background': '#FEE2E2',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'border': '2px solid #DC2626',
                     'textAlign': 'center'
                 })
                 
-                empty_fig = self.create_empty_figure()
-                return (
-                    error_msg,
-                    empty_fig, empty_fig, empty_fig, empty_fig,
-                    empty_fig, empty_fig, empty_fig, empty_fig,
-                    empty_fig, empty_fig, empty_fig,
-                    html.Div()
-                )
+                empty = html.Div()
+                
+                return (error_msg, empty, empty, empty, empty, empty, empty, empty, empty, empty, empty)
 
 
 def create_observatoire_dashboard(server=None, routes_pathname_prefix="/", requests_pathname_prefix="/"):
-    """Factory function pour créer le dashboard"""
-    dashboard = ObservatoireModerne(
+    """Factory function"""
+    dashboard = ObservatoireComplet(
         server=server,
         routes_pathname_prefix=routes_pathname_prefix,
         requests_pathname_prefix=requests_pathname_prefix
