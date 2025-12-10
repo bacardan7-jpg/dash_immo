@@ -39,6 +39,7 @@ class ErrorManager:
     @staticmethod
     def notify_success(title, message):
         return dmc.Notification(
+            id=f"notification-success-{datetime.now().timestamp()}",
             title=title,
             message=message,
             color="green",
@@ -50,6 +51,7 @@ class ErrorManager:
     def notify_error(title, message, details=None):
         return html.Div([
             dmc.Notification(
+                id=f"notification-error-{datetime.now().timestamp()}",
                 title=title,
                 message=message,
                 color="red",
@@ -73,6 +75,7 @@ class ErrorManager:
     @staticmethod
     def notify_warning(title, message):
         return dmc.Notification(
+            id=f"notification-warning-{datetime.now().timestamp()}",
             title=title,
             message=message,
             color="yellow",
@@ -83,6 +86,7 @@ class ErrorManager:
     @staticmethod
     def notify_info(title, message):
         return dmc.Notification(
+            id=f"notification-info-{datetime.now().timestamp()}",
             title=title,
             message=message,
             color="blue",
@@ -742,7 +746,12 @@ class AnalyticsDashboard:
             if not all(col in df.columns for col in required_cols):
                 return self._create_empty_graph("Colonnes manquantes", "⚫ Matrice Bulles 4D")
             
-            df_clean = df[df['surface_area'].notna() & (df['surface_area'] > 0)].copy()
+            df_clean = df[
+                df['surface_area'].notna() & 
+                (df['surface_area'] > 0) &
+                df['bedrooms'].notna() &
+                (df['bedrooms'] > 0)
+            ].copy()
             
             if df_clean.empty or len(df_clean) < 10:
                 return self._create_empty_graph("Pas assez de données", "⚫ Matrice Bulles 4D")
@@ -750,12 +759,22 @@ class AnalyticsDashboard:
             # Échantillonner
             df_sample = df_clean.sample(min(300, len(df_clean)))
             
+            # S'assurer qu'il n'y a pas de NaN dans les colonnes critiques
+            df_sample = df_sample.dropna(subset=['surface_area', 'price', 'bedrooms'])
+            
+            if df_sample.empty:
+                return self._create_empty_graph("Données incomplètes", "⚫ Matrice Bulles 4D")
+            
+            # Calculer la taille des bulles (avec fallback)
+            bubble_sizes = df_sample['bedrooms'] * 10
+            bubble_sizes = bubble_sizes.fillna(10).clip(lower=5, upper=50)
+            
             fig = go.Figure(data=go.Scatter(
                 x=df_sample['surface_area'],
                 y=df_sample['price'],
                 mode='markers',
                 marker=dict(
-                    size=df_sample['bedrooms'] * 10 if 'bedrooms' in df_sample.columns else 10,
+                    size=bubble_sizes,
                     color=df_sample['price_per_m2'] if 'price_per_m2' in df_sample.columns else df_sample['price'],
                     colorscale='Viridis',
                     showscale=True,
@@ -764,8 +783,7 @@ class AnalyticsDashboard:
                     opacity=0.7
                 ),
                 text=df_sample.apply(
-                    lambda x: f"Surface: {x['surface_area']:.0f}m²<br>Prix: {x['price']/1_000_000:.1f}M<br>Chambres: {x['bedrooms']}" 
-                    if 'bedrooms' in x and pd.notna(x['bedrooms']) else f"Surface: {x['surface_area']:.0f}m²<br>Prix: {x['price']/1_000_000:.1f}M",
+                    lambda x: f"Surface: {x['surface_area']:.0f}m²<br>Prix: {x['price']/1_000_000:.1f}M<br>Chambres: {int(x['bedrooms'])}",
                     axis=1
                 ),
                 hovertemplate='%{text}<extra></extra>'
@@ -1396,7 +1414,7 @@ class AnalyticsDashboard:
                 return [error] * 8
 
 
-def create_ultra_dashboard(server=None, routes_pathname_prefix="/analytics/", requests_pathname_prefix="/analytics/"):
+def create_analytics_dashboard(server=None, routes_pathname_prefix="/analytics/", requests_pathname_prefix="/analytics/"):
     """Factory function pour créer le dashboard analytics"""
     try:
         dashboard = AnalyticsDashboard(
