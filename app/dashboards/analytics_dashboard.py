@@ -919,14 +919,6 @@ class AnalyticsDashboard:
         
         self.app.layout = html.Div([
             # CSS personnalisé
-            html.Style("""
-                * { font-family: 'Outfit', sans-serif; }
-                body { background: #F8FAFC; margin: 0; }
-                .graph-container { transition: all 0.3s ease; }
-                .graph-container:hover { transform: translateY(-5px); box-shadow: 0 12px 30px rgba(0,0,0,0.12); }
-                @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-                .fade-in { animation: fadeIn 0.6s ease-out; }
-            """),
             
             # Header premium
             html.Div([
