@@ -1396,7 +1396,7 @@ class AnalyticsDashboard:
                 return [error] * 8
 
 
-def create_analytics_dashboard(server=None, routes_pathname_prefix="/analytics/", requests_pathname_prefix="/analytics/"):
+def create_ultra_dashboard(server=None, routes_pathname_prefix="/analytics/", requests_pathname_prefix="/analytics/"):
     """Factory function pour créer le dashboard analytics"""
     try:
         dashboard = AnalyticsDashboard(
