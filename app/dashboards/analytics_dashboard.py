@@ -1261,22 +1261,19 @@ class AnalyticsDashboard:
     def setup_layout(self):
         """Layout avec gestion d'erreurs intégrée"""
         
-        self.app.index_string = '''
+        self.app.index_string = """
         <!DOCTYPE html>
         <html>
             <head>
                 <meta charset="UTF-8">
                 <title>Analytics Immobilier</title>
                 <style>
-                    ''' + self.custom_css + '''
+                    %s
                 </style>
             </head>
             <body>
                 <div id="react-entry-point">
-                    <div class="_dash-loading">
-                        <div class="loading-spinner"></div>
-                        <p>Chargement du dashboard...</p>
-                    </div>
+                    {%app_entry%}
                 </div>
                 <footer>
                     {%config%}
@@ -1285,7 +1282,9 @@ class AnalyticsDashboard:
                 </footer>
             </body>
         </html>
-        '''
+        """ % self.custom_css
+
+
         
         self.app.layout = html.Div([
             # URL pour déclencher le chargement initial
