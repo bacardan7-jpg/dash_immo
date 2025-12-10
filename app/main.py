@@ -56,14 +56,14 @@ except:
 app.register_blueprint(auth_bp, url_prefix='/auth')
 
 # Import dashboard creation functions
-from .dashboards.modern_main_dashboard import create_complete_dashboard
+from .dashboards.modern_main_dashboard import create_complete_dashboard, create_observatoire_dashboard
 from .dashboards.analytics_dashboard import AnalyticsDashboard
 from .dashboards.map_dashboard import MapDashboard
 from .components.admin_panel import AdminPanel
 
 # Initialize Dash apps immediately (before first request)
 # modern dashboard -> served at /dashboard/
-dash_app1 = create_complete_dashboard(server=app,
+dash_app1 = create_observatoire_dashboard(server=app,
                                     routes_pathname_prefix="/dashboard/",
                                     requests_pathname_prefix="/dashboard/")
 # analytics -> served at /analytics/
