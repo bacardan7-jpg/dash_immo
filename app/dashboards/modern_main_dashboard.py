@@ -139,6 +139,7 @@ class ObservatoireModern:
                 return pd.DataFrame()
             
             df = pd.DataFrame(all_data)
+            df['city'] = df['city'].apply(lambda x: x.split(',')[0] if isinstance(x, str) else x)
             
             # Calculer prix/m²
             if not df.empty and 'surface_area' in df.columns:
