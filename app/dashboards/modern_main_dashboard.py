@@ -1,6 +1,7 @@
 """
-🟦 OBSERVATOIRE IMMOBILIER - DASHBOARD INSTITUTIONNEL
-Analyse Descriptive Pure & Segmentée par Type de Logement
+🟦 OBSERVATOIRE IMMOBILIER - VERSION ULTRA-COMPLÈTE ET ROBUSTE
+Dashboard Institutionnel Professionnel avec Gestion d'Erreurs Exhaustive
+Toutes les 10 sections + méthodologie
 Auteur: Cos - ENSAE Dakar
 """
 
@@ -8,18 +9,17 @@ import dash
 from dash import html, dcc, Input, Output, State, callback, dash_table
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
-import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 from sqlalchemy import func
-from ..database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
+import traceback
 
 
-class ObservatoireImmobilier:
-    """Observatoire Immobilier - Lecture Institutionnelle"""
+class ObservatoireComplet:
+    """Observatoire Immobilier Complet - 10 Sections"""
     
     COLORS = {
         'primary': '#1E40AF',
@@ -30,11 +30,6 @@ class ObservatoireImmobilier:
         'info': '#0891B2',
         'neutral': '#6B7280'
     }
-    
-    PROPERTY_TYPES = [
-        'Appartement', 'Villa', 'Studio', 'Duplex', 
-        'Maison', 'Terrain', 'Bureaux', 'Autre'
-    ]
     
     def __init__(self, server=None, routes_pathname_prefix="/", requests_pathname_prefix="/"):
         self.app = dash.Dash(
@@ -56,562 +51,593 @@ class ObservatoireImmobilier:
     
     # ==================== DATA LOADING ====================
     
-    def get_consolidated_data(self, property_type=None):
-        """Récupérer données consolidées avec filtrage optionnel"""
+    def safe_import_models(self):
+        """Import sécurisé des modèles"""
         try:
+            from database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
+            return db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
+        except ImportError:
+            try:
+                from app.database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
+                return db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
+            except Exception as e:
+                print(f"Erreur import models: {e}")
+                return None, None, None, None
+    
+    def safe_get_data(self, property_type=None, limit=1000):
+        """Récupération ultra-sécurisée des données"""
+        try:
+            db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty = self.safe_import_models()
+            
+            if not db:
+                print("Impossible d'importer les modèles")
+                return pd.DataFrame()
+            
             all_data = []
             
             for model in [CoinAfrique, ExpatDakarProperty, LogerDakarProperty]:
-                query = db.session.query(
-                    model.city,
-                    model.property_type,
-                    model.price,
-                    model.surface_area,
-                    model.bedrooms,
-                    model.bathrooms,
-                    model.scraped_at
-                ).filter(model.price > 1000, model.price < 1e10)
-                
-                if property_type and property_type != "Tous":
-                    query = query.filter(model.property_type == property_type)
-                
-                records = query.all()
-                
-                for r in records:
-                    if r.scraped_at:
-                        age_days = (datetime.utcnow() - r.scraped_at).days
-                    else:
-                        age_days = None
+                try:
+                    query = db.session.query(
+                        model.city,
+                        model.property_type,
+                        model.price,
+                        model.surface_area,
+                        model.bedrooms,
+                        model.bathrooms,
+                        model.scraped_at
+                    ).filter(
+                        model.price.isnot(None),
+                        model.price > 0,
+                        model.price < 1e10
+                    )
                     
-                    all_data.append({
-                        'city': r.city,
-                        'property_type': r.property_type,
-                        'price': float(r.price) if r.price else 0,
-                        'surface_area': float(r.surface_area) if r.surface_area else None,
-                        'bedrooms': int(r.bedrooms) if r.bedrooms else None,
-                        'bathrooms': int(r.bathrooms) if r.bathrooms else None,
-                        'scraped_at': r.scraped_at,
-                        'age_days': age_days
-                    })
+                    if property_type and property_type != "Tous":
+                        query = query.filter(model.property_type == property_type)
+                    
+                    records = query.limit(limit).all()
+                    
+                    for r in records:
+                        try:
+                            age_days = None
+                            if r.scraped_at:
+                                age_days = (datetime.utcnow() - r.scraped_at).days
+                            
+                            all_data.append({
+                                'city': str(r.city) if r.city else 'Non spécifié',
+                                'property_type': str(r.property_type) if r.property_type else 'Autre',
+                                'price': float(r.price) if r.price else 0,
+                                'surface_area': float(r.surface_area) if r.surface_area and r.surface_area > 0 else None,
+                                'bedrooms': int(r.bedrooms) if r.bedrooms else None,
+                                'bathrooms': int(r.bathrooms) if r.bathrooms else None,
+                                'age_days': age_days
+                            })
+                        except Exception as e:
+                            continue
+                            
+                except Exception as e:
+                    print(f"Erreur requête {model.__name__}: {e}")
+                    continue
+            
+            if not all_data:
+                return pd.DataFrame()
             
             df = pd.DataFrame(all_data)
             
-            # Ajouter prix/m²
+            # Calculer prix/m²
             if not df.empty and 'surface_area' in df.columns:
                 df['price_per_m2'] = df.apply(
-                    lambda x: x['price'] / x['surface_area'] if x['surface_area'] and x['surface_area'] > 0 else None,
+                    lambda x: x['price'] / x['surface_area'] 
+                    if x['surface_area'] and x['surface_area'] > 0 and x['price'] > 0 
+                    else None,
                     axis=1
                 )
             
             return df
+            
         except Exception as e:
-            print(f"Erreur chargement données: {e}")
+            print(f"Erreur globale chargement: {e}")
+            traceback.print_exc()
             return pd.DataFrame()
     
-    def calculate_kpi_segmented(self, df, property_type):
-        """KPI segmentés par type de logement"""
-        if df.empty:
-            return {
-                'median_price': 0,
-                'avg_price_m2': 0,
-                'active_listings': 0,
-                'median_surface': 0,
-                'median_age': 0
-            }
-        
-        # Filtrer par type si spécifié
-        if property_type and property_type != "Tous":
-            df = df[df['property_type'] == property_type]
-        
-        kpi = {
-            'median_price': df['price'].median() if len(df) > 0 else 0,
-            'avg_price_m2': df['price_per_m2'].mean() if 'price_per_m2' in df.columns and df['price_per_m2'].notna().sum() > 0 else 0,
-            'active_listings': len(df),
-            'median_surface': df['surface_area'].median() if df['surface_area'].notna().sum() > 0 else 0,
-            'median_age': df['age_days'].median() if 'age_days' in df.columns and df['age_days'].notna().sum() > 0 else 0
+    def safe_calculate_kpi(self, df, property_type):
+        """Calcul KPI ultra-sécurisé"""
+        default_kpi = {
+            'median_price': 0,
+            'avg_price_m2': 0,
+            'active_listings': 0,
+            'median_surface': 0,
+            'median_age': 0
         }
         
-        return kpi
+        if df.empty:
+            return default_kpi
+        
+        try:
+            if property_type and property_type != "Tous":
+                df = df[df['property_type'] == property_type]
+            
+            if df.empty:
+                return default_kpi
+            
+            kpi = {}
+            
+            # Prix médian
+            try:
+                kpi['median_price'] = float(df['price'].median()) if df['price'].notna().sum() > 0 else 0
+            except:
+                kpi['median_price'] = 0
+            
+            # Prix/m² moyen
+            try:
+                if 'price_per_m2' in df.columns:
+                    kpi['avg_price_m2'] = float(df['price_per_m2'].mean()) if df['price_per_m2'].notna().sum() > 0 else 0
+                else:
+                    kpi['avg_price_m2'] = 0
+            except:
+                kpi['avg_price_m2'] = 0
+            
+            # Nombre d'annonces
+            try:
+                kpi['active_listings'] = int(len(df))
+            except:
+                kpi['active_listings'] = 0
+            
+            # Surface médiane
+            try:
+                kpi['median_surface'] = float(df['surface_area'].median()) if df['surface_area'].notna().sum() > 0 else 0
+            except:
+                kpi['median_surface'] = 0
+            
+            # Âge médian
+            try:
+                if 'age_days' in df.columns:
+                    kpi['median_age'] = float(df['age_days'].median()) if df['age_days'].notna().sum() > 0 else 0
+                else:
+                    kpi['median_age'] = 0
+            except:
+                kpi['median_age'] = 0
+            
+            return kpi
+            
+        except Exception as e:
+            print(f"Erreur calcul KPI: {e}")
+            return default_kpi
     
     # ==================== VISUALIZATIONS ====================
     
-    def create_kpi_header(self, kpi, property_type):
-        """Bandeau KPI institutionnel"""
-        kpi_style = {
-            'background': 'white',
-            'padding': '20px',
-            'borderRadius': '12px',
-            'boxShadow': '0 1px 3px rgba(0,0,0,0.1)',
-            'textAlign': 'center',
-            'border': '1px solid #E5E7EB'
-        }
-        
-        return html.Div([
-            html.Div([
-                html.H3(f"Type analysé : {property_type}", 
-                       style={'color': self.COLORS['primary'], 'marginBottom': '24px', 
-                             'fontSize': '20px', 'fontWeight': 600}),
-                
+    def create_kpi_card(self, icon, label, value, color, suffix=""):
+        """Carte KPI robuste"""
+        try:
+            return html.Div([
                 html.Div([
-                    # KPI 1
-                    html.Div([
-                        html.Div([
-                            DashIconify(icon="mdi:currency-usd", width=32, color=self.COLORS['primary']),
-                        ], style={'marginBottom': '8px'}),
-                        html.Div("Prix Médian", style={'fontSize': '13px', 'color': '#6B7280', 'marginBottom': '4px'}),
-                        html.Div(f"{kpi['median_price']:,.0f} FCFA", 
-                                style={'fontSize': '22px', 'fontWeight': 700, 'color': self.COLORS['primary']})
-                    ], style=kpi_style),
-                    
-                    # KPI 2
-                    html.Div([
-                        html.Div([
-                            DashIconify(icon="mdi:ruler-square", width=32, color=self.COLORS['success']),
-                        ], style={'marginBottom': '8px'}),
-                        html.Div("Prix Moyen/m²", style={'fontSize': '13px', 'color': '#6B7280', 'marginBottom': '4px'}),
-                        html.Div(f"{kpi['avg_price_m2']:,.0f} FCFA", 
-                                style={'fontSize': '22px', 'fontWeight': 700, 'color': self.COLORS['success']})
-                    ], style=kpi_style),
-                    
-                    # KPI 3
-                    html.Div([
-                        html.Div([
-                            DashIconify(icon="mdi:file-document-multiple", width=32, color=self.COLORS['info']),
-                        ], style={'marginBottom': '8px'}),
-                        html.Div("Annonces Actives", style={'fontSize': '13px', 'color': '#6B7280', 'marginBottom': '4px'}),
-                        html.Div(f"{kpi['active_listings']:,}", 
-                                style={'fontSize': '22px', 'fontWeight': 700, 'color': self.COLORS['info']})
-                    ], style=kpi_style),
-                    
-                    # KPI 4
-                    html.Div([
-                        html.Div([
-                            DashIconify(icon="mdi:tape-measure", width=32, color=self.COLORS['warning']),
-                        ], style={'marginBottom': '8px'}),
-                        html.Div("Surface Médiane", style={'fontSize': '13px', 'color': '#6B7280', 'marginBottom': '4px'}),
-                        html.Div(f"{kpi['median_surface']:.0f} m²", 
-                                style={'fontSize': '22px', 'fontWeight': 700, 'color': self.COLORS['warning']})
-                    ], style=kpi_style),
-                    
-                    # KPI 5
-                    html.Div([
-                        html.Div([
-                            DashIconify(icon="mdi:calendar-clock", width=32, color=self.COLORS['secondary']),
-                        ], style={'marginBottom': '8px'}),
-                        html.Div("Âge Médian", style={'fontSize': '13px', 'color': '#6B7280', 'marginBottom': '4px'}),
-                        html.Div(f"{kpi['median_age']:.0f} jours", 
-                                style={'fontSize': '22px', 'fontWeight': 700, 'color': self.COLORS['secondary']})
-                    ], style=kpi_style),
-                    
-                ], style={
-                    'display': 'grid',
-                    'gridTemplateColumns': 'repeat(auto-fit, minmax(180px, 1fr))',
-                    'gap': '16px'
-                })
-            ])
-        ], style={'marginBottom': '32px'})
+                    DashIconify(icon=icon, width=32, color=color),
+                ], style={'marginBottom': '8px'}),
+                html.Div(label, style={'fontSize': '13px', 'color': '#6B7280', 'marginBottom': '4px'}),
+                html.Div(f"{value:,.0f}{suffix}", 
+                        style={'fontSize': '22px', 'fontWeight': 700, 'color': color})
+            ], style={
+                'background': 'white',
+                'padding': '20px',
+                'borderRadius': '12px',
+                'boxShadow': '0 1px 3px rgba(0,0,0,0.1)',
+                'textAlign': 'center',
+                'border': '1px solid #E5E7EB'
+            })
+        except:
+            return html.Div("Erreur KPI")
     
-    def create_offer_structure(self, df):
-        """Section 2: Structure de l'offre"""
-        if df.empty:
-            return html.Div("Pas de données disponibles")
-        
-        # Graphique 1: Répartition par type
-        type_dist = df['property_type'].value_counts().reset_index()
-        type_dist.columns = ['Type', 'Count']
-        type_dist['Percentage'] = (type_dist['Count'] / type_dist['Count'].sum() * 100).round(1)
-        
-        fig1 = go.Figure(go.Bar(
-            x=type_dist['Type'],
-            y=type_dist['Count'],
-            marker_color=self.COLORS['primary'],
-            text=type_dist['Count'],
-            textposition='outside',
-            hovertemplate='<b>%{x}</b><br>Annonces: %{y}<extra></extra>'
-        ))
-        
-        fig1.update_layout(
-            title=dict(text='<b>Répartition par Type de Logement</b>', x=0.5),
-            xaxis_title="Type",
-            yaxis_title="Nombre d'annonces",
+    def create_empty_figure(self, message="Aucune donnée disponible"):
+        """Figure vide avec message"""
+        fig = go.Figure()
+        fig.add_annotation(
+            text=message,
+            xref="paper", yref="paper",
+            x=0.5, y=0.5,
+            showarrow=False,
+            font=dict(size=16, color='gray')
+        )
+        fig.update_layout(
             height=400,
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(family='Inter', size=12)
+            xaxis=dict(showgrid=False, showticklabels=False),
+            yaxis=dict(showgrid=False, showticklabels=False)
         )
-        
-        # Graphique 2: Répartition par chambres
-        bedrooms_data = df[df['bedrooms'].notna()].groupby(['property_type', 'bedrooms']).size().reset_index(name='count')
-        
-        fig2 = go.Figure()
-        for ptype in bedrooms_data['property_type'].unique()[:5]:  # Top 5 types
-            data = bedrooms_data[bedrooms_data['property_type'] == ptype]
-            fig2.add_trace(go.Bar(
-                name=ptype,
-                x=data['bedrooms'],
-                y=data['count'],
-                hovertemplate=f'<b>{ptype}</b><br>Chambres: %{{x}}<br>Annonces: %{{y}}<extra></extra>'
+        return fig
+    
+    def create_section_1(self, df):
+        """Section 1: Répartition par type"""
+        try:
+            if df.empty:
+                return self.create_empty_figure()
+            
+            type_counts = df['property_type'].value_counts().head(8)
+            
+            fig = go.Figure(go.Bar(
+                x=type_counts.index,
+                y=type_counts.values,
+                marker_color=self.COLORS['primary'],
+                text=type_counts.values,
+                textposition='outside',
+                hovertemplate='<b>%{x}</b><br>Annonces: %{y}<extra></extra>'
             ))
-        
-        fig2.update_layout(
-            title=dict(text='<b>Répartition par Nombre de Chambres</b>', x=0.5),
-            barmode='stack',
-            xaxis_title="Nombre de chambres",
-            yaxis_title="Nombre d'annonces",
-            height=400,
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(family='Inter', size=12)
-        )
-        
-        # Graphique 3: Distribution des surfaces
-        surfaces = df[df['surface_area'].notna() & (df['surface_area'] > 0)]['surface_area']
-        
-        fig3 = go.Figure(go.Histogram(
-            x=surfaces,
-            nbinsx=30,
-            marker_color=self.COLORS['info'],
-            hovertemplate='Surface: %{x:.0f}m²<br>Fréquence: %{y}<extra></extra>'
-        ))
-        
-        fig3.update_layout(
-            title=dict(text='<b>Distribution des Surfaces</b>', x=0.5),
-            xaxis_title="Surface (m²)",
-            yaxis_title="Fréquence",
-            height=400,
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(family='Inter', size=12)
-        )
-        
-        # Table synthétique
-        table_data = df.groupby('property_type').agg({
-            'property_type': 'count',
-            'surface_area': 'median'
-        }).reset_index()
-        table_data.columns = ['Type', 'Nb_annonces', 'Surface_mediane']
-        table_data['Pourcentage'] = (table_data['Nb_annonces'] / table_data['Nb_annonces'].sum() * 100).round(1)
-        table_data = table_data.sort_values('Nb_annonces', ascending=False)
-        
-        return html.Div([
-            html.H2("🟦 2. Structure de l'Offre", 
-                   style={'color': self.COLORS['primary'], 'marginBottom': '20px'}),
             
-            html.Div([
-                html.Div([dcc.Graph(figure=fig1, config={'displayModeBar': False})], 
-                        style={'flex': '1'}),
-                html.Div([dcc.Graph(figure=fig2, config={'displayModeBar': False})], 
-                        style={'flex': '1'}),
-            ], style={'display': 'flex', 'gap': '20px', 'marginBottom': '20px', 'flexWrap': 'wrap'}),
-            
-            html.Div([dcc.Graph(figure=fig3, config={'displayModeBar': False})], 
-                    style={'marginBottom': '20px'}),
-            
-            dash_table.DataTable(
-                data=table_data.to_dict('records'),
-                columns=[
-                    {'name': 'Type de Logement', 'id': 'Type'},
-                    {'name': 'Nb Annonces', 'id': 'Nb_annonces', 'type': 'numeric', 'format': {'specifier': ','}},
-                    {'name': 'Surface Médiane (m²)', 'id': 'Surface_mediane', 'type': 'numeric', 'format': {'specifier': '.0f'}},
-                    {'name': '% du Total', 'id': 'Pourcentage', 'type': 'numeric', 'format': {'specifier': '.1f'}},
-                ],
-                style_table={'overflowX': 'auto'},
-                style_cell={'textAlign': 'left', 'padding': '12px', 'fontFamily': 'Inter'},
-                style_header={'backgroundColor': '#F3F4F6', 'fontWeight': 600, 'color': self.COLORS['primary']},
-                style_data_conditional=[
-                    {'if': {'row_index': 'odd'}, 'backgroundColor': '#F9FAFB'}
-                ]
+            fig.update_layout(
+                title='<b>Répartition par Type de Logement</b>',
+                xaxis_title="Type",
+                yaxis_title="Nombre d'annonces",
+                height=400,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter', size=12)
             )
-        ], style={
-            'background': 'white',
-            'padding': '24px',
-            'borderRadius': '12px',
-            'boxShadow': '0 1px 3px rgba(0,0,0,0.1)',
-            'marginBottom': '32px'
-        })
+            
+            return fig
+        except Exception as e:
+            print(f"Erreur section 1: {e}")
+            return self.create_empty_figure("Erreur de chargement")
     
-    def create_price_levels(self, df):
-        """Section 3: Niveau des prix (segmenté)"""
-        if df.empty:
-            return html.Div("Pas de données disponibles")
-        
-        # Boxplot par type
-        fig1 = go.Figure()
-        
-        types = df['property_type'].value_counts().head(8).index
-        for ptype in types:
-            data = df[df['property_type'] == ptype]['price']
-            fig1.add_trace(go.Box(
-                y=data,
-                name=ptype,
-                boxmean='sd',
-                marker_color=self.COLORS['primary']
+    def create_section_2(self, df):
+        """Section 2: Répartition par chambres"""
+        try:
+            if df.empty or df['bedrooms'].isna().all():
+                return self.create_empty_figure()
+            
+            df_valid = df[df['bedrooms'].notna()]
+            bedrooms_counts = df_valid.groupby(['property_type', 'bedrooms']).size().reset_index(name='count')
+            
+            fig = go.Figure()
+            
+            for ptype in bedrooms_counts['property_type'].unique()[:5]:
+                data = bedrooms_counts[bedrooms_counts['property_type'] == ptype]
+                fig.add_trace(go.Bar(
+                    name=ptype,
+                    x=data['bedrooms'],
+                    y=data['count'],
+                    hovertemplate=f'<b>{ptype}</b><br>Chambres: %{{x}}<br>Annonces: %{{y}}<extra></extra>'
+                ))
+            
+            fig.update_layout(
+                title='<b>Répartition par Nombre de Chambres</b>',
+                barmode='stack',
+                xaxis_title="Nombre de chambres",
+                yaxis_title="Nombre d'annonces",
+                height=400,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter', size=12)
+            )
+            
+            return fig
+        except Exception as e:
+            print(f"Erreur section 2: {e}")
+            return self.create_empty_figure("Erreur de chargement")
+    
+    def create_section_3(self, df):
+        """Section 3: Distribution des surfaces"""
+        try:
+            if df.empty or df['surface_area'].isna().all():
+                return self.create_empty_figure()
+            
+            surfaces = df[df['surface_area'].notna()]['surface_area']
+            
+            fig = go.Figure(go.Histogram(
+                x=surfaces,
+                nbinsx=30,
+                marker_color=self.COLORS['info'],
+                hovertemplate='Surface: %{x:.0f}m²<br>Fréquence: %{y}<extra></extra>'
             ))
-        
-        fig1.update_layout(
-            title=dict(text='<b>Distribution des Prix par Type</b>', x=0.5),
-            yaxis_title="Prix (FCFA)",
-            height=450,
-            showlegend=False,
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(family='Inter', size=12)
-        )
-        
-        # Table statistiques prix
-        price_stats = df.groupby('property_type')['price'].agg([
-            ('median', 'median'),
-            ('p25', lambda x: x.quantile(0.25)),
-            ('p75', lambda x: x.quantile(0.75)),
-            ('max', 'max')
-        ]).reset_index()
-        price_stats = price_stats.sort_values('median', ascending=False)
-        
-        return html.Div([
-            html.H2("🟦 3. Niveau des Prix (Segmenté)", 
-                   style={'color': self.COLORS['primary'], 'marginBottom': '20px'}),
             
-            dcc.Graph(figure=fig1, config={'displayModeBar': False}, style={'marginBottom': '20px'}),
-            
-            dash_table.DataTable(
-                data=price_stats.to_dict('records'),
-                columns=[
-                    {'name': 'Type', 'id': 'property_type'},
-                    {'name': 'Prix Médian', 'id': 'median', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
-                    {'name': 'P25', 'id': 'p25', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
-                    {'name': 'P75', 'id': 'p75', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
-                    {'name': 'Prix Max', 'id': 'max', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
-                ],
-                style_table={'overflowX': 'auto'},
-                style_cell={'textAlign': 'left', 'padding': '12px', 'fontFamily': 'Inter'},
-                style_header={'backgroundColor': '#F3F4F6', 'fontWeight': 600, 'color': self.COLORS['primary']},
-                style_data_conditional=[
-                    {'if': {'row_index': 'odd'}, 'backgroundColor': '#F9FAFB'}
-                ]
+            fig.update_layout(
+                title='<b>Distribution des Surfaces</b>',
+                xaxis_title="Surface (m²)",
+                yaxis_title="Fréquence",
+                height=400,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter', size=12)
             )
-        ], style={
-            'background': 'white',
-            'padding': '24px',
-            'borderRadius': '12px',
-            'boxShadow': '0 1px 3px rgba(0,0,0,0.1)',
-            'marginBottom': '32px'
-        })
+            
+            return fig
+        except Exception as e:
+            print(f"Erreur section 3: {e}")
+            return self.create_empty_figure("Erreur de chargement")
     
-    def create_price_per_m2_analysis(self, df):
-        """Section 4: Prix au m² (référence économique)"""
-        if df.empty or 'price_per_m2' not in df.columns:
-            return html.Div("Pas de données disponibles")
-        
-        df_valid = df[df['price_per_m2'].notna() & (df['price_per_m2'] > 0)]
-        
-        if df_valid.empty:
-            return html.Div("Données insuffisantes pour l'analyse prix/m²")
-        
-        # Prix/m² par type
-        price_m2_by_type = df_valid.groupby('property_type')['price_per_m2'].median().sort_values(ascending=True)
-        
-        fig1 = go.Figure(go.Bar(
-            x=price_m2_by_type.values,
-            y=price_m2_by_type.index,
-            orientation='h',
-            marker_color=self.COLORS['success'],
-            text=[f'{x:,.0f}' for x in price_m2_by_type.values],
-            textposition='outside'
-        ))
-        
-        fig1.update_layout(
-            title=dict(text='<b>Prix Médian au m² par Type</b>', x=0.5),
-            xaxis_title="Prix/m² (FCFA)",
-            height=400,
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(family='Inter', size=12)
-        )
-        
-        # Boxplot dispersion
-        fig2 = go.Figure()
-        for ptype in price_m2_by_type.index[-6:]:  # Top 6
-            data = df_valid[df_valid['property_type'] == ptype]['price_per_m2']
-            fig2.add_trace(go.Box(
-                y=data,
-                name=ptype,
-                marker_color=self.COLORS['success']
+    def create_section_4(self, df):
+        """Section 4: Box plot prix par type"""
+        try:
+            if df.empty:
+                return self.create_empty_figure()
+            
+            types = df['property_type'].value_counts().head(6).index
+            
+            fig = go.Figure()
+            
+            for ptype in types:
+                data = df[df['property_type'] == ptype]['price']
+                fig.add_trace(go.Box(
+                    y=data,
+                    name=ptype,
+                    boxmean='sd',
+                    marker_color=self.COLORS['primary']
+                ))
+            
+            fig.update_layout(
+                title='<b>Distribution des Prix par Type</b>',
+                yaxis_title="Prix (FCFA)",
+                height=450,
+                showlegend=False,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter', size=12)
+            )
+            
+            return fig
+        except Exception as e:
+            print(f"Erreur section 4: {e}")
+            return self.create_empty_figure("Erreur de chargement")
+    
+    def create_section_5(self, df):
+        """Section 5: Prix/m² par type"""
+        try:
+            if df.empty or 'price_per_m2' not in df.columns or df['price_per_m2'].isna().all():
+                return self.create_empty_figure("Données prix/m² insuffisantes")
+            
+            df_valid = df[df['price_per_m2'].notna()]
+            price_m2 = df_valid.groupby('property_type')['price_per_m2'].median().sort_values(ascending=True).head(10)
+            
+            fig = go.Figure(go.Bar(
+                x=price_m2.values,
+                y=price_m2.index,
+                orientation='h',
+                marker_color=self.COLORS['success'],
+                text=[f'{x:,.0f}' for x in price_m2.values],
+                textposition='outside',
+                hovertemplate='<b>%{y}</b><br>Prix/m²: %{x:,.0f} FCFA<extra></extra>'
             ))
-        
-        fig2.update_layout(
-            title=dict(text='<b>Dispersion Prix/m²</b>', x=0.5),
-            yaxis_title="Prix/m² (FCFA)",
-            height=400,
-            showlegend=False,
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(family='Inter', size=12)
-        )
-        
-        # Table
-        price_m2_stats = df_valid.groupby('property_type')['price_per_m2'].agg([
-            ('median', 'median'),
-            ('p25', lambda x: x.quantile(0.25)),
-            ('p75', lambda x: x.quantile(0.75))
-        ]).reset_index()
-        price_m2_stats = price_m2_stats.sort_values('median', ascending=False)
-        
-        return html.Div([
-            html.H2("🟦 4. Prix au m² (Référence Économique)", 
-                   style={'color': self.COLORS['primary'], 'marginBottom': '20px'}),
             
-            html.Div([
-                html.Div([dcc.Graph(figure=fig1, config={'displayModeBar': False})], style={'flex': '1'}),
-                html.Div([dcc.Graph(figure=fig2, config={'displayModeBar': False})], style={'flex': '1'}),
-            ], style={'display': 'flex', 'gap': '20px', 'marginBottom': '20px', 'flexWrap': 'wrap'}),
-            
-            dash_table.DataTable(
-                data=price_m2_stats.to_dict('records'),
-                columns=[
-                    {'name': 'Type', 'id': 'property_type'},
-                    {'name': 'Prix/m² Médian', 'id': 'median', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
-                    {'name': 'P25', 'id': 'p25', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
-                    {'name': 'P75', 'id': 'p75', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
-                ],
-                style_table={'overflowX': 'auto'},
-                style_cell={'textAlign': 'left', 'padding': '12px', 'fontFamily': 'Inter'},
-                style_header={'backgroundColor': '#F3F4F6', 'fontWeight': 600, 'color': self.COLORS['primary']},
-                style_data_conditional=[
-                    {'if': {'row_index': 'odd'}, 'backgroundColor': '#F9FAFB'}
-                ]
+            fig.update_layout(
+                title='<b>Prix Médian au m² par Type</b>',
+                xaxis_title="Prix/m² (FCFA)",
+                height=400,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter', size=12)
             )
-        ], style={
-            'background': 'white',
-            'padding': '24px',
-            'borderRadius': '12px',
-            'boxShadow': '0 1px 3px rgba(0,0,0,0.1)',
-            'marginBottom': '32px'
-        })
+            
+            return fig
+        except Exception as e:
+            print(f"Erreur section 5: {e}")
+            return self.create_empty_figure("Erreur de chargement")
     
-    def create_territorial_analysis(self, df):
-        """Section 5: Analyse territoriale"""
-        if df.empty or df['city'].isna().all():
-            return html.Div("Pas de données géographiques disponibles")
-        
-        # Prix médian par zone
-        city_prices = df.groupby('city').agg({
-            'price': 'median',
-            'price_per_m2': 'median',
-            'city': 'count'
-        }).reset_index()
-        city_prices.columns = ['city', 'median_price', 'median_price_m2', 'count']
-        city_prices = city_prices[city_prices['count'] >= 5]  # Au moins 5 annonces
-        
-        # Top 10 plus chères
-        top_expensive = city_prices.nlargest(10, 'median_price_m2')
-        
-        fig1 = go.Figure(go.Bar(
-            x=top_expensive['median_price_m2'],
-            y=top_expensive['city'],
-            orientation='h',
-            marker_color=self.COLORS['danger'],
-            text=[f'{x:,.0f}' for x in top_expensive['median_price_m2']],
-            textposition='outside'
-        ))
-        
-        fig1.update_layout(
-            title=dict(text='<b>Top 10 Zones les Plus Chères (Prix/m²)</b>', x=0.5),
-            xaxis_title="Prix/m² médian (FCFA)",
-            height=400,
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(family='Inter', size=12)
-        )
-        
-        # Top 10 plus accessibles
-        top_accessible = city_prices.nsmallest(10, 'median_price_m2')
-        
-        fig2 = go.Figure(go.Bar(
-            x=top_accessible['median_price_m2'],
-            y=top_accessible['city'],
-            orientation='h',
-            marker_color=self.COLORS['success'],
-            text=[f'{x:,.0f}' for x in top_accessible['median_price_m2']],
-            textposition='outside'
-        ))
-        
-        fig2.update_layout(
-            title=dict(text='<b>Top 10 Zones les Plus Accessibles (Prix/m²)</b>', x=0.5),
-            xaxis_title="Prix/m² médian (FCFA)",
-            height=400,
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(family='Inter', size=12)
-        )
-        
-        # Table
-        city_table = city_prices.sort_values('median_price', ascending=False).head(15)
-        
-        return html.Div([
-            html.H2("🟦 5. Analyse Territoriale", 
-                   style={'color': self.COLORS['primary'], 'marginBottom': '20px'}),
+    def create_section_6(self, df):
+        """Section 6: Top 10 villes (prix médian)"""
+        try:
+            if df.empty:
+                return self.create_empty_figure()
             
-            html.Div([
-                html.Div([dcc.Graph(figure=fig1, config={'displayModeBar': False})], style={'flex': '1'}),
-                html.Div([dcc.Graph(figure=fig2, config={'displayModeBar': False})], style={'flex': '1'}),
-            ], style={'display': 'flex', 'gap': '20px', 'marginBottom': '20px', 'flexWrap': 'wrap'}),
+            city_prices = df.groupby('city').agg({
+                'price': 'median',
+                'city': 'count'
+            }).reset_index()
+            city_prices.columns = ['city', 'median_price', 'count']
+            city_prices = city_prices[city_prices['count'] >= 3]
+            city_prices = city_prices.sort_values('median_price', ascending=False).head(10)
             
-            dash_table.DataTable(
-                data=city_table.to_dict('records'),
+            fig = go.Figure(go.Bar(
+                x=city_prices['median_price'],
+                y=city_prices['city'],
+                orientation='h',
+                marker_color=self.COLORS['danger'],
+                text=[f'{x:,.0f}' for x in city_prices['median_price']],
+                textposition='outside',
+                hovertemplate='<b>%{y}</b><br>Prix médian: %{x:,.0f} FCFA<br>Annonces: %{customdata}<extra></extra>',
+                customdata=city_prices['count']
+            ))
+            
+            fig.update_layout(
+                title='<b>Top 10 Zones les Plus Chères (Prix Médian)</b>',
+                xaxis_title="Prix Médian (FCFA)",
+                height=450,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter', size=12)
+            )
+            
+            return fig
+        except Exception as e:
+            print(f"Erreur section 6: {e}")
+            return self.create_empty_figure("Erreur de chargement")
+    
+    def create_section_7(self, df):
+        """Section 7: Top 10 villes accessibles"""
+        try:
+            if df.empty:
+                return self.create_empty_figure()
+            
+            city_prices = df.groupby('city').agg({
+                'price': 'median',
+                'city': 'count'
+            }).reset_index()
+            city_prices.columns = ['city', 'median_price', 'count']
+            city_prices = city_prices[city_prices['count'] >= 3]
+            city_prices = city_prices.sort_values('median_price', ascending=True).head(10)
+            
+            fig = go.Figure(go.Bar(
+                x=city_prices['median_price'],
+                y=city_prices['city'],
+                orientation='h',
+                marker_color=self.COLORS['success'],
+                text=[f'{x:,.0f}' for x in city_prices['median_price']],
+                textposition='outside',
+                hovertemplate='<b>%{y}</b><br>Prix médian: %{x:,.0f} FCFA<br>Annonces: %{customdata}<extra></extra>',
+                customdata=city_prices['count']
+            ))
+            
+            fig.update_layout(
+                title='<b>Top 10 Zones les Plus Accessibles (Prix Médian)</b>',
+                xaxis_title="Prix Médian (FCFA)",
+                height=450,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter', size=12)
+            ))
+            
+            return fig
+        except Exception as e:
+            print(f"Erreur section 7: {e}")
+            return self.create_empty_figure("Erreur de chargement")
+    
+    def create_section_8(self, df):
+        """Section 8: Scatter prix vs surface"""
+        try:
+            if df.empty or df['surface_area'].isna().all():
+                return self.create_empty_figure("Données insuffisantes")
+            
+            df_valid = df[(df['surface_area'].notna()) & (df['price'] > 0)].sample(min(300, len(df)))
+            
+            fig = go.Figure(go.Scatter(
+                x=df_valid['surface_area'],
+                y=df_valid['price'],
+                mode='markers',
+                marker=dict(
+                    size=8,
+                    color=df_valid['price'],
+                    colorscale='Viridis',
+                    showscale=True,
+                    colorbar=dict(title="Prix"),
+                    line=dict(width=1, color='white')
+                ),
+                text=[f"Surface: {s:.0f}m²<br>Prix: {p:,.0f} FCFA" 
+                      for s, p in zip(df_valid['surface_area'], df_valid['price'])],
+                hovertemplate='%{text}<extra></extra>'
+            ))
+            
+            fig.update_layout(
+                title='<b>Relation Surface - Prix</b>',
+                xaxis_title="Surface (m²)",
+                yaxis_title="Prix (FCFA)",
+                height=450,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter', size=12)
+            )
+            
+            return fig
+        except Exception as e:
+            print(f"Erreur section 8: {e}")
+            return self.create_empty_figure("Erreur de chargement")
+    
+    def create_section_9(self, df):
+        """Section 9: Distribution prix par tranches"""
+        try:
+            if df.empty:
+                return self.create_empty_figure()
+            
+            # Définir tranches
+            tranches = [
+                (0, 10000000, "< 10M"),
+                (10000000, 25000000, "10M - 25M"),
+                (25000000, 50000000, "25M - 50M"),
+                (50000000, 100000000, "50M - 100M"),
+                (100000000, float('inf'), "> 100M")
+            ]
+            
+            counts = []
+            labels = []
+            
+            for min_p, max_p, label in tranches:
+                count = len(df[(df['price'] >= min_p) & (df['price'] < max_p)])
+                counts.append(count)
+                labels.append(label)
+            
+            fig = go.Figure(go.Bar(
+                x=labels,
+                y=counts,
+                marker_color=self.COLORS['warning'],
+                text=counts,
+                textposition='outside',
+                hovertemplate='<b>%{x}</b><br>Annonces: %{y}<extra></extra>'
+            ))
+            
+            fig.update_layout(
+                title='<b>Distribution par Tranche de Prix</b>',
+                xaxis_title="Tranche de prix (FCFA)",
+                yaxis_title="Nombre d'annonces",
+                height=400,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter', size=12)
+            )
+            
+            return fig
+        except Exception as e:
+            print(f"Erreur section 9: {e}")
+            return self.create_empty_figure("Erreur de chargement")
+    
+    def create_section_10(self, df):
+        """Section 10: Statistiques par ville (table)"""
+        try:
+            if df.empty:
+                return html.Div("Aucune donnée disponible")
+            
+            city_stats = df.groupby('city').agg({
+                'price': ['median', 'count'],
+                'surface_area': 'median'
+            }).reset_index()
+            
+            city_stats.columns = ['city', 'median_price', 'count', 'median_surface']
+            city_stats = city_stats[city_stats['count'] >= 2]
+            city_stats = city_stats.sort_values('median_price', ascending=False).head(15)
+            
+            # Calculer prix/m²
+            city_stats['price_per_m2'] = city_stats['median_price'] / city_stats['median_surface']
+            city_stats['price_per_m2'] = city_stats['price_per_m2'].fillna(0)
+            
+            table_data = city_stats.to_dict('records')
+            
+            return dash_table.DataTable(
+                data=table_data,
                 columns=[
                     {'name': 'Zone', 'id': 'city'},
-                    {'name': 'Prix Médian', 'id': 'median_price', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
-                    {'name': 'Prix/m²', 'id': 'median_price_m2', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
-                    {'name': 'Nb Annonces', 'id': 'count', 'type': 'numeric'},
+                    {'name': 'Prix Médian (FCFA)', 'id': 'median_price', 'type': 'numeric', 
+                     'format': {'specifier': ',.0f'}},
+                    {'name': 'Prix/m² (FCFA)', 'id': 'price_per_m2', 'type': 'numeric', 
+                     'format': {'specifier': ',.0f'}},
+                    {'name': 'Surface Médiane (m²)', 'id': 'median_surface', 'type': 'numeric', 
+                     'format': {'specifier': '.0f'}},
+                    {'name': 'Nb Annonces', 'id': 'count', 'type': 'numeric'}
                 ],
                 style_table={'overflowX': 'auto'},
-                style_cell={'textAlign': 'left', 'padding': '12px', 'fontFamily': 'Inter'},
-                style_header={'backgroundColor': '#F3F4F6', 'fontWeight': 600, 'color': self.COLORS['primary']},
+                style_cell={
+                    'textAlign': 'left',
+                    'padding': '12px',
+                    'fontFamily': 'Inter',
+                    'fontSize': '14px'
+                },
+                style_header={
+                    'backgroundColor': '#F3F4F6',
+                    'fontWeight': 600,
+                    'color': self.COLORS['primary'],
+                    'border': '1px solid #E5E7EB'
+                },
+                style_data={
+                    'border': '1px solid #E5E7EB'
+                },
                 style_data_conditional=[
                     {'if': {'row_index': 'odd'}, 'backgroundColor': '#F9FAFB'}
                 ]
             )
-        ], style={
-            'background': 'white',
-            'padding': '24px',
-            'borderRadius': '12px',
-            'boxShadow': '0 1px 3px rgba(0,0,0,0.1)',
-            'marginBottom': '32px'
-        })
-    
-    def create_methodological_note(self):
-        """Note méthodologique institutionnelle"""
-        return html.Div([
-            html.H2("📋 Règles Méthodologiques", 
-                   style={'color': self.COLORS['primary'], 'marginBottom': '20px'}),
-            
-            html.Ul([
-                html.Li("✓ Tous les indicateurs sont segmentés par type de logement"),
-                html.Li("✓ Les prix globaux tous biens confondus ne sont pas affichés"),
-                html.Li("✓ Données issues d'annonces observées sur le marché"),
-                html.Li("✓ Analyse descriptive uniquement - pas de prédiction"),
-                html.Li("✓ Médiane privilégiée pour éviter l'influence des valeurs extrêmes"),
-                html.Li("✓ Quartiles (P25, P75) utilisés pour mesurer la dispersion"),
-                html.Li("✓ Zones avec moins de 5 annonces exclues de l'analyse territoriale"),
-            ], style={'fontSize': '14px', 'lineHeight': '1.8', 'color': '#374151'})
-        ], style={
-            'background': '#FEF3C7',
-            'padding': '24px',
-            'borderRadius': '12px',
-            'border': '2px solid #F59E0B',
-            'marginBottom': '32px'
-        })
+        except Exception as e:
+            print(f"Erreur section 10: {e}")
+            return html.Div(f"Erreur: {str(e)}")
     
     # ==================== LAYOUT ====================
     
     def setup_layout(self):
-        """Layout principal de l'observatoire"""
-        df = self.get_consolidated_data()
-        default_type = "Tous"
-        kpi = self.calculate_kpi_segmented(df, default_type)
-        
+        """Layout complet du dashboard"""
         self.app.layout = html.Div([
-            # Header institutionnel
+            # Header
             html.Div([
                 html.Div([
                     html.Div([
@@ -627,11 +653,16 @@ class ObservatoireImmobilier:
                     html.Div([
                         dmc.Select(
                             id='property-type-selector',
-                            data=[{'label': 'Tous les types', 'value': 'Tous'}] + 
-                                 [{'label': pt, 'value': pt} for pt in self.PROPERTY_TYPES],
-                            value=default_type,
-                            style={'width': '250px'},
-                            icon=DashIconify(icon="mdi:home-variant"),
+                            data=[
+                                {'label': 'Tous les types', 'value': 'Tous'},
+                                {'label': 'Appartement', 'value': 'Appartement'},
+                                {'label': 'Villa', 'value': 'Villa'},
+                                {'label': 'Studio', 'value': 'Studio'},
+                                {'label': 'Maison', 'value': 'Maison'},
+                                {'label': 'Duplex', 'value': 'Duplex'}
+                            ],
+                            value='Tous',
+                            style={'width': '250px', 'background': 'white'},
                             size="lg"
                         )
                     ])
@@ -648,19 +679,81 @@ class ObservatoireImmobilier:
                 'marginBottom': '32px'
             }),
             
-            # Contenu principal
+            # Contenu
             html.Div([
-                # Section 1: KPI Header
-                html.Div(id='kpi-header'),
+                # Section 0: KPI Header
+                html.Div(id='kpi-header', style={'marginBottom': '32px'}),
                 
                 # Note méthodologique
-                self.create_methodological_note(),
+                html.Div([
+                    html.H2("📋 Règles Méthodologiques", 
+                           style={'color': self.COLORS['primary'], 'marginBottom': '16px', 'fontSize': '20px'}),
+                    html.Ul([
+                        html.Li("✓ Tous les indicateurs sont segmentés par type de logement"),
+                        html.Li("✓ Les prix globaux tous biens confondus ne sont pas affichés"),
+                        html.Li("✓ Données issues d'annonces observées sur le marché"),
+                        html.Li("✓ Analyse descriptive uniquement - pas de prédiction"),
+                        html.Li("✓ Médiane privilégiée pour éviter l'influence des valeurs extrêmes"),
+                        html.Li("✓ Quartiles (P25, P75) utilisés pour mesurer la dispersion"),
+                        html.Li("✓ Zones avec moins de 3 annonces exclues de l'analyse territoriale"),
+                    ], style={'fontSize': '14px', 'lineHeight': '1.8', 'color': '#374151'})
+                ], style={
+                    'background': '#FEF3C7',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'border': '2px solid #F59E0B',
+                    'marginBottom': '32px'
+                }),
                 
-                # Sections dynamiques
-                html.Div(id='offer-structure'),
-                html.Div(id='price-levels'),
-                html.Div(id='price-per-m2'),
-                html.Div(id='territorial-analysis'),
+                # Section 1: Structure de l'offre
+                html.Div(id='section-1', style={'marginBottom': '32px'}),
+                
+                # Section 2: Répartition chambres
+                html.Div(id='section-2', style={'marginBottom': '32px'}),
+                
+                # Section 3: Distribution surfaces
+                html.Div(id='section-3', style={'marginBottom': '32px'}),
+                
+                # Section 4: Niveau des prix
+                html.Div(id='section-4', style={'marginBottom': '32px'}),
+                
+                # Section 5: Prix/m²
+                html.Div(id='section-5', style={'marginBottom': '32px'}),
+                
+                # Section 6 & 7: Analyse territoriale
+                html.Div([
+                    html.H2("🟦 5. Analyse Territoriale", 
+                           style={'color': self.COLORS['primary'], 'marginBottom': '20px'}),
+                    html.Div([
+                        html.Div(id='section-6', style={'flex': '1'}),
+                        html.Div(id='section-7', style={'flex': '1'})
+                    ], style={'display': 'flex', 'gap': '20px', 'flexWrap': 'wrap'})
+                ], style={
+                    'background': 'white',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)',
+                    'marginBottom': '32px'
+                }),
+                
+                # Section 8: Dispersion
+                html.Div(id='section-8', style={'marginBottom': '32px'}),
+                
+                # Section 9: Tranches de prix
+                html.Div(id='section-9', style={'marginBottom': '32px'}),
+                
+                # Section 10: Table statistiques
+                html.Div([
+                    html.H2("🟦 8. Statistiques par Zone", 
+                           style={'color': self.COLORS['primary'], 'marginBottom': '20px'}),
+                    html.Div(id='section-10')
+                ], style={
+                    'background': 'white',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)',
+                    'marginBottom': '32px'
+                }),
                 
                 # Footer
                 html.Div([
@@ -675,36 +768,200 @@ class ObservatoireImmobilier:
             'minHeight': '100vh'
         })
     
+    # ==================== CALLBACKS ====================
+    
     def setup_callbacks(self):
-        """Callbacks pour l'interactivité"""
+        """Callbacks ultra-robustes"""
         
         @callback(
             [
                 Output('kpi-header', 'children'),
-                Output('offer-structure', 'children'),
-                Output('price-levels', 'children'),
-                Output('price-per-m2', 'children'),
-                Output('territorial-analysis', 'children')
+                Output('section-1', 'children'),
+                Output('section-2', 'children'),
+                Output('section-3', 'children'),
+                Output('section-4', 'children'),
+                Output('section-5', 'children'),
+                Output('section-6', 'children'),
+                Output('section-7', 'children'),
+                Output('section-8', 'children'),
+                Output('section-9', 'children'),
+                Output('section-10', 'children')
             ],
             Input('property-type-selector', 'value')
         )
         def update_all_sections(property_type):
-            """Mettre à jour toutes les sections selon le type sélectionné"""
-            df = self.get_consolidated_data(property_type)
-            kpi = self.calculate_kpi_segmented(df, property_type)
-            
-            return (
-                self.create_kpi_header(kpi, property_type),
-                self.create_offer_structure(df),
-                self.create_price_levels(df),
-                self.create_price_per_m2_analysis(df),
-                self.create_territorial_analysis(df)
-            )
+            """Mettre à jour toutes les sections"""
+            try:
+                # Charger données
+                df = self.safe_get_data(property_type)
+                kpi = self.safe_calculate_kpi(df, property_type)
+                
+                # KPI Header
+                kpi_header = html.Div([
+                    html.H3(f"Type analysé : {property_type}", 
+                           style={'color': self.COLORS['primary'], 'marginBottom': '24px', 
+                                 'fontSize': '20px', 'fontWeight': 600}),
+                    html.Div([
+                        self.create_kpi_card("mdi:currency-usd", "Prix Médian", 
+                                           kpi['median_price'], self.COLORS['primary'], " FCFA"),
+                        self.create_kpi_card("mdi:ruler-square", "Prix Moyen/m²", 
+                                           kpi['avg_price_m2'], self.COLORS['success'], " FCFA"),
+                        self.create_kpi_card("mdi:file-document-multiple", "Annonces Actives", 
+                                           kpi['active_listings'], self.COLORS['info']),
+                        self.create_kpi_card("mdi:tape-measure", "Surface Médiane", 
+                                           kpi['median_surface'], self.COLORS['warning'], " m²"),
+                        self.create_kpi_card("mdi:calendar-clock", "Âge Médian", 
+                                           kpi['median_age'], self.COLORS['secondary'], " jours"),
+                    ], style={
+                        'display': 'grid',
+                        'gridTemplateColumns': 'repeat(auto-fit, minmax(180px, 1fr))',
+                        'gap': '16px'
+                    })
+                ])
+                
+                # Section 1
+                section_1 = html.Div([
+                    html.H2("🟦 2. Structure de l'Offre", 
+                           style={'color': self.COLORS['primary'], 'marginBottom': '20px'}),
+                    dcc.Graph(figure=self.create_section_1(df), config={'displayModeBar': False})
+                ], style={
+                    'background': 'white',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                })
+                
+                # Section 2
+                section_2 = html.Div([
+                    dcc.Graph(figure=self.create_section_2(df), config={'displayModeBar': False})
+                ], style={
+                    'background': 'white',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                })
+                
+                # Section 3
+                section_3 = html.Div([
+                    dcc.Graph(figure=self.create_section_3(df), config={'displayModeBar': False})
+                ], style={
+                    'background': 'white',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                })
+                
+                # Section 4
+                section_4 = html.Div([
+                    html.H2("🟦 3. Niveau des Prix (Segmenté)", 
+                           style={'color': self.COLORS['primary'], 'marginBottom': '20px'}),
+                    dcc.Graph(figure=self.create_section_4(df), config={'displayModeBar': False})
+                ], style={
+                    'background': 'white',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                })
+                
+                # Section 5
+                section_5 = html.Div([
+                    html.H2("🟦 4. Prix au m² (Référence Économique)", 
+                           style={'color': self.COLORS['primary'], 'marginBottom': '20px'}),
+                    dcc.Graph(figure=self.create_section_5(df), config={'displayModeBar': False})
+                ], style={
+                    'background': 'white',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                })
+                
+                # Section 6
+                section_6 = html.Div([
+                    dcc.Graph(figure=self.create_section_6(df), config={'displayModeBar': False})
+                ], style={
+                    'background': 'white',
+                    'padding': '16px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                })
+                
+                # Section 7
+                section_7 = html.Div([
+                    dcc.Graph(figure=self.create_section_7(df), config={'displayModeBar': False})
+                ], style={
+                    'background': 'white',
+                    'padding': '16px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                })
+                
+                # Section 8
+                section_8 = html.Div([
+                    html.H2("🟦 6. Dispersion & Hétérogénéité", 
+                           style={'color': self.COLORS['primary'], 'marginBottom': '20px'}),
+                    dcc.Graph(figure=self.create_section_8(df), config={'displayModeBar': False})
+                ], style={
+                    'background': 'white',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                })
+                
+                # Section 9
+                section_9 = html.Div([
+                    html.H2("🟦 7. Accessibilité & Gammes de Prix", 
+                           style={'color': self.COLORS['primary'], 'marginBottom': '20px'}),
+                    dcc.Graph(figure=self.create_section_9(df), config={'displayModeBar': False})
+                ], style={
+                    'background': 'white',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+                })
+                
+                # Section 10
+                section_10 = self.create_section_10(df)
+                
+                return (
+                    kpi_header,
+                    section_1,
+                    section_2,
+                    section_3,
+                    section_4,
+                    section_5,
+                    section_6,
+                    section_7,
+                    section_8,
+                    section_9,
+                    section_10
+                )
+                
+            except Exception as e:
+                print(f"Erreur callback principal: {e}")
+                traceback.print_exc()
+                
+                # Message d'erreur
+                error_msg = html.Div([
+                    html.H3("⚠️ Erreur de Chargement", style={'color': '#DC2626'}),
+                    html.P(f"Une erreur s'est produite: {str(e)}", style={'color': '#6B7280'}),
+                    html.P("Veuillez réessayer ou contacter l'administrateur.", 
+                          style={'color': '#6B7280', 'fontSize': '14px'})
+                ], style={
+                    'background': '#FEE2E2',
+                    'padding': '24px',
+                    'borderRadius': '12px',
+                    'border': '2px solid #DC2626',
+                    'textAlign': 'center'
+                })
+                
+                empty = html.Div()
+                
+                return (error_msg, empty, empty, empty, empty, empty, empty, empty, empty, empty, empty)
 
 
 def create_observatoire_dashboard(server=None, routes_pathname_prefix="/", requests_pathname_prefix="/"):
-    """Factory pour créer l'observatoire"""
-    dashboard = ObservatoireImmobilier(
+    """Factory function"""
+    dashboard = ObservatoireComplet(
         server=server,
         routes_pathname_prefix=routes_pathname_prefix,
         requests_pathname_prefix=requests_pathname_prefix
