@@ -224,13 +224,13 @@ class AnalyticsDashboard:
         try:
             # Import sécurisé
             try:
-                from app.database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
+                from app.database.models import db, ExpatDakarProperty, LogerDakarProperty
             except ImportError:
-                from database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
+                from database.models import db,  ExpatDakarProperty, LogerDakarProperty
             
             all_data = []
             
-            for model in [CoinAfrique, ExpatDakarProperty, LogerDakarProperty]:
+            for model in [ExpatDakarProperty, LogerDakarProperty]:
                 try:
                     query = db.session.query(
                         model.city,
@@ -330,6 +330,7 @@ class AnalyticsDashboard:
             }
         
         df = pd.DataFrame(data) if isinstance(data, list) else data
+        df["city"] = df["city"].apply(lambda x: x.lower().split(",")[0] if isinstance(x, str) else x)
         
         kpis = {}
         
@@ -1414,7 +1415,7 @@ class AnalyticsDashboard:
                 return [error] * 8
 
 
-def create_analytics_dashboard(server=None, routes_pathname_prefix="/analytics/", requests_pathname_prefix="/analytics/"):
+def create_ultra_dashboard(server=None, routes_pathname_prefix="/analytics/", requests_pathname_prefix="/analytics/"):
     """Factory function pour créer le dashboard analytics"""
     try:
         dashboard = AnalyticsDashboard(
