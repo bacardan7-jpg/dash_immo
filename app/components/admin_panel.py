@@ -63,14 +63,14 @@ class AdminPanel:
             for log in logs:
                 user = User.query.get(log.user_id)
                 log_data.append({
-                    'id': log.id,
+                    'id': str(log.id),
                     'username': user.username if user else 'Utilisateur inconnu',
                     'action': log.action,
                     'resource': log.resource,
-                    'details': log.details,
+                    'details': str(log.details) if log.details else '',
                     'ip_address': log.ip_address,
                     'timestamp': log.timestamp.isoformat() if log.timestamp else None,
-                    'success': log.success
+                    'success': 'Oui' if log.success else 'Non'
                 })
             
             return log_data
