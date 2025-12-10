@@ -1,3 +1,10 @@
+"""
+🗺️ MAP DASHBOARD - VERSION COMPLÈTE ENRICHIE
+Dashboard cartographique avec heatmap, clusters et analyses géospatiales
+Auteur: Cos - ENSAE Dakar
+Version: 2.0 - Enhanced
+"""
+
 import dash
 from dash import html, dcc, Input, Output, callback, State
 import dash_mantine_components as dmc
@@ -5,831 +12,949 @@ import dash_bootstrap_components as dbc
 from dash_iconify import DashIconify
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 import logging
+import traceback
+import base64
 from sqlalchemy.exc import SQLAlchemyError, OperationalError
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Gestion des imports avec fallback
-try:
-    from ..database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
-except ImportError:
-    logger.warning("Import relatif échoué, tentative d'import absolu")
-    try:
-        from database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
-    except ImportError as e:
-        logger.error(f"Impossible d'importer les modèles : {e}")
-        # Création de classes factices pour le développement
-        class DummyDB:
-            def session(self):
-                pass
-        db = DummyDB()
-        class CoinAfrique: pass
-        class ExpatDakarProperty: pass
-        class LogerDakarProperty: pass
 
 class PremiumMapDashboard:
-    """Dashboard cartographique premium avec clusters et heatmap"""
+    """Dashboard cartographique premium avec analyses géospatiales"""
     
-    def __init__(self, server=None, routes_pathname_prefix="/", requests_pathname_prefix="/"):
+    COLORS = {
+        'primary': '#1E40AF',
+        'secondary': '#EC4899',
+        'success': '#10B981',
+        'warning': '#F59E0B',
+        'danger': '#EF4444',
+        'info': '#06B6D4',
+        'purple': '#8B5CF6',
+        'teal': '#14B8A6',
+        'bg_dark': '#0f172a',
+        'bg_card': '#1e293b',
+        'text_primary': '#f1f5f9',
+        'text_secondary': '#94a3b8',
+        'border': '#334155'
+    }
+    
+    # Coordonnées précises des villes sénégalaises
+    CITY_COORDINATES = {
+        "dakar": {"lat": 14.6928, "lon": -17.4467, "region": "Cap-Vert", "population": 1030594},
+        "pikine": {"lat": 14.7640, "lon": -17.3900, "region": "Cap-Vert", "population": 874062},
+        "guédiawaye": {"lat": 14.7739, "lon": -17.3367, "region": "Cap-Vert", "population": 280353},
+        "rufisque": {"lat": 14.7167, "lon": -17.2667, "region": "Cap-Vert", "population": 179797},
+        "thiès": {"lat": 14.7956, "lon": -16.9981, "region": "Thiès", "population": 320000},
+        "mbour": {"lat": 14.4167, "lon": -16.9667, "region": "Thiès", "population": 232777},
+        "saint-louis": {"lat": 16.0179, "lon": -16.4896, "region": "Saint-Louis", "population": 258592},
+        "kaolack": {"lat": 14.1500, "lon": -16.0833, "region": "Kaolack", "population": 260000},
+        "ziguinchor": {"lat": 12.5833, "lon": -16.2667, "region": "Ziguinchor", "population": 205294},
+        "tambacounda": {"lat": 13.7667, "lon": -13.6833, "region": "Tambacounda", "population": 107000},
+        "kolda": {"lat": 12.8833, "lon": -14.9500, "region": "Kolda", "population": 68000},
+        "louga": {"lat": 15.6181, "lon": -16.2244, "region": "Louga", "population": 90000},
+        "diourbel": {"lat": 14.6500, "lon": -16.2333, "region": "Diourbel", "population": 140000},
+        "fatick": {"lat": 14.3389, "lon": -16.4111, "region": "Fatick", "population": 30000},
+        "kaffrine": {"lat": 14.1053, "lon": -15.5508, "region": "Kaffrine", "population": 55000},
+        "kédougou": {"lat": 12.5579, "lon": -12.1784, "region": "Kédougou", "population": 25000},
+        "sédhiou": {"lat": 12.7081, "lon": -15.5569, "region": "Sédhiou", "population": 25000},
+        "matam": {"lat": 15.6556, "lon": -13.2553, "region": "Matam", "population": 40000},
+        "bambey": {"lat": 14.6984, "lon": -16.2738, "region": "Diourbel", "population": 30000},
+        "richard-toll": {"lat": 16.4625, "lon": -15.7008, "region": "Saint-Louis", "population": 60000},
+        "touba": {"lat": 14.8500, "lon": -15.8833, "region": "Diourbel", "population": 529000},
+    }
+    
+    def __init__(self, server=None, routes_pathname_prefix="/map/", requests_pathname_prefix="/map/"):
+        # CSS personnalisé
+        self.custom_css = """
+        * { font-family: 'Outfit', sans-serif; }
+        body { background: #0f172a; margin: 0; padding: 0; color: #f1f5f9; }
+        .map-container { border-radius: 20px; overflow: hidden; }
+        .stat-card { transition: all 0.3s ease; }
+        .stat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,0.3); }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        """
+        
         self.app = dash.Dash(
             __name__,
             server=server,
             external_stylesheets=[
-                dbc.themes.BOOTSTRAP,
-                "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css",
-                # Styles CSS de secours en cas de problème avec les fichiers statiques
-                "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+                'https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap',
+                dbc.themes.BOOTSTRAP
             ],
             routes_pathname_prefix=routes_pathname_prefix,
             requests_pathname_prefix=requests_pathname_prefix,
-            suppress_callback_exceptions=True
+            suppress_callback_exceptions=True,
+            meta_tags=[{
+                "name": "viewport",
+                "content": "width=device-width, initial-scale=1, maximum-scale=1"
+            }]
         )
         
-        # Ajout des styles CSS inline de secours
-        self._add_fallback_styles()
-        
         if server:
-            try:
-                with server.app_context():
-                    self.setup_layout()
-                    self.setup_callbacks()
-            except Exception as e:
-                logger.error(f"Erreur lors de l'initialisation avec contexte serveur: {e}")
+            with server.app_context():
                 self.setup_layout()
                 self.setup_callbacks()
         else:
-            self._layout_setup_deferred = True
+            self.setup_layout()
+            self.setup_callbacks()
     
-    def _add_fallback_styles(self):
-        """Ajout de styles CSS de secours si les fichiers statiques ne sont pas disponibles"""
-        self.app.index_string = '''
-        <!DOCTYPE html>
-        <html>
-            <head>
-                {%metas%}
-                <title>{%title%}</title>
-                {%favicon%}
-                {%css%}
-                <style>
-                    /* Styles de secours */
-                    .dashboard-root {
-                        font-family: 'Inter', sans-serif;
-                        background: #0f172a;
-                        color: #e2e8f0;
-                        min-height: 100vh;
-                    }
-                    .glass-nav {
-                        backdrop-filter: blur(10px);
-                        background: rgba(15, 23, 42, 0.8);
-                        padding: 1rem;
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                    }
-                    .hero-section {
-                        padding: 3rem 1rem;
-                        text-align: center;
-                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                        color: white;
-                    }
-                    .map-container {
-                        background: rgba(30, 41, 59, 0.5);
-                        border-radius: 12px;
-                        padding: 1rem;
-                        margin: 1rem 0;
-                        border: 1px solid rgba(148, 163, 184, 0.2);
-                    }
-                    .controls-section {
-                        padding: 2rem 1rem;
-                        background: rgba(15, 23, 42, 0.5);
-                    }
-                    .stats-section {
-                        padding: 2rem 1rem;
-                        background: rgba(15, 23, 42, 0.3);
-                    }
-                    .error-message {
-                        background: rgba(220, 38, 38, 0.2);
-                        border: 1px solid #dc2626;
-                        color: #fecaca;
-                        padding: 1rem;
-                        border-radius: 8px;
-                        margin: 1rem 0;
-                    }
-                    .loading-message {
-                        background: rgba(59, 130, 246, 0.2);
-                        border: 1px solid #3b82f6;
-                        color: #bfdbfe;
-                        padding: 1rem;
-                        border-radius: 8px;
-                        margin: 1rem 0;
-                        text-align: center;
-                    }
-                    .empty-data-message {
-                        background: rgba(245, 158, 11, 0.2);
-                        border: 1px solid #f59e0b;
-                        color: #fde68a;
-                        padding: 2rem;
-                        border-radius: 8px;
-                        text-align: center;
-                        margin: 2rem 0;
-                    }
-                    .control-group {
-                        margin-bottom: 1rem;
-                    }
-                    .control-label {
-                        display: block;
-                        margin-bottom: 0.5rem;
-                        font-weight: 500;
-                    }
-                    .modern-dropdown, .modern-checklist {
-                        width: 100%;
-                    }
-                    .city-analysis {
-                        background: rgba(30, 41, 59, 0.7);
-                        padding: 1.5rem;
-                        border-radius: 12px;
-                        border: 1px solid rgba(148, 163, 184, 0.2);
-                    }
-                    .stat-item {
-                        display: flex;
-                        justify-content: space-between;
-                        padding: 0.5rem 0;
-                        border-bottom: 1px solid rgba(148, 163, 184, 0.1);
-                    }
-                </style>
-            </head>
-            <body>
-                {%app_entry%}
-                <footer>
-                    {%config%}
-                    {%scripts%}
-                    {%renderer%}
-                </footer>
-            </body>
-        </html>
-        '''
+    # ==================== DATA LOADING ====================
     
-    def safe_db_query(self, query_func):
-        """Exécute une requête DB en toute sécurité avec gestion des erreurs"""
+    def safe_import_models(self):
+        """Import sécurisé des modèles"""
         try:
-            if not hasattr(db, 'session'):
-                logger.error("Base de données non initialisée")
-                return None, "Base de données non disponible"
-            
-            with db.session.begin_nested():
-                result = query_func()
-            return result, None
-        except OperationalError as e:
-            logger.error(f"Erreur de connexion DB: {e}")
-            return None, "Impossible de se connecter à la base de données"
-        except SQLAlchemyError as e:
-            logger.error(f"Erreur SQL: {e}")
-            return None, f"Erreur de requête: {str(e)}"
-        except Exception as e:
-            logger.error(f"Erreur inattendue: {e}")
-            return None, f"Erreur système: {str(e)}"
-    
-    def get_enhanced_map_data(self):
-        """Données enrichies avec scores et tendances - version robuste"""
-        try:
-            # Vérification préalable de la connexion DB
-            if not hasattr(db, 'session') or db.session is None:
-                logger.error("Session DB non disponible")
-                return []
-            
-            map_data = []
-            city_scores = {}
-            
-            # Scores par ville avec gestion d'erreurs
+            from database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
+            return db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
+        except ImportError:
             try:
-                city_stats_query = db.session.query(
-                    LogerDakarProperty.city,
-                    db.func.count(LogerDakarProperty.id),
-                    db.func.avg(LogerDakarProperty.price),
-                    db.func.stddev(LogerDakarProperty.price)
-                ).filter(
-                    LogerDakarProperty.city.isnot(None),
-                    LogerDakarProperty.price > 1000,
-                ).group_by(LogerDakarProperty.city)
-                
-                city_stats, error = self.safe_db_query(lambda: city_stats_query.all())
-                if error:
-                    logger.warning(f"Erreur lors de la récupération des stats villes: {error}")
-                    city_stats = []
-                
-                logger.info(f"Stats villes récupérées : {len(city_stats)} villes")
-                
-                for city, count, avg, std in city_stats:
-                    try:
-                        score = min(100, (count / 50) * 20 + (avg / 1000000) * 30)
-                        city_scores[city] = {
-                            'score': score,
-                            'count': count,
-                            'avg_price': float(avg) if avg else 0,
-                            'volatility': float(std) if std else 0
-                        }
-                    except Exception as e:
-                        logger.warning(f"Erreur calcul score pour {city}: {e}")
-                        city_scores[city] = {'score': 0, 'count': 0, 'avg_price': 0, 'volatility': 0}
-                        
+                from app.database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
+                return db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
             except Exception as e:
-                logger.error(f"Erreur lors du calcul des scores villes: {e}")
+                logger.error(f"Erreur import models: {e}")
+                return None, None, None, None
+    
+    def clean_city_name(self, city):
+        """
+        Nettoyer et normaliser les noms de ville
+        Applique: lowercase, split par virgule, suppression espaces
+        """
+        if not city or not isinstance(city, str):
+            return None
+        
+        # Nettoyer: lowercase, prendre première partie avant virgule, strip
+        cleaned = city.lower().split(',')[0].strip()
+        
+        # Normaliser quelques variantes communes
+        replacements = {
+            'saint louis': 'saint-louis',
+            'st louis': 'saint-louis',
+            'richard toll': 'richard-toll',
+            'guediawaye': 'guédiawaye',
+            'thies': 'thiès',
+            'kedougou': 'kédougou',
+            'sedhiou': 'sédhiou',
+        }
+        
+        for old, new in replacements.items():
+            if cleaned == old:
+                cleaned = new
+                break
+        
+        return cleaned
+    
+    def get_enhanced_map_data(self, sources=None):
+        """
+        Récupération enrichie des données cartographiques
+        Avec nettoyage des villes et calculs avancés
+        """
+        try:
+            db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty = self.safe_import_models()
             
-            # Coordonnées précises des villes
-            city_coordinates = {
-                "Dakar": {"lat": 14.6928, "lon": -17.4467, "region": "Cap-Vert"},
-                "Pikine": {"lat": 14.7640, "lon": -17.3900, "region": "Cap-Vert"},
-                "Guédiawaye": {"lat": 14.7739, "lon": -17.3367, "region": "Cap-Vert"},
-                "Rufisque": {"lat": 14.7167, "lon": -17.2667, "region": "Cap-Vert"},
-                "Thiès": {"lat": 14.7956, "lon": -16.9981, "region": "Thiès"},
-                "Mbour": {"lat": 14.4167, "lon": -16.9667, "region": "Thiès"},
-                "Saint-Louis": {"lat": 16.0179, "lon": -16.4896, "region": "Saint-Louis"},
-                "Kaolack": {"lat": 14.1500, "lon": -16.0833, "region": "Kaolack"},
-                "Ziguinchor": {"lat": 12.5833, "lon": -16.2667, "region": "Ziguinchor"},
-                "Tambacounda": {"lat": 13.7667, "lon": -13.6833, "region": "Tambacounda"},
-                "Kolda": {"lat": 12.8833, "lon": -14.9500, "region": "Kolda"},
-                "Dagana": {"lat": 16.4833, "lon": -15.6000, "region": "Saint-Louis"},
-                "Richard-Toll": {"lat": 16.4625, "lon": -15.7008, "region": "Saint-Louis"},
-                "Louga": {"lat": 15.6181, "lon": -16.2244, "region": "Louga"},
-                "Diourbel": {"lat": 14.6500, "lon": -16.2333, "region": "Diourbel"},
-                "Bambey": {"lat": 14.6984, "lon": -16.2738, "region": "Diourbel"},
-                "Fatick": {"lat": 14.3389, "lon": -16.4111, "region": "Fatick"},
-                "Foundiougne": {"lat": 14.1333, "lon": -16.4667, "region": "Fatick"},
-                "Kaffrine": {"lat": 14.1053, "lon": -15.5508, "region": "Kaffrine"},
-                "Birkelane": {"lat": 14.2044, "lon": -15.5914, "region": "Kaffrine"},
-                "Kédougou": {"lat": 12.5579, "lon": -12.1784, "region": "Kédougou"},
-                "Sédhiou": {"lat": 12.7081, "lon": -15.5569, "region": "Sédhiou"},
-                "Goudomp": {"lat": 12.5944, "lon": -15.7322, "region": "Sédhiou"},
-                "Matam": {"lat": 15.6556, "lon": -13.2553, "region": "Matam"},
-                "Ranérou": {"lat": 15.3000, "lon": -13.9500, "region": "Matam"},
-            }
+            if not db:
+                logger.error("DB non disponible")
+                return pd.DataFrame()
             
-            # Collecter les propriétés avec enrichissement
-            models_to_query = [
-                (CoinAfrique, 'CoinAfrique'),
-                (ExpatDakarProperty, 'ExpatDakar'),
-                (LogerDakarProperty, 'LogerDakar')
-            ]
+            all_data = []
             
-            for model, source in models_to_query:
+            # Définir les sources à interroger
+            models_to_query = []
+            if not sources or 'CoinAfrique' in sources:
+                models_to_query.append((CoinAfrique, 'CoinAfrique'))
+            if not sources or 'ExpatDakar' in sources:
+                models_to_query.append((ExpatDakarProperty, 'ExpatDakar'))
+            if not sources or 'LogerDakar' in sources:
+                models_to_query.append((LogerDakarProperty, 'LogerDakar'))
+            
+            for model, source_name in models_to_query:
                 try:
-                    if not hasattr(model, 'query'):
-                        logger.warning(f"Modèle {model} non initialisé")
-                        continue
+                    properties = db.session.query(
+                        model.city,
+                        model.property_type,
+                        model.price,
+                        model.surface_area,
+                        model.bedrooms,
+                        model.bathrooms,
+                        model.scraped_at
+                    ).filter(
+                        model.city.isnot(None),
+                        model.price.isnot(None),
+                        model.price > 10000,
+                        model.price < 1e10
+                    ).limit(3000).all()
                     
-                    properties, error = self.safe_db_query(lambda: db.session.query(model).all())
-                    if error:
-                        logger.warning(f"Erreur récupération {source}: {error}")
-                        continue
-                    
-                    logger.info(f"{source}: {len(properties) if properties else 0} propriétés trouvées")
-                    
-                    if not properties:
-                        continue
+                    logger.info(f"{source_name}: {len(properties)} propriétés trouvées")
                     
                     for prop in properties:
                         try:
-                            city = getattr(prop, 'city', None)
-                            if city and city in city_coordinates:
-                                coords = city_coordinates[city]
-                                score = city_scores.get(city, {}).get('score', 0)
-                                
-                                # Vérification des coordonnées valides
-                                if not (-90 <= coords['lat'] <= 90 and -180 <= coords['lon'] <= 180):
-                                    logger.warning(f"Coordonnées invalides pour {city}: {coords}")
-                                    continue
-                                
-                                map_data.append({
-                                    'id': getattr(prop, 'id', str(prop)),
-                                    'title': getattr(prop, 'title', '')[:50] if hasattr(prop, 'title') else 'N/A',
-                                    'price': getattr(prop, 'price', 0) or 0,
-                                    'city': city,
-                                    'region': coords['region'],
-                                    'property_type': getattr(prop, 'property_type', 'Autre') or 'Autre',
-                                    'bedrooms': getattr(prop, 'bedrooms', 0) or 0,
-                                    'surface_area': getattr(prop, 'surface_area', 0) or 0,
-                                    'source': source,
-                                    'lat': coords['lat'],
-                                    'lon': coords['lon'],
-                                    'score': float(score),
-                                    'volatility': float(city_scores.get(city, {}).get('volatility', 0)),
-                                    'color': '#ffd700' if score > 70 else '#ff6b6b' if score < 30 else '#667eea'
-                                })
+                            # Nettoyer le nom de la ville - CRITIQUE
+                            city_raw = str(prop.city) if prop.city else None
+                            city_clean = self.clean_city_name(city_raw)
+                            
+                            # Vérifier si la ville est dans nos coordonnées
+                            if not city_clean or city_clean not in self.CITY_COORDINATES:
+                                continue
+                            
+                            coords = self.CITY_COORDINATES[city_clean]
+                            
+                            # Calculer prix/m²
+                            price = float(prop.price) if prop.price else 0
+                            surface = float(prop.surface_area) if prop.surface_area and prop.surface_area > 0 else None
+                            price_per_m2 = price / surface if surface and surface > 0 and price > 0 else None
+                            
+                            # Calculer l'âge de l'annonce
+                            age_days = None
+                            if prop.scraped_at:
+                                age_days = (datetime.utcnow() - prop.scraped_at).days
+                            
+                            all_data.append({
+                                'city': city_clean,
+                                'city_display': city_clean.title(),
+                                'region': coords['region'],
+                                'population': coords['population'],
+                                'lat': coords['lat'],
+                                'lon': coords['lon'],
+                                'property_type': str(prop.property_type) if prop.property_type else 'Autre',
+                                'price': price,
+                                'surface_area': surface,
+                                'price_per_m2': price_per_m2,
+                                'bedrooms': int(prop.bedrooms) if prop.bedrooms else None,
+                                'bathrooms': int(prop.bathrooms) if prop.bathrooms else None,
+                                'age_days': age_days,
+                                'source': source_name
+                            })
+                            
                         except Exception as e:
-                            logger.warning(f"Erreur traitement propriété {prop}: {e}")
+                            logger.warning(f"Erreur traitement propriété: {e}")
                             continue
                             
                 except Exception as e:
-                    logger.error(f"Erreur lors du traitement du modèle {source}: {e}")
+                    logger.error(f"Erreur requête {source_name}: {e}")
                     continue
             
-            logger.info(f"Données cartographiques finalisées : {len(map_data)} points")
-            return map_data
+            if not all_data:
+                logger.warning("Aucune donnée récupérée")
+                return pd.DataFrame()
             
-        except Exception as e:
-            logger.error(f"Erreur critique get_enhanced_map_data: {e}", exc_info=True)
-            return []
-    
-    def create_heatmap(self, map_data):
-        """Heatmap de densité des prix avec gestion d'erreurs"""
-        try:
-            if not map_data:
-                logger.warning("Aucune donnée pour la heatmap")
-                return self.create_empty_figure("Aucune donnée disponible pour la heatmap")
+            df = pd.DataFrame(all_data)
             
-            df = pd.DataFrame(map_data)
-            if df.empty:
-                return self.create_empty_figure("Données insuffisantes")
-            
-            # Vérification des colonnes requises
-            required_cols = ['lat', 'lon', 'price']
-            if not all(col in df.columns for col in required_cols):
-                logger.error(f"Colonnes manquantes dans DataFrame: {df.columns}")
-                return self.create_empty_figure("Données corrompues")
-            
-            fig = px.density_mapbox(
-                df, 
-                lat='lat', 
-                lon='lon', 
-                z='price',
-                radius=30,
-                center=dict(lat=14.6928, lon=-17.4467),
-                zoom=6,
-                mapbox_style='open-street-map',
-                color_continuous_scale='Viridis',
-                title='Densité des prix par zone'
-            )
-            
-            fig.update_layout(
-                height=600,
-                paper_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='white', family='Inter'),
-                title=dict(font=dict(size=18, color='white'), x=0.5),
-                coloraxis_colorbar=dict(
-                    title='Prix moyen',
-                    titlefont=dict(color='white'),
-                    tickfont=dict(color='white')
+            # Enrichissement des données
+            if not df.empty:
+                # Score de densité par ville (nombre d'annonces / population)
+                city_counts = df.groupby('city').size()
+                df['city_density_score'] = df['city'].map(
+                    lambda c: (city_counts.get(c, 0) / self.CITY_COORDINATES[c]['population'] * 100000)
+                    if c in self.CITY_COORDINATES else 0
                 )
-            )
+                
+                # Score d'accessibilité (basé sur prix médian de la ville)
+                city_median_price = df.groupby('city')['price'].median()
+                overall_median = df['price'].median()
+                df['affordability_score'] = df['city'].map(
+                    lambda c: 100 - min(100, (city_median_price.get(c, overall_median) / overall_median * 100))
+                )
+                
+                # Catégoriser les prix
+                df['price_category'] = pd.cut(
+                    df['price'],
+                    bins=[0, 50_000_000, 100_000_000, 200_000_000, float('inf')],
+                    labels=['Économique', 'Moyen', 'Élevé', 'Premium']
+                )
+                
+                # Score de fraîcheur (basé sur age_days)
+                df['freshness_score'] = df['age_days'].apply(
+                    lambda x: 100 - min(100, x * 2) if pd.notna(x) and x >= 0 else 50
+                )
             
-            return fig
+            logger.info(f"DataFrame final: {len(df)} enregistrements, {df['city'].nunique()} villes")
+            
+            return df
+            
         except Exception as e:
-            logger.error(f"Erreur création heatmap: {e}", exc_info=True)
-            return self.create_error_figure(f"Erreur heatmap: {str(e)}")
+            logger.error(f"Erreur critique get_enhanced_map_data: {e}")
+            traceback.print_exc()
+            return pd.DataFrame()
     
-    def create_cluster_map(self, map_data):
-        """Carte avec clusters - version robuste"""
+    # ==================== VISUALISATIONS ====================
+    
+    def create_interactive_map(self, df, color_by='price'):
+        """Carte interactive avec markers colorés"""
+        if df.empty:
+            return self.create_empty_figure("Aucune donnée disponible")
+        
         try:
-            if not map_data:
-                logger.warning("Aucune donnée pour la carte cluster")
-                return self.create_empty_figure("Aucune donnée disponible pour la carte")
+            # Préparer les données pour la carte
+            df_map = df.copy()
             
-            df = pd.DataFrame(map_data)
-            if df.empty:
-                return self.create_empty_figure("Données insuffisantes")
+            # Définir la colonne de couleur
+            if color_by == 'price':
+                color_col = 'price'
+                color_label = 'Prix (FCFA)'
+            elif color_by == 'price_per_m2':
+                df_map = df_map[df_map['price_per_m2'].notna()]
+                color_col = 'price_per_m2'
+                color_label = 'Prix/m² (FCFA)'
+            elif color_by == 'affordability':
+                color_col = 'affordability_score'
+                color_label = 'Score Accessibilité'
+            else:
+                color_col = 'city_density_score'
+                color_label = 'Densité Annonces'
             
-            required_cols = ['lat', 'lon', 'source', 'price']
-            if not all(col in df.columns for col in required_cols):
-                logger.error(f"Colonnes manquantes: {df.columns}")
-                return self.create_empty_figure("Données corrompues")
+            if df_map.empty:
+                return self.create_empty_figure("Pas de données pour ce critère")
             
-            fig = px.scatter_mapbox(
-                df, 
-                lat='lat', 
-                lon='lon',
-                color='source',
-                size='price',
-                hover_name='title',
-                hover_data={
-                    'price': True,
-                    'city': True,
-                    'property_type': True,
-                    'score': True,
-                    'volatility': True
-                },
-                color_discrete_map={
-                    'CoinAfrique': '#667eea',
-                    'ExpatDakar': '#764ba2',
-                    'LogerDakar': '#ffd700'
-                },
-                size_max=25,
-                zoom=6,
-                center=dict(lat=14.6928, lon=-17.4467),
-                title='Clusters de propriétés'
+            # Agréger par ville pour la carte
+            city_agg = df_map.groupby(['city', 'city_display', 'lat', 'lon', 'region']).agg({
+                'price': ['count', 'median', 'mean'],
+                'price_per_m2': 'median',
+                color_col: 'mean'
+            }).reset_index()
+            
+            city_agg.columns = ['city', 'city_display', 'lat', 'lon', 'region', 
+                               'count', 'median_price', 'mean_price', 'median_price_m2', 'color_value']
+            
+            # Créer le hover text
+            city_agg['hover_text'] = city_agg.apply(
+                lambda x: f"<b>{x['city_display']}</b><br>" +
+                         f"Région: {x['region']}<br>" +
+                         f"Annonces: {int(x['count'])}<br>" +
+                         f"Prix médian: {x['median_price']/1_000_000:.1f}M FCFA<br>" +
+                         f"Prix/m²: {x['median_price_m2']:.0f} FCFA" if pd.notna(x['median_price_m2']) else "",
+                axis=1
             )
             
-            # Configuration cohérente de la carte
+            # Créer la carte
+            fig = go.Figure()
+            
+            fig.add_trace(go.Scattermapbox(
+                lat=city_agg['lat'],
+                lon=city_agg['lon'],
+                mode='markers',
+                marker=dict(
+                    size=city_agg['count'].apply(lambda x: min(50, 10 + x/10)),
+                    color=city_agg['color_value'],
+                    colorscale='Viridis',
+                    showscale=True,
+                    colorbar=dict(
+                        title=color_label,
+                        x=1.02
+                    ),
+                    opacity=0.8,
+                    line=dict(width=2, color='white')
+                ),
+                text=city_agg['hover_text'],
+                hovertemplate='%{text}<extra></extra>',
+                name='Villes'
+            ))
+            
+            # Configuration de la carte
             fig.update_layout(
-                height=600,
-                paper_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='white', family='Inter'),
-                title=dict(font=dict(size=18, color='white'), x=0.5),
                 mapbox=dict(
-                    style="open-street-map",
-                    zoom=6,
-                    center=dict(lat=14.6928, lon=-17.4467)
-                )
+                    style='open-street-map',
+                    center=dict(lat=14.5, lon=-14.5),
+                    zoom=6
+                ),
+                height=700,
+                margin=dict(l=0, r=0, t=40, b=0),
+                title=dict(
+                    text=f'🗺️ Carte Interactive - Colorée par {color_label}',
+                    font=dict(size=20, family='Outfit, sans-serif', color=self.COLORS['text_primary']),
+                    x=0.5,
+                    xanchor='center'
+                ),
+                paper_bgcolor=self.COLORS['bg_card'],
+                plot_bgcolor=self.COLORS['bg_card'],
+                font=dict(color=self.COLORS['text_primary'])
             )
             
             return fig
+            
         except Exception as e:
-            logger.error(f"Erreur création cluster map: {e}", exc_info=True)
-            return self.create_error_figure(f"Erreur carte: {str(e)}")
+            logger.error(f"Erreur création carte: {e}")
+            return self.create_empty_figure(f"Erreur: {str(e)}")
     
-    def create_empty_figure(self, message="Aucune donnée"):
-        """Crée une figure vide avec message"""
+    def create_heatmap_density(self, df):
+        """Heatmap de densité des annonces"""
+        if df.empty:
+            return self.create_empty_figure("Aucune donnée disponible")
+        
+        try:
+            fig = go.Figure()
+            
+            fig.add_trace(go.Densitymapbox(
+                lat=df['lat'],
+                lon=df['lon'],
+                z=df['price'],
+                radius=30,
+                colorscale='Hot',
+                showscale=True,
+                colorbar=dict(title="Intensité"),
+                opacity=0.6
+            ))
+            
+            fig.update_layout(
+                mapbox=dict(
+                    style='open-street-map',
+                    center=dict(lat=14.5, lon=-14.5),
+                    zoom=6
+                ),
+                height=700,
+                margin=dict(l=0, r=0, t=40, b=0),
+                title=dict(
+                    text='🔥 Heatmap - Densité des Annonces',
+                    font=dict(size=20, family='Outfit, sans-serif', color=self.COLORS['text_primary']),
+                    x=0.5,
+                    xanchor='center'
+                ),
+                paper_bgcolor=self.COLORS['bg_card'],
+                plot_bgcolor=self.COLORS['bg_card'],
+                font=dict(color=self.COLORS['text_primary'])
+            )
+            
+            return fig
+            
+        except Exception as e:
+            logger.error(f"Erreur heatmap: {e}")
+            return self.create_empty_figure(f"Erreur: {str(e)}")
+    
+    def create_city_comparison_chart(self, df):
+        """Comparaison des villes - Top 10"""
+        if df.empty:
+            return go.Figure()
+        
+        try:
+            # Top 10 villes par nombre d'annonces
+            city_stats = df.groupby('city_display').agg({
+                'price': ['count', 'median'],
+                'price_per_m2': 'median',
+                'affordability_score': 'mean'
+            }).reset_index()
+            
+            city_stats.columns = ['city', 'count', 'median_price', 'median_price_m2', 'affordability']
+            city_stats = city_stats.sort_values('count', ascending=False).head(10)
+            
+            fig = make_subplots(
+                rows=1, cols=2,
+                subplot_titles=('Nombre d\'Annonces', 'Prix Médian'),
+                specs=[[{'type': 'bar'}, {'type': 'bar'}]]
+            )
+            
+            # Graphique 1: Nombre d'annonces
+            fig.add_trace(
+                go.Bar(
+                    x=city_stats['city'],
+                    y=city_stats['count'],
+                    marker=dict(color=self.COLORS['primary']),
+                    text=city_stats['count'],
+                    textposition='outside',
+                    name='Annonces'
+                ),
+                row=1, col=1
+            )
+            
+            # Graphique 2: Prix médian
+            fig.add_trace(
+                go.Bar(
+                    x=city_stats['city'],
+                    y=city_stats['median_price'],
+                    marker=dict(
+                        color=city_stats['median_price'],
+                        colorscale='Viridis',
+                        showscale=True
+                    ),
+                    text=city_stats['median_price'].apply(lambda x: f"{x/1_000_000:.1f}M"),
+                    textposition='outside',
+                    name='Prix'
+                ),
+                row=1, col=2
+            )
+            
+            fig.update_layout(
+                title=dict(
+                    text='📊 Top 10 Villes - Comparaison',
+                    font=dict(size=20, family='Outfit, sans-serif', color=self.COLORS['text_primary']),
+                    x=0.5,
+                    xanchor='center'
+                ),
+                showlegend=False,
+                height=450,
+                paper_bgcolor=self.COLORS['bg_card'],
+                plot_bgcolor=self.COLORS['bg_card'],
+                font=dict(color=self.COLORS['text_primary'])
+            )
+            
+            fig.update_xaxes(tickangle=-45)
+            
+            return fig
+            
+        except Exception as e:
+            logger.error(f"Erreur city comparison: {e}")
+            return go.Figure()
+    
+    def create_regional_analysis(self, df):
+        """Analyse par région"""
+        if df.empty:
+            return go.Figure()
+        
+        try:
+            regional_stats = df.groupby('region').agg({
+                'price': ['count', 'mean', 'median'],
+                'affordability_score': 'mean',
+                'city_density_score': 'mean'
+            }).reset_index()
+            
+            regional_stats.columns = ['region', 'count', 'mean_price', 'median_price', 
+                                     'affordability', 'density']
+            
+            regional_stats = regional_stats.sort_values('count', ascending=True)
+            
+            fig = go.Figure()
+            
+            fig.add_trace(go.Bar(
+                y=regional_stats['region'],
+                x=regional_stats['count'],
+                orientation='h',
+                marker=dict(
+                    color=regional_stats['mean_price'],
+                    colorscale='Plasma',
+                    showscale=True,
+                    colorbar=dict(title="Prix Moyen")
+                ),
+                text=regional_stats['count'],
+                textposition='outside',
+                hovertemplate='<b>%{y}</b><br>Annonces: %{x}<br>Prix moyen: %{marker.color:.0f}<extra></extra>'
+            ))
+            
+            fig.update_layout(
+                title=dict(
+                    text='🌍 Analyse par Région',
+                    font=dict(size=20, family='Outfit, sans-serif', color=self.COLORS['text_primary']),
+                    x=0
+                ),
+                xaxis_title="Nombre d'annonces",
+                height=500,
+                paper_bgcolor=self.COLORS['bg_card'],
+                plot_bgcolor=self.COLORS['bg_card'],
+                font=dict(color=self.COLORS['text_primary']),
+                margin=dict(l=150)
+            )
+            
+            return fig
+            
+        except Exception as e:
+            logger.error(f"Erreur regional analysis: {e}")
+            return go.Figure()
+    
+    def create_empty_figure(self, message):
+        """Figure vide avec message"""
         fig = go.Figure()
         fig.add_annotation(
             text=message,
             xref="paper", yref="paper",
-            x=0.5, y=0.5, xanchor='center', yanchor='middle',
+            x=0.5, y=0.5,
             showarrow=False,
-            font=dict(size=16, color="#94a3b8")
+            font=dict(size=16, color=self.COLORS['text_secondary'])
         )
         fig.update_layout(
-            height=400,
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)'
+            xaxis=dict(showgrid=False, showticklabels=False, zeroline=False),
+            yaxis=dict(showgrid=False, showticklabels=False, zeroline=False),
+            paper_bgcolor=self.COLORS['bg_card'],
+            plot_bgcolor=self.COLORS['bg_card'],
+            height=400
         )
         return fig
     
-    def create_error_figure(self, error_message):
-        """Crée une figure affichant un message d'erreur"""
-        fig = go.Figure()
-        fig.add_annotation(
-            text=f"❌ Erreur: {error_message}",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5, xanchor='center', yanchor='middle',
-            showarrow=False,
-            font=dict(size=14, color="#fecaca")
-        )
-        fig.update_layout(
-            height=400,
-            paper_bgcolor='rgba(220, 38, 38, 0.1)',
-            plot_bgcolor='rgba(220, 38, 38, 0.1)'
-        )
-        return fig
-    
-    def generate_city_analysis(self, city):
-        """Générer l'analyse détaillée d'une ville - VERSION CORRIGÉE (méthode de classe)"""
-        try:
-            if not city or not hasattr(db, 'session'):
-                return html.Div([
-                    html.H4("Sélectionnez une ville", className='insights-title'),
-                    html.P("Cliquez sur un point de la carte pour voir les détails")
-                ], className='city-analysis')
-            
-            # Requête sécurisée
-            stats_query = db.session.query(
-                db.func.count(LogerDakarProperty.id),
-                db.func.avg(LogerDakarProperty.price),
-                db.func.stddev(LogerDakarProperty.price),
-                db.func.avg(LogerDakarProperty.surface_area)
-            ).filter(LogerDakarProperty.city == city)
-            
-            stats, error = self.safe_db_query(lambda: stats_query.first())
-            
-            if error or not stats:
-                return html.Div([
-                    html.H4(f"Analyse: {city}", className='insights-title'),
-                    html.P(f"Impossible de récupérer les données: {error or 'Aucune donnée'}")
-                ], className='city-analysis')
-            
-            count, avg_price, volatility, avg_surface = stats
-            avg_price = avg_price or 0
-            volatility = volatility or 0
-            avg_surface = avg_surface or 0
-            
-            # Calcul du prix au m²
-            price_per_m2 = (avg_price / avg_surface) if avg_surface > 0 else 0
-            
-            return html.Div([
-                html.H4(f'Analyse: {city}', className='insights-title'),
-                html.Div([
-                    html.Div([
-                        html.Span('Propriétés:'),
-                        html.Strong(f'{int(count) if count else 0:,}')
-                    ], className='stat-item'),
-                    html.Div([
-                        html.Span('Prix moyen:'),
-                        html.Strong(f'{avg_price:,.0f} FCFA' if avg_price > 0 else 'N/A')
-                    ], className='stat-item'),
-                    html.Div([
-                        html.Span('Volatilité:'),
-                        html.Strong(f'{volatility:,.0f} FCFA' if volatility > 0 else 'N/A')
-                    ], className='stat-item'),
-                    html.Div([
-                        html.Span('Surface moyenne:'),
-                        html.Strong(f'{avg_surface:,.0f} m²' if avg_surface > 0 else 'N/A')
-                    ], className='stat-item'),
-                    html.Div([
-                        html.Span('Prix/m²:'),
-                        html.Strong(f'{price_per_m2:,.0f} FCFA/m²' if price_per_m2 > 0 else 'N/A')
-                    ], className='stat-item')
-                ], className='city-stats')
-            ], className='city-analysis')
-            
-        except Exception as e:
-            logger.error(f"Erreur génération analyse ville {city}: {e}", exc_info=True)
-            return html.Div([
-                html.H4(f"Erreur analyse {city}", className='insights-title'),
-                html.P(f"Détails: {str(e)}")
-            ], className='city-analysis error')
+    # ==================== LAYOUT ====================
     
     def setup_layout(self):
-        """Layout premium pour la carte avec états de chargement"""
-        try:
-            # Message de chargement initial
-            loading_message = html.Div([
-                html.I(className="fas fa-spinner fa-spin", style={"marginRight": "8px"}),
-                "Chargement des données cartographiques..."
-            ], className="loading-message")
+        """Configuration du layout"""
+        
+        # Injection CSS
+        css_b64 = base64.b64encode(self.custom_css.encode()).decode()
+        
+        self.app.layout = html.Div([
+            # CSS
+            html.Link(rel='stylesheet', href=f'data:text/css;base64,{css_b64}'),
             
-            self.app.layout = html.Div([
-                html.Div(id='hidden-trigger', style={'display': 'none'}),
-                
-                # Message d'erreur global
-                dcc.Store(id='error-store', data=None),
-                
-                # Navigation
-                html.Nav([
+            # Location
+            dcc.Location(id='map-url', refresh=False),
+            
+            # Store pour les données
+            dcc.Store(id='map-data-store', data=[]),
+            
+            # Header
+            html.Div([
+                html.Div([
+                    html.Div([
+                        DashIconify(icon="mdi:map-marker-radius", width=40, color="white"),
+                        html.Div([
+                            html.H1("Carte Immobilière Interactive", style={
+                                'fontSize': '32px',
+                                'fontWeight': '800',
+                                'color': 'white',
+                                'margin': '0'
+                            }),
+                            html.P("Visualisation géospatiale du marché sénégalais", style={
+                                'fontSize': '14px',
+                                'color': 'rgba(255,255,255,0.9)',
+                                'margin': '4px 0 0 0'
+                            })
+                        ], style={'marginLeft': '16px'})
+                    ], style={'display': 'flex', 'alignItems': 'center'}),
+                    
+                    html.Div([
+                        html.Div(style={
+                            'width': '10px',
+                            'height': '10px',
+                            'background': '#10B981',
+                            'borderRadius': '50%',
+                            'marginRight': '8px',
+                            'animation': 'pulse 2s infinite'
+                        }),
+                        html.Span("LIVE", style={
+                            'fontSize': '12px',
+                            'fontWeight': '700',
+                            'color': 'white',
+                            'letterSpacing': '1px'
+                        })
+                    ], style={
+                        'display': 'flex',
+                        'alignItems': 'center',
+                        'background': 'rgba(255,255,255,0.15)',
+                        'padding': '10px 18px',
+                        'borderRadius': '24px',
+                        'backdropFilter': 'blur(10px)'
+                    })
+                ], style={
+                    'display': 'flex',
+                    'justifyContent': 'space-between',
+                    'alignItems': 'center',
+                    'maxWidth': '1800px',
+                    'margin': '0 auto',
+                    'padding': '0 32px'
+                })
+            ], style={
+                'background': f'linear-gradient(135deg, {self.COLORS["primary"]}, {self.COLORS["purple"]})',
+                'padding': '32px 0',
+                'boxShadow': '0 6px 24px rgba(99, 102, 241, 0.3)',
+                'marginBottom': '32px'
+            }),
+            
+            # Container principal
+            html.Div([
+                html.Div([
+                    # Contrôles
                     html.Div([
                         html.Div([
-                            html.A([
-                                html.I(className='fas fa-map-marked-alt'),
-                                html.Span(' Map Premium')
-                            ], href='/', className='nav-brand'),
-                        ], className='nav-wrapper')
-                    ], className='container-fluid')
-                ], className='glass-nav'),
-                
-                # Zone d'erreur affichée
-                html.Div(id='global-error-display'),
-                
-                # Contenu principal
-                html.Main([
+                            DashIconify(icon="mdi:tune", width=20, color=self.COLORS['primary']),
+                            html.Span("Contrôles de la Carte", style={
+                                'fontSize': '16px',
+                                'fontWeight': '700',
+                                'color': self.COLORS['text_primary'],
+                                'marginLeft': '8px'
+                            })
+                        ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '20px'}),
+                        
+                        html.Div([
+                            html.Div([
+                                html.Label("Colorier par", style={
+                                    'fontSize': '13px',
+                                    'fontWeight': '600',
+                                    'color': self.COLORS['text_secondary'],
+                                    'marginBottom': '8px',
+                                    'display': 'block'
+                                }),
+                                dcc.Dropdown(
+                                    id='map-color-by',
+                                    options=[
+                                        {'label': '💰 Prix', 'value': 'price'},
+                                        {'label': '📐 Prix/m²', 'value': 'price_per_m2'},
+                                        {'label': '🎯 Accessibilité', 'value': 'affordability'},
+                                        {'label': '📊 Densité', 'value': 'density'}
+                                    ],
+                                    value='price',
+                                    clearable=False,
+                                    style={'borderRadius': '12px'}
+                                )
+                            ], style={'flex': '1', 'minWidth': '200px'}),
+                            
+                            html.Div([
+                                html.Label("Type de carte", style={
+                                    'fontSize': '13px',
+                                    'fontWeight': '600',
+                                    'color': self.COLORS['text_secondary'],
+                                    'marginBottom': '8px',
+                                    'display': 'block'
+                                }),
+                                dcc.Dropdown(
+                                    id='map-type',
+                                    options=[
+                                        {'label': '📍 Markers', 'value': 'markers'},
+                                        {'label': '🔥 Heatmap', 'value': 'heatmap'}
+                                    ],
+                                    value='markers',
+                                    clearable=False,
+                                    style={'borderRadius': '12px'}
+                                )
+                            ], style={'flex': '1', 'minWidth': '200px'}),
+                            
+                            html.Div([
+                                html.Label("Sources de données", style={
+                                    'fontSize': '13px',
+                                    'fontWeight': '600',
+                                    'color': self.COLORS['text_secondary'],
+                                    'marginBottom': '8px',
+                                    'display': 'block'
+                                }),
+                                dcc.Dropdown(
+                                    id='map-sources',
+                                    options=[
+                                        {'label': '🟦 CoinAfrique', 'value': 'CoinAfrique'},
+                                        {'label': '🟨 ExpatDakar', 'value': 'ExpatDakar'},
+                                        {'label': '🟩 LogerDakar', 'value': 'LogerDakar'}
+                                    ],
+                                    value=['CoinAfrique', 'ExpatDakar', 'LogerDakar'],
+                                    multi=True,
+                                    style={'borderRadius': '12px'}
+                                )
+                            ], style={'flex': '1.5', 'minWidth': '250px'}),
+                            
+                            html.Button([
+                                DashIconify(icon="mdi:refresh", width=20, color="white"),
+                                html.Span("Actualiser", style={'marginLeft': '8px'})
+                            ], id='map-refresh-button', style={
+                                'background': f'linear-gradient(135deg, {self.COLORS["primary"]}, {self.COLORS["purple"]})',
+                                'color': 'white',
+                                'border': 'none',
+                                'borderRadius': '12px',
+                                'padding': '12px 24px',
+                                'fontSize': '14px',
+                                'fontWeight': '600',
+                                'cursor': 'pointer',
+                                'display': 'flex',
+                                'alignItems': 'center',
+                                'alignSelf': 'flex-end',
+                                'boxShadow': f'0 4px 12px {self.COLORS["primary"]}40'
+                            })
+                        ], style={
+                            'display': 'flex',
+                            'gap': '16px',
+                            'flexWrap': 'wrap',
+                            'alignItems': 'flex-end'
+                        })
+                    ], style={
+                        'background': self.COLORS['bg_card'],
+                        'padding': '24px',
+                        'borderRadius': '20px',
+                        'boxShadow': '0 4px 20px rgba(0,0,0,0.3)',
+                        'border': f'1px solid {self.COLORS["border"]}',
+                        'marginBottom': '32px'
+                    }),
+                    
+                    # KPIs
+                    html.Div(id='map-kpi-section', style={'marginBottom': '32px'}),
+                    
+                    # Carte principale
                     html.Div([
-                        # Hero
-                        html.Section([
-                            html.Div([
-                                html.H1('Carte Interactive Premium', className='hero-title'),
-                                html.P('Visualisation géospatiale intelligente', className='hero-subtitle'),
-                                html.Div([
-                                    html.Span(id='property-count', children='0 propriétés', className='glass-badge'),
-                                    html.Button([
-                                        html.I(className='fas fa-cog'),
-                                        ' Filtres'
-                                    ], id='filter-btn', className='glass-button')
-                                ], className='hero-actions')
-                            ], className='hero-content')
-                        ], className='hero-section'),
+                        dcc.Graph(id='main-map', config={'displayModeBar': True})
+                    ], style={
+                        'background': self.COLORS['bg_card'],
+                        'padding': '24px',
+                        'borderRadius': '20px',
+                        'boxShadow': '0 4px 20px rgba(0,0,0,0.3)',
+                        'border': f'1px solid {self.COLORS["border"]}',
+                        'marginBottom': '32px'
+                    }),
+                    
+                    # Analyses
+                    html.Div([
+                        html.Div([
+                            dcc.Graph(id='city-comparison', config={'displayModeBar': False})
+                        ], style={
+                            'background': self.COLORS['bg_card'],
+                            'padding': '24px',
+                            'borderRadius': '20px',
+                            'boxShadow': '0 4px 20px rgba(0,0,0,0.3)',
+                            'border': f'1px solid {self.COLORS["border"]}'
+                        }),
                         
-                        # Contrôles
-                        html.Section([
-                            html.Div([
-                                html.Div([
-                                    html.Div([
-                                        html.Label('Coloration', className='control-label'),
-                                        dcc.Dropdown(
-                                            id='map-color-by',
-                                            options=[
-                                                {'label': 'Par Source', 'value': 'source'},
-                                                {'label': 'Par Prix', 'value': 'price'},
-                                                {'label': 'Par Score', 'value': 'score'},
-                                                {'label': 'Par Volatilité', 'value': 'volatility'}
-                                            ],
-                                            value='source',
-                                            className='modern-dropdown',
-                                            clearable=False
-                                        )
-                                    ], className='control-group'),
-                                    html.Div([
-                                        html.Label('Type de vue', className='control-label'),
-                                        dcc.Dropdown(
-                                            id='map-type',
-                                            options=[
-                                                {'label': 'Clusters', 'value': 'cluster'},
-                                                {'label': 'Heatmap', 'value': 'heatmap'},
-                                                {'label': 'Points', 'value': 'points'}
-                                            ],
-                                            value='cluster',
-                                            className='modern-dropdown',
-                                            clearable=False
-                                        )
-                                    ], className='control-group'),
-                                    html.Div([
-                                        html.Label('Sources', className='control-label'),
-                                        dcc.Checklist(
-                                            id='map-sources',
-                                            options=[
-                                                {'label': ' CoinAfrique', 'value': 'CoinAfrique'},
-                                                {'label': ' ExpatDakar', 'value': 'ExpatDakar'},
-                                                {'label': ' LogerDakar', 'value': 'LogerDakar'}
-                                            ],
-                                            value=['CoinAfrique', 'ExpatDakar', 'LogerDakar'],
-                                            className='modern-checklist'
-                                        )
-                                    ], className='control-group')
-                                ], className='map-controls')
-                            ], className='container')
-                        ], className='controls-section'),
-                        
-                        # Map avec état de chargement
-                        html.Section([
-                            html.Div([
-                                html.Div([
-                                    dcc.Loading(
-                                        id="loading-map",
-                                        type="circle",
-                                        color="#667eea",
-                                        children=[
-                                            dcc.Graph(
-                                                id='premium-map',
-                                                figure=self.create_empty_figure("Chargement en cours..."),
-                                                config={
-                                                    'displayModeBar': True,
-                                                    'displaylogo': False,
-                                                    'modeBarButtonsToRemove': ['select2d', 'lasso2d']
-                                                },
-                                                className='map-figure'
-                                            )
-                                        ]
-                                    )
-                                ], className='map-container')
-                            ], className='container')
-                        ], className='map-section'),
-                        
-                        # Stats panel
-                        html.Section([
-                            html.Div([
-                                html.Div([
-                                    html.Div(id='city-insights'),
-                                    html.Div(id='market-analysis')
-                                ], className='stats-grid')
-                            ], className='container')
-                        ], className='stats-section')
-                    ], className='main-wrapper')
-                ], className='has-sidebar'),
-                
-                # Scripts GSAP (chargement asynchrone)
-            ], className='dashboard-root')
-            
-        except Exception as e:
-            logger.error(f"Erreur setup_layout: {e}", exc_info=True)
-            # Layout minimal de secours
-            self.app.layout = html.Div([
-                html.H1("Erreur d'initialisation", style={'color': 'red'}),
-                html.P(f"Détails: {str(e)}"),
-                html.P("Vérifiez les logs et la configuration de la base de données.")
-            ])
+                        html.Div([
+                            dcc.Graph(id='regional-analysis', config={'displayModeBar': False})
+                        ], style={
+                            'background': self.COLORS['bg_card'],
+                            'padding': '24px',
+                            'borderRadius': '20px',
+                            'boxShadow': '0 4px 20px rgba(0,0,0,0.3)',
+                            'border': f'1px solid {self.COLORS["border"]}'
+                        })
+                    ], style={
+                        'display': 'grid',
+                        'gridTemplateColumns': 'repeat(auto-fit, minmax(600px, 1fr))',
+                        'gap': '24px'
+                    })
+                    
+                ], style={
+                    'maxWidth': '1800px',
+                    'margin': '0 auto',
+                    'padding': '0 32px 60px 32px'
+                })
+            ], style={
+                'background': self.COLORS['bg_dark'],
+                'minHeight': '100vh'
+            })
+        ])
+    
+    # ==================== CALLBACKS ====================
     
     def setup_callbacks(self):
-        """Callbacks interactifs avec gestion d'erreurs"""
+        """Configuration des callbacks"""
         
-        @callback(
-            Output('premium-map', 'figure'),
-            Output('property-count', 'children'),
-            Output('global-error-display', 'children'),
-            Input('map-color-by', 'value'),
-            Input('map-type', 'value'),
-            Input('map-sources', 'value'),
-            Input('hidden-trigger', 'n_intervals'),  # Déclencheur initial
-            prevent_initial_call=False
+        @self.app.callback(
+            Output('map-data-store', 'data'),
+            [
+                Input('map-url', 'pathname'),
+                Input('map-refresh-button', 'n_clicks')
+            ],
+            State('map-sources', 'value')
         )
-        def update_map(color_by, map_type, sources, n_intervals=None):
-            """Callback principal de mise à jour de la carte"""
+        def load_map_data(pathname, n_clicks, sources):
+            """Charger les données cartographiques"""
             try:
-                logger.info(f"Mise à jour carte: color={color_by}, type={map_type}, sources={sources}")
+                df = self.get_enhanced_map_data(sources)
                 
-                # Récupération des données
-                all_data = self.get_enhanced_map_data()
+                if df.empty:
+                    return []
                 
-                if not all_data:
-                    logger.warning("Aucune donnée récupérée")
-                    empty_fig = self.create_empty_figure(
-                        "📊 Aucune donnée à afficher\n\n"
-                        "Vérifiez que:\n"
-                        "- La base de données est connectée\n"
-                        "- Des propriétés existent dans la base\n"
-                        "- Les villes ont des coordonnées définies"
-                    )
-                    return empty_fig, "0 propriétés", self._create_error_alert(
-                        "Aucune donnée disponible. Vérifiez la connexion à la base de données."
-                    )
-                
-                # Filtrage par source
-                filtered_data = [d for d in all_data if d.get('source') in sources]
-                
-                if not filtered_data:
-                    logger.warning("Aucune donnée après filtrage")
-                    empty_fig = self.create_empty_figure(
-                        "📝 Aucune propriété ne correspond aux filtres sélectionnés"
-                    )
-                    return empty_fig, "0 propriétés", self._create_error_alert(
-                        "Ajustez les filtres (Sources) pour voir des données."
-                    )
-                
-                # Sélection du type de visualisation
-                if map_type == 'heatmap':
-                    figure = self.create_heatmap(filtered_data)
-                else:  # cluster et points utilisent la même base
-                    figure = self.create_cluster_map(filtered_data)
-                
-                # Mise à jour du compteur
-                count_message = f"📍 {len(filtered_data)} propriété{'s' if len(filtered_data) > 1 else ''}"
-                
-                # Pas d'erreur
-                return figure, count_message, None
+                # Convertir en dict pour le store
+                return df.to_dict('records')
                 
             except Exception as e:
-                logger.error(f"Erreur callback update_map: {e}", exc_info=True)
-                error_fig = self.create_error_figure(f"Erreur de chargement: {str(e)}")
-                return error_fig, "Erreur", self._create_error_alert(
-                    f"Erreur lors du chargement des données: {str(e)}"
-                )
+                logger.error(f"Erreur load_map_data: {e}")
+                return []
         
-        @callback(
-            Output('city-insights', 'children'),
-            Input('premium-map', 'clickData'),
-            prevent_initial_call=False
+        @self.app.callback(
+            Output('map-kpi-section', 'children'),
+            Input('map-data-store', 'data')
         )
-        def show_city_insights(click_data):
-            """Affiche les insights d'une ville au clic"""
+        def update_kpis(data):
+            """Mettre à jour les KPIs"""
             try:
-                if not click_data:
-                    return html.Div([
-                        html.H4('💡 Cliquez sur une propriété', className='insights-title'),
-                        html.P('Sélectionnez un point sur la carte pour voir les détails de la ville')
-                    ], className='city-analysis placeholder')
+                if not data:
+                    return html.Div("Aucune donnée", style={
+                        'textAlign': 'center',
+                        'padding': '40px',
+                        'color': self.COLORS['text_secondary']
+                    })
                 
-                # Extraction de la ville depuis les données cliquées
-                points = click_data.get('points', [])
-                if not points:
-                    return self.generate_city_analysis(None)
+                df = pd.DataFrame(data)
                 
-                point_data = points[0]
-                customdata = point_data.get('customdata', {})
+                total_annonces = len(df)
+                total_villes = df['city'].nunique()
+                prix_median = df['price'].median()
+                prix_m2_median = df['price_per_m2'].median() if 'price_per_m2' in df.columns else 0
                 
-                if isinstance(customdata, dict):
-                    city = customdata.get('city')
-                else:
-                    # Fallback si customdata n'est pas un dict
-                    city = point_data.get('location') or point_data.get('city')
-                
-                if not city:
-                    logger.warning("Ville non trouvée dans clickData")
-                    return self.generate_city_analysis(None)
-                
-                return self.generate_city_analysis(city)
-                
-            except Exception as e:
-                logger.error(f"Erreur callback city_insights: {e}", exc_info=True)
                 return html.Div([
-                    html.H4('❌ Erreur', className='insights-title'),
-                    html.P(f"Impossible d'afficher les détails: {str(e)}")
-                ], className='city-analysis error')
+                    self.create_kpi_card("🏠", "Annonces Totales", f"{total_annonces:,}".replace(',', ' ')),
+                    self.create_kpi_card("🏙️", "Villes Couvertes", str(total_villes)),
+                    self.create_kpi_card("💰", "Prix Médian", f"{prix_median/1_000_000:.1f}M FCFA"),
+                    self.create_kpi_card("📐", "Prix/m² Médian", f"{prix_m2_median:,.0f} FCFA".replace(',', ' ')),
+                ], style={
+                    'display': 'grid',
+                    'gridTemplateColumns': 'repeat(auto-fit, minmax(220px, 1fr))',
+                    'gap': '20px'
+                })
+                
+            except Exception as e:
+                logger.error(f"Erreur update_kpis: {e}")
+                return html.Div()
         
-        # Callback pour masquer l'erreur après un certain temps
-        @callback(
-            Output('global-error-display', 'style'),
-            Input('global-error-display', 'children'),
-            prevent_initial_call=False
+        @self.app.callback(
+            [
+                Output('main-map', 'figure'),
+                Output('city-comparison', 'figure'),
+                Output('regional-analysis', 'figure')
+            ],
+            [
+                Input('map-data-store', 'data'),
+                Input('map-color-by', 'value'),
+                Input('map-type', 'value')
+            ]
         )
-        def hide_error_after_timeout(error_children):
-            """Masque le message d'erreur après 5 secondes"""
-            if error_children:
-                import time
-                time.sleep(5)
-                return {'display': 'none'}
-            return {}
+        def update_visualizations(data, color_by, map_type):
+            """Mettre à jour toutes les visualisations"""
+            try:
+                if not data:
+                    empty = self.create_empty_figure("Chargement...")
+                    return empty, go.Figure(), go.Figure()
+                
+                df = pd.DataFrame(data)
+                
+                # Carte principale
+                if map_type == 'heatmap':
+                    main_map = self.create_heatmap_density(df)
+                else:
+                    main_map = self.create_interactive_map(df, color_by)
+                
+                # Comparaison des villes
+                city_comp = self.create_city_comparison_chart(df)
+                
+                # Analyse régionale
+                regional = self.create_regional_analysis(df)
+                
+                return main_map, city_comp, regional
+                
+            except Exception as e:
+                logger.error(f"Erreur update_visualizations: {e}")
+                traceback.print_exc()
+                empty = self.create_empty_figure(f"Erreur: {str(e)}")
+                return empty, go.Figure(), go.Figure()
     
-    def _create_error_alert(self, message):
-        """Crée un composant alerte d'erreur"""
-        if not message:
-            return None
-        return dbc.Alert(
-            message,
-            color="danger",
-            dismissable=True,
-            className="error-message",
-            style={'margin': '1rem', 'position': 'fixed', 'top': '10px', 'right': '10px', 'zIndex': 9999}
-        )
+    def create_kpi_card(self, icon, title, value):
+        """Carte KPI simple"""
+        return html.Div([
+            html.Div(icon, style={
+                'fontSize': '32px',
+                'marginBottom': '12px'
+            }),
+            html.Div(title, style={
+                'fontSize': '13px',
+                'fontWeight': '600',
+                'color': self.COLORS['text_secondary'],
+                'marginBottom': '8px'
+            }),
+            html.Div(value, style={
+                'fontSize': '24px',
+                'fontWeight': '700',
+                'color': self.COLORS['text_primary']
+            })
+        ], style={
+            'background': self.COLORS['bg_card'],
+            'padding': '24px',
+            'borderRadius': '20px',
+            'boxShadow': '0 4px 20px rgba(0,0,0,0.3)',
+            'border': f'1px solid {self.COLORS["border"]}',
+            'textAlign': 'center'
+        }, className='stat-card')
 
-# Factory function
-def create_premium_map_dashboard(server=None, routes_pathname_prefix="/", requests_pathname_prefix="/"):
-    """Factory function avec gestion d'erreurs"""
+
+def create_premium_map_dashboard(server=None, routes_pathname_prefix="/map/", requests_pathname_prefix="/map/"):
+    """Factory function pour créer le map dashboard"""
     try:
         dashboard = PremiumMapDashboard(
             server=server,
             routes_pathname_prefix=routes_pathname_prefix,
             requests_pathname_prefix=requests_pathname_prefix
         )
-        logger.info("Dashboard PremiumMap créé avec succès")
+        logger.info("✅ Map Dashboard créé avec succès")
         return dashboard.app
     except Exception as e:
-        logger.error(f"Erreur création dashboard: {e}", exc_info=True)
+        logger.error(f"❌ ERREUR création Map Dashboard: {e}")
+        traceback.print_exc()
         raise
