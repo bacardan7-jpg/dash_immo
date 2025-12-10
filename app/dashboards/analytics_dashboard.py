@@ -974,19 +974,19 @@ class AnalyticsDashboard:
                     ], style={'flex': '1'}),
                     
                     dmc.RangeSlider(
-                        label="Prix (FCFA)",
                         id="price-range-slider",
-                        min=0, max=200_000_000, step=1_000_000,
-                        value=[0, 200_000_000],
+                        value=[100000, 900000],
+                        min=0,
+                        max=1000000,
+                        step=10000,
                         marks=[
                             {"value": 0, "label": "0"},
-                            {"value": 50_000_000, "label": "50M"},
-                            {"value": 100_000_000, "label": "100M"},
-                            {"value": 200_000_000, "label": "200M+"}
+                            {"value": 500000, "label": "500k"},
+                            {"value": 1000000, "label": "1M"},
                         ],
-                        style={'flex': '1', 'marginLeft': '24px'}
+                        className="fade-in",
                     ),
-                    
+                                
                     html.Button([
                         DashIconify(icon="mdi:filter-check", width=20, color="white"),
                         html.Span("Appliquer", style={'marginLeft': '8px'})
