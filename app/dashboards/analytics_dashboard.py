@@ -39,7 +39,7 @@ class AnalyticsDashboard:
             self._layout_setup_deferred = True
 
     # =================================================================
-    #                       OPTIONS & FILTRAGE
+    #                       OPTIONS & FILTRAGEE
     # =================================================================
     def get_filter_options(self):
         """Récupérer les options de filtrage depuis LogerDakarProperty"""
