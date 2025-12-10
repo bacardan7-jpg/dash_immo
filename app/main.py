@@ -56,7 +56,7 @@ except:
 app.register_blueprint(auth_bp, url_prefix='/auth')
 
 # Import dashboard creation functions
-from .dashboards.modern_main_dashboard import create_complete_dashboard, create_observatoire_dashboard
+from .dashboards.modern_main_dashboard import  create_observatoire_dashboard
 from .dashboards.analytics_dashboard import AnalyticsDashboard
 from .dashboards.map_dashboard import MapDashboard
 from .components.admin_panel import AdminPanel

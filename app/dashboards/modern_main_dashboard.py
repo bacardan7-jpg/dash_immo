@@ -70,7 +70,7 @@ class ObservatoireImmobilier:
                     model.bedrooms,
                     model.bathrooms,
                     model.scraped_at
-                ).filter(model.price > 0, model.price < 1e10)
+                ).filter(model.price > 1000, model.price < 1e10)
                 
                 if property_type and property_type != "Tous":
                     query = query.filter(model.property_type == property_type)
