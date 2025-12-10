@@ -34,6 +34,25 @@ class CompleteDashboard:
             meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1"}]
         )
         
+        # Définir les styles CSS personnalisés
+        self.custom_css = {
+            'body': {
+                'fontFamily': "'Inter', sans-serif",
+                'background': 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+                'margin': '0'
+            },
+            '.kpi-hover': {
+                'transition': 'transform 0.2s, box-shadow 0.2s'
+            },
+            '.chart-container': {
+                'background': 'white',
+                'padding': '24px',
+                'borderRadius': '16px',
+                'boxShadow': '0 2px 8px rgba(0,0,0,0.08)',
+                'marginBottom': '24px'
+            }
+        }
+        
         if server:
             with server.app_context():
                 self.setup_layout()
@@ -160,8 +179,11 @@ class CompleteDashboard:
                 ], style={'display': 'flex', 'alignItems': 'center', 'marginTop': '8px'})
             ], style={'padding': '20px', 'textAlign': 'center'})
         ], shadow="sm", radius="lg", withBorder=True, 
-        style={'height': '100%', 'transition': 'transform 0.2s', 'cursor': 'pointer'},
-        className="kpi-hover")
+        style={
+            'height': '100%', 
+            'transition': 'transform 0.2s ease, box-shadow 0.2s ease', 
+            'cursor': 'pointer'
+        })
     
     def create_price_trends_chart(self, df):
         """Graphique des tendances de prix multidimensionnel"""
@@ -473,35 +495,6 @@ class CompleteDashboard:
         stats = self.calculate_comprehensive_stats(df)
         
         self.app.layout = html.Div([
-            # CSS Custom
-            html.Style("""
-                body { 
-                    font-family: 'Inter', sans-serif; 
-                    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-                    margin: 0;
-                }
-                .kpi-hover:hover {
-                    transform: translateY(-5px);
-                    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-                }
-                .chart-container {
-                    background: white;
-                    padding: 24px;
-                    border-radius: 16px;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-                    margin-bottom: 24px;
-                }
-                .stats-grid {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                    gap: 16px;
-                    margin-bottom: 32px;
-                }
-                @media (max-width: 768px) {
-                    .stats-grid { grid-template-columns: repeat(2, 1fr); }
-                }
-            """),
-            
             # Header
             html.Div([
                 html.Div([
@@ -509,9 +502,11 @@ class CompleteDashboard:
                         DashIconify(icon="mdi:home-analytics", width=48, color="#3B82F6"),
                         html.Div([
                             html.H1("Dashboard Immobilier Complet", 
-                                   style={'margin': 0, 'fontSize': '32px', 'fontWeight': 700}),
+                                   style={'margin': 0, 'fontSize': '32px', 'fontWeight': 700, 
+                                         'fontFamily': 'Inter, sans-serif'}),
                             html.P("Analyse Détaillée du Marché Sénégalais", 
-                                  style={'margin': 0, 'color': '#6B7280', 'fontSize': '16px'})
+                                  style={'margin': 0, 'color': '#6B7280', 'fontSize': '16px',
+                                        'fontFamily': 'Inter, sans-serif'})
                         ], style={'marginLeft': '16px'})
                     ], style={'display': 'flex', 'alignItems': 'center'}),
                     html.Div([
@@ -522,7 +517,7 @@ class CompleteDashboard:
                             'display': 'flex', 'alignItems': 'center', 'padding': '10px 20px',
                             'background': '#3B82F6', 'color': 'white', 'border': 'none',
                             'borderRadius': '8px', 'cursor': 'pointer', 'fontSize': '14px',
-                            'fontWeight': 600
+                            'fontWeight': 600, 'fontFamily': 'Inter, sans-serif'
                         })
                     ])
                 ], style={
@@ -553,21 +548,38 @@ class CompleteDashboard:
                                    stats['avg_bedrooms'], "#14B8A6"),
                     self.create_kpi("mdi:new-box", "Nouveau (7j)", 
                                    stats['recent_7d'], "#F97316", trend=15.3),
-                ], className="stats-grid"),
+                ], style={
+                    'display': 'grid',
+                    'gridTemplateColumns': 'repeat(auto-fit, minmax(200px, 1fr))',
+                    'gap': '16px',
+                    'marginBottom': '32px'
+                }),
                 
                 # Row 1: Prix Trends + Table Stats
                 html.Div([
                     html.Div([
                         html.Div([
                             dcc.Graph(id='price-trends', config={'displayModeBar': False})
-                        ], className="chart-container")
+                        ], style={
+                            'background': 'white',
+                            'padding': '24px',
+                            'borderRadius': '16px',
+                            'boxShadow': '0 2px 8px rgba(0,0,0,0.08)',
+                            'marginBottom': '24px'
+                        })
                     ], style={'flex': '2', 'minWidth': '0'}),
                     
                     html.Div([
                         html.Div([
-                            html.H3("📊 Statistiques Clés", style={'marginTop': 0}),
+                            html.H3("📊 Statistiques Clés", style={'marginTop': 0, 'fontFamily': 'Inter, sans-serif'}),
                             html.Div(id='stats-table')
-                        ], className="chart-container")
+                        ], style={
+                            'background': 'white',
+                            'padding': '24px',
+                            'borderRadius': '16px',
+                            'boxShadow': '0 2px 8px rgba(0,0,0,0.08)',
+                            'marginBottom': '24px'
+                        })
                     ], style={'flex': '1', 'minWidth': '300px'})
                 ], style={'display': 'flex', 'gap': '24px', 'marginBottom': '24px', 
                          'flexWrap': 'wrap'}),
@@ -575,20 +587,38 @@ class CompleteDashboard:
                 # Row 2: Geo Analysis
                 html.Div([
                     dcc.Graph(id='geo-analysis', config={'displayModeBar': False})
-                ], className="chart-container"),
+                ], style={
+                    'background': 'white',
+                    'padding': '24px',
+                    'borderRadius': '16px',
+                    'boxShadow': '0 2px 8px rgba(0,0,0,0.08)',
+                    'marginBottom': '24px'
+                }),
                 
                 # Row 3: Matrix + Time Evolution
                 html.Div([
                     html.Div([
                         html.Div([
                             dcc.Graph(id='property-matrix', config={'displayModeBar': False})
-                        ], className="chart-container")
+                        ], style={
+                            'background': 'white',
+                            'padding': '24px',
+                            'borderRadius': '16px',
+                            'boxShadow': '0 2px 8px rgba(0,0,0,0.08)',
+                            'marginBottom': '24px'
+                        })
                     ], style={'flex': '1'}),
                     
                     html.Div([
                         html.Div([
                             dcc.Graph(id='time-evolution', config={'displayModeBar': False})
-                        ], className="chart-container")
+                        ], style={
+                            'background': 'white',
+                            'padding': '24px',
+                            'borderRadius': '16px',
+                            'boxShadow': '0 2px 8px rgba(0,0,0,0.08)',
+                            'marginBottom': '24px'
+                        })
                     ], style={'flex': '1'})
                 ], style={'display': 'flex', 'gap': '24px', 'marginBottom': '24px',
                          'flexWrap': 'wrap'}),
@@ -596,7 +626,13 @@ class CompleteDashboard:
                 # Row 4: Surface Analysis
                 html.Div([
                     dcc.Graph(id='surface-analysis', config={'displayModeBar': False})
-                ], className="chart-container"),
+                ], style={
+                    'background': 'white',
+                    'padding': '24px',
+                    'borderRadius': '16px',
+                    'boxShadow': '0 2px 8px rgba(0,0,0,0.08)',
+                    'marginBottom': '24px'
+                }),
                 
                 # Footer
                 html.Div([
@@ -606,7 +642,13 @@ class CompleteDashboard:
                 ])
                 
             ], style={'maxWidth': '1400px', 'margin': '0 auto', 'padding': '0 24px'})
-        ])
+        ], style={
+            'fontFamily': "'Inter', sans-serif",
+            'background': 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+            'minHeight': '100vh',
+            'margin': '0',
+            'padding': '0'
+        })
     
     def setup_callbacks(self):
         """Callbacks pour l'interactivité"""
