@@ -58,95 +58,146 @@ class AnalyticsDashboard:
     # ========================================================
     
     def get_enriched_data(self, filters=None, limit=5000):
-        """Récupération enrichie avec jointures et scoring"""
+        """
+        Charge CoinAfrique, ExpatDakar, LogerDakar et renvoie un dataset
+        NORMALISÉ avec les mêmes colonnes que ProprietesConsolidees.
+        Si une colonne n'existe pas → None.
+        """
+
+        from datetime import datetime
+        from app.database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
+
+        # ------------ CACHE -------------
         cache_key = hash(str(sorted(filters.items())) if filters else "all")
         if cache_key in self._data_cache:
             return self._data_cache[cache_key]
-        
+
         try:
-            from app.database.models import db, ProprietesConsolidees
-            
-            query = db.session.query(ProprietesConsolidees)
-            
-            # Application des filtres complexes
-            if filters:
-                conditions = []
-                if filters.get('city') != 'all':
-                    conditions.append(ProprietesConsolidees.city == filters['city'])
-                if filters.get('property_type') != 'all':
-                    conditions.append(ProprietesConsolidees.property_type == filters['property_type'])
-                if filters.get('source') != 'all':
-                    conditions.append(ProprietesConsolidees.source == filters['source'])
-                
-                # Filtres numériques avancés
-                if filters.get('min_price'):
-                    conditions.append(ProprietesConsolidees.price >= filters['min_price'])
-                if filters.get('max_price'):
-                    conditions.append(ProprietesConsolidees.price <= filters['max_price'])
-                if filters.get('min_surface'):
-                    conditions.append(ProprietesConsolidees.surface_area >= filters['min_surface'])
-                if filters.get('max_surface'):
-                    conditions.append(ProprietesConsolidees.surface_area <= filters['max_surface'])
-                if filters.get('bedrooms') != 'all':
-                    conditions.append(ProprietesConsolidees.bedrooms == int(filters['bedrooms']))
-                if filters.get('min_quality'):
-                    conditions.append(ProprietesConsolidees.quality_score >= filters['min_quality'])
-                
-                # Filtre sentiment avec seuils dynamiques
-                sentiment = filters.get('sentiment')
-                if sentiment == 'positive':
-                    conditions.append(ProprietesConsolidees.description_sentiment > 0.3)
-                elif sentiment == 'negative':
-                    conditions.append(ProprietesConsolidees.description_sentiment < -0.3)
-                elif sentiment == 'neutral':
-                    conditions.append(and_(
-                        ProprietesConsolidees.description_sentiment >= -0.3,
-                        ProprietesConsolidees.description_sentiment <= 0.3
-                    ))
-                
-                if conditions:
-                    query = query.filter(and_(*conditions))
-            
-            # Chargement optimisé avec colonnes essentielles
-            data = query.limit(limit).all()
-            
-            result = [{
-                'id': str(r.id),
-                'title': r.title,
-                'price': float(r.price) if r.price else None,
-                'price_per_m2': float(r.price_per_m2) if r.price_per_m2 else None,
-                'city': r.city,
-                'district': r.district,
-                'property_type': r.property_type,
-                'bedrooms': r.bedrooms,
-                'bathrooms': r.bathrooms,
-                'surface_area': r.surface_area,
-                'land_area': r.land_area,
-                'source': r.source,
-                'quality_score': r.quality_score,
-                'sentiment': r.description_sentiment,
-                'scraped_at': r.scraped_at.isoformat() if r.scraped_at else None,
-                'posted_time': r.posted_time.isoformat() if r.posted_time else None,
-                'view_count': r.view_count or 0,
-                'favorite_count': r.favorite_count or 0,
-                'contact_count': r.contact_count or 0,
-                'latitude': r.latitude,
-                'longitude': r.longitude,
-                'furnishing': r.furnishing,
-                'condition': r.condition,
-                'age_days': (datetime.utcnow() - r.scraped_at).days if r.scraped_at else None
-            } for r in data]
-            
-            # Mise en cache avec expiration
-            self._data_cache[cache_key] = result
+            # ------------ CHARGEMENT DES TABLES -------------
+            ca_rows = db.session.query(CoinAfrique).limit(limit).all()
+            ed_rows = db.session.query(ExpatDakarProperty).limit(limit).all()
+            ld_rows = db.session.query(LogerDakarProperty).limit(limit).all()
+
+            data = []
+
+            # ------------ FONCTION DE NORMALISATION -------------
+            def normalize(item, source_name):
+                """Transforme un objet d'une table → format ProprietesConsolidees."""
+
+                d = item.to_dict()
+
+                return {
+                    "id": d.get("id"),
+                    "title": d.get("title"),
+                    "price": d.get("price"),
+
+                    # surface_area existe partout, price_per_m2 doit être calculé
+                    "surface_area": d.get("surface_area"),
+                    "price_per_m2": (d["price"] / d["surface_area"]) if d.get("price") and d.get("surface_area") else None,
+
+                    "city": d.get("city"),
+                    "district": d.get("region") or None,  # CoinAfrique n'a pas "region"
+
+                    "property_type": d.get("property_type"),
+                    "bedrooms": d.get("bedrooms"),
+                    "bathrooms": d.get("bathrooms"),
+
+                    "land_area": None,     # n'existe dans aucune table
+                    "source": source_name, # forcé
+
+                    # Valeurs avancées inexistantes → None
+                    "quality_score": None,
+                    "sentiment": None,
+
+                    "scraped_at": d.get("scraped_at"),
+                    "posted_time": d.get("posted_time"),
+
+                    # counters inexistants
+                    "view_count": None,
+                    "favorite_count": None,
+                    "contact_count": None,
+
+                    "latitude": d.get("latitude"),
+                    "longitude": d.get("longitude"),
+
+                    "furnishing": None,
+                    "condition": None,
+
+                    # calcul âge si possible
+                    "age_days": (datetime.utcnow() - d["scraped_at"]).days 
+                                if d.get("scraped_at") else None
+                }
+
+            # ------------ NORMALISATION + FUSION -------------
+
+            for r in ca_rows:
+                data.append(normalize(r, "CoinAfrique"))
+
+            for r in ed_rows:
+                data.append(normalize(r, "ExpatDakar"))
+
+            for r in ld_rows:
+                data.append(normalize(r, "LogerDakar"))
+
+            # ------------ FILTRES -------------
+            def match_filters(row):
+                if not filters:
+                    return True
+
+                # city
+                if filters.get("city") not in [None, "all"]:
+                    if row["city"] != filters["city"]:
+                        return False
+
+                # source
+                if filters.get("source") not in [None, "all"]:
+                    if row["source"] != filters["source"]:
+                        return False
+
+                # property_type
+                if filters.get("property_type") not in [None, "all"]:
+                    if row["property_type"] != filters["property_type"]:
+                        return False
+
+                # price
+                if filters.get("min_price") and row["price"]:
+                    if row["price"] < filters["min_price"]:
+                        return False
+
+                if filters.get("max_price") and row["price"]:
+                    if row["price"] > filters["max_price"]:
+                        return False
+
+                # surface
+                if filters.get("min_surface") and row["surface_area"]:
+                    if row["surface_area"] < filters["min_surface"]:
+                        return False
+
+                if filters.get("max_surface") and row["surface_area"]:
+                    if row["surface_area"] > filters["max_surface"]:
+                        return False
+
+                # bedrooms
+                if filters.get("bedrooms") not in [None, "all"]:
+                    if row["bedrooms"] != int(filters["bedrooms"]):
+                        return False
+
+                return True
+
+            filtered = [r for r in data if match_filters(r)]
+            filtered = filtered[:limit]
+
+            # ------------ CACHE 90s -------------
+            self._data_cache[cache_key] = filtered
             import threading
-            threading.Timer(90.0, lambda: self._data_cache.pop(cache_key, None)).start()
-            
-            return result
-            
+            threading.Timer(90, lambda: self._data_cache.pop(cache_key, None)).start()
+
+            return filtered
+
         except Exception as e:
-            print(f"Erreur chargement enrichi: {e}")
+            print("❌ Erreur dans get_enriched_data():", e)
             return []
+
     
     # ========================================================
     #              CALCULS STATISTIQUES AVANCÉS
