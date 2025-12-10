@@ -755,7 +755,7 @@ class PremiumMapDashboard:
         @callback(
             Output('city-insights', 'children'),
             Input('premium-map', 'clickData'),
-            prevent_initial_call=True
+            prevent_initial_call=False
         )
         def show_city_insights(click_data):
             """Affiche les insights d'une ville au clic"""
@@ -797,7 +797,7 @@ class PremiumMapDashboard:
         @callback(
             Output('global-error-display', 'style'),
             Input('global-error-display', 'children'),
-            prevent_initial_call=True
+            prevent_initial_call=False
         )
         def hide_error_after_timeout(error_children):
             """Masque le message d'erreur après 5 secondes"""
