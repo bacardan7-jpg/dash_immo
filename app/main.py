@@ -57,7 +57,7 @@ app.register_blueprint(auth_bp, url_prefix='/auth')
 
 # Import dashboard creation functions
 from .dashboards.modern_main_dashboard import  create_observatoire_dashboard
-from .dashboards.analytics_dashboard import  create_premium_analytics_dashboard
+from .dashboards.analytics_dashboard import   create_ultra_dashboard
 from .dashboards.map_dashboard import PremiumMapDashboard
 from .components.admin_panel import AdminPanel
 
@@ -67,7 +67,7 @@ dash_app1 = create_enhanced_dashboard(server=app,
                                     routes_pathname_prefix="/dashboard/",
                                     requests_pathname_prefix="/dashboard/")
 # analytics -> served at /analytics/
-dash_app2 = create_premium_analytics_dashboard(server=app,
+dash_app2 = create_ultra_dashboard(server=app,
                                          routes_pathname_prefix="/analytics/",
                                          requests_pathname_prefix="/analytics/")
 # map -> served at /map/
