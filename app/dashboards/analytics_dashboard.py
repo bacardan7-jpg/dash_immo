@@ -1179,7 +1179,7 @@ class AnalyticsDashboard:
                 State('filter-properties', 'value'),
                 State('price-range-slider', 'value')
             ],
-            prevent_initial_call=True
+            prevent_initial_call=False
         )
         def apply_filters_and_load(n_clicks, cities, properties, price_range):
             """Appliquer filtres et charger les données"""
