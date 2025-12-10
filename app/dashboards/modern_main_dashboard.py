@@ -481,7 +481,7 @@ class ObservatoireComplet:
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
                 font=dict(family='Inter', size=12)
-            ))
+            )
             
             return fig
         except Exception as e:
