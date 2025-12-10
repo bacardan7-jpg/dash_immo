@@ -23,7 +23,7 @@ class ObservatoireModern:
     
     # Palette de couleurs moderne et captivante
     COLORS = {
-        'primary': '#6366F1',      # Indigo moderne
+        'primary': '#1E40AF',      # Bleu professionnel
         'secondary': '#EC4899',    # Rose vibrant
         'success': '#10B981',      # Vert émeraude
         'warning': '#F59E0B',      # Orange doré
@@ -502,65 +502,77 @@ class ObservatoireModern:
     
     def setup_layout(self):
         """Configuration du layout moderne"""
+        
+        # CSS personnalisé
+        custom_css = """
+            * {
+                font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            }
+            
+            body {
+                background: #F8FAFC;
+                margin: 0;
+                padding: 0;
+            }
+            
+            .kpi-card-hover:hover {
+                transform: translateY(-4px);
+                box-shadow: 0 12px 28px rgba(0,0,0,0.12) !important;
+            }
+            
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
+            }
+            
+            /* Dropdown styling */
+            .Select-control {
+                border-radius: 12px !important;
+                border: 2px solid #E2E8F0 !important;
+                transition: all 0.3s ease !important;
+            }
+            
+            .Select-control:hover {
+                border-color: #1E40AF !important;
+            }
+            
+            /* Scrollbar styling */
+            ::-webkit-scrollbar {
+                width: 10px;
+                height: 10px;
+            }
+            
+            ::-webkit-scrollbar-track {
+                background: #F1F5F9;
+            }
+            
+            ::-webkit-scrollbar-thumb {
+                background: #CBD5E1;
+                border-radius: 5px;
+            }
+            
+            ::-webkit-scrollbar-thumb:hover {
+                background: #94A3B8;
+            }
+            
+            /* Graph styling */
+            .js-plotly-plot {
+                border-radius: 16px;
+                overflow: hidden;
+            }
+            
+            .top-listing-hover:hover {
+                transform: translateX(4px);
+                border-color: #1E40AF !important;
+            }
+        """
+        
         self.app.layout = html.Div([
-            # CSS personnalisé
-            html.Style("""
-                * {
-                    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                }
-                
-                body {
-                    background: #F8FAFC;
-                    margin: 0;
-                    padding: 0;
-                }
-                
-                .kpi-card-hover:hover {
-                    transform: translateY(-4px);
-                    box-shadow: 0 12px 28px rgba(0,0,0,0.12) !important;
-                }
-                
-                @keyframes pulse {
-                    0%, 100% { opacity: 1; }
-                    50% { opacity: 0.5; }
-                }
-                
-                /* Dropdown styling */
-                .Select-control {
-                    border-radius: 12px !important;
-                    border: 2px solid #E2E8F0 !important;
-                    transition: all 0.3s ease !important;
-                }
-                
-                .Select-control:hover {
-                    border-color: #6366F1 !important;
-                }
-                
-                /* Scrollbar styling */
-                ::-webkit-scrollbar {
-                    width: 10px;
-                    height: 10px;
-                }
-                
-                ::-webkit-scrollbar-track {
-                    background: #F1F5F9;
-                }
-                
-                ::-webkit-scrollbar-thumb {
-                    background: #CBD5E1;
-                    border-radius: 5px;
-                }
-                
-                ::-webkit-scrollbar-thumb:hover {
-                    background: #94A3B8;
-                }
-                
-                /* Graph styling */
-                .js-plotly-plot {
-                    border-radius: 16px;
-                    overflow: hidden;
-                }
-            """),
+            # Injection CSS
+            html.Link(
+                rel='stylesheet',
+                href='data:text/css;base64,' + __import__('base64').b64encode(custom_css.encode()).decode()
+            ),
             
             # Header
             self.create_header(),
