@@ -46,6 +46,7 @@ class PremiumMapDashboard:
                 LogerDakarProperty.price > 1000,
             ).group_by(LogerDakarProperty.city).all()
             
+            print(f"Stats villes: {city_stats}")
             for city, count, avg, std in city_stats:
                 score = min(100, (count / 50) * 20 + (avg / 1000000) * 30)
                 city_scores[city] = {
