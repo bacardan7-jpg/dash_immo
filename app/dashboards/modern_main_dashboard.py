@@ -979,151 +979,151 @@ class ObservatoireModerne:
         </html>
         '''
         
-    self.app.layout = html.Div([
-        # Background animé
-        html.Div(className="animated-bg"),
+        self.app.layout = html.Div([
+            # Background animé
+            html.Div(className="animated-bg"),
 
-        # Container principal
-        html.Div([
-
-            # Header
+            # Container principal
             html.Div([
+
+                # Header
                 html.Div([
-                    html.H1("🏠 Observatoire Immobilier Sénégalais", className="header-title"),
                     html.Div([
-                        html.Span("Analyse en temps réel du marché immobilier",
-                                style={'fontSize': '15px', 'color': '#6B7280'}),
-                        html.Span([
-                            html.Span(className="pulse-dot"),
-                            html.Span("LIVE")
-                        ], className="badge-live")
-                    ], style={
-                        'display': 'flex',
-                        'alignItems': 'center',
-                        'gap': '12px',
-                        'flexWrap': 'wrap'
-                    })
-                ], style={'flex': '1'}),
+                        html.H1("🏠 Observatoire Immobilier Sénégalais", className="header-title"),
+                        html.Div([
+                            html.Span("Analyse en temps réel du marché immobilier",
+                                    style={'fontSize': '15px', 'color': '#6B7280'}),
+                            html.Span([
+                                html.Span(className="pulse-dot"),
+                                html.Span("LIVE")
+                            ], className="badge-live")
+                        ], style={
+                            'display': 'flex',
+                            'alignItems': 'center',
+                            'gap': '12px',
+                            'flexWrap': 'wrap'
+                        })
+                    ], style={'flex': '1'}),
 
+                    html.Div([
+                        dmc.Select(
+                            id='property-type-selector',
+                            data=[
+                                {'label': '🏘️ Tous les types', 'value': 'Tous'},
+                                {'label': '🏠 Maison', 'value': 'Maison'},
+                                {'label': '🏢 Appartement', 'value': 'Appartement'},
+                                {'label': '🏛️ Villa', 'value': 'Villa'},
+                                {'label': '🏗️ Studio', 'value': 'Studio'},
+                                {'label': '🏞️ Terrain', 'value': 'Terrain'},
+                                {'label': '🏪 Commercial', 'value': 'Commercial'}
+                            ],
+                            value='Tous',
+                            size="md",
+                            style={'width': '220px'}
+                        )
+                    ])
+                ], style={
+                    'display': 'flex',
+                    'justifyContent': 'space-between',
+                    'alignItems': 'center',
+                    'gap': '20px',
+                    'flexWrap': 'wrap'
+                }, className="modern-header"),
+
+                # KPIs
+                html.Div(id='kpi-header'),
+
+                # Méthodologie
                 html.Div([
-                    dmc.Select(
-                        id='property-type-selector',
-                        data=[
-                            {'label': '🏘️ Tous les types', 'value': 'Tous'},
-                            {'label': '🏠 Maison', 'value': 'Maison'},
-                            {'label': '🏢 Appartement', 'value': 'Appartement'},
-                            {'label': '🏛️ Villa', 'value': 'Villa'},
-                            {'label': '🏗️ Studio', 'value': 'Studio'},
-                            {'label': '🏞️ Terrain', 'value': 'Terrain'},
-                            {'label': '🏪 Commercial', 'value': 'Commercial'}
-                        ],
-                        value='Tous',
-                        size="md",
-                        style={'width': '220px'}
-                    )
-                ])
-            ], style={
-                'display': 'flex',
-                'justifyContent': 'space-between',
-                'alignItems': 'center',
-                'gap': '20px',
-                'flexWrap': 'wrap'
-            }, className="modern-header"),
+                    html.Div("📋 Règles Méthodologiques", className="methodology-title"),
+                    html.Ul([
+                        html.Li("Tous les indicateurs sont segmentés par type de logement"),
+                        html.Li("Prix globaux tous biens confondus non affichés"),
+                        html.Li("Données issues d'annonces observées sur le marché"),
+                        html.Li("Analyse descriptive uniquement - pas de prédiction"),
+                        html.Li("Médiane privilégiée pour éviter valeurs extrêmes"),
+                        html.Li("Zones avec moins de 3 annonces exclues"),
+                    ], className="methodology-list")
+                ], className="methodology-box"),
 
-            # KPIs
-            html.Div(id='kpi-header'),
-
-            # Méthodologie
-            html.Div([
-                html.Div("📋 Règles Méthodologiques", className="methodology-title"),
-                html.Ul([
-                    html.Li("Tous les indicateurs sont segmentés par type de logement"),
-                    html.Li("Prix globaux tous biens confondus non affichés"),
-                    html.Li("Données issues d'annonces observées sur le marché"),
-                    html.Li("Analyse descriptive uniquement - pas de prédiction"),
-                    html.Li("Médiane privilégiée pour éviter valeurs extrêmes"),
-                    html.Li("Zones avec moins de 3 annonces exclues"),
-                ], className="methodology-list")
-            ], className="methodology-box"),
-
-            # Section 1
-            html.Div([
-                html.Div("Structure de l'Offre", className="section-title"),
+                # Section 1
                 html.Div([
-                    html.Div(dcc.Graph(id='graph-types', config={'displayModeBar': False}),
-                            style={'flex': '1', 'minWidth': '500px'}),
-                ],
-                    className="grid-2")
-            ], className="section-card"),
+                    html.Div("Structure de l'Offre", className="section-title"),
+                    html.Div([
+                        html.Div(dcc.Graph(id='graph-types', config={'displayModeBar': False}),
+                                style={'flex': '1', 'minWidth': '500px'}),
+                    ],
+                        className="grid-2")
+                ], className="section-card"),
 
-            # Section 2
-            html.Div([
-                html.Div("Distribution des Surfaces et Salles de Bain", className="section-title"),
+                # Section 2
                 html.Div([
-                    html.Div(dcc.Graph(id='graph-surfaces', config={'displayModeBar': False}),
-                            style={'flex': '1', 'minWidth': '500px'}),
-                    html.Div(dcc.Graph(id='graph-bathrooms', config={'displayModeBar': False}),
-                            style={'flex': '1', 'minWidth': '500px'})
-                ], className="grid-2")
-            ], className="section-card"),
+                    html.Div("Distribution des Surfaces et Salles de Bain", className="section-title"),
+                    html.Div([
+                        html.Div(dcc.Graph(id='graph-surfaces', config={'displayModeBar': False}),
+                                style={'flex': '1', 'minWidth': '500px'}),
+                        html.Div(dcc.Graph(id='graph-bathrooms', config={'displayModeBar': False}),
+                                style={'flex': '1', 'minWidth': '500px'})
+                    ], className="grid-2")
+                ], className="section-card"),
 
-            # Section 3
-            html.Div([
-                html.Div("Niveau des Prix", className="section-title"),
+                # Section 3
                 html.Div([
-                    html.Div(dcc.Graph(id='graph-boxplot', config={'displayModeBar': False}),
-                            style={'flex': '1', 'minWidth': '500px'}),
-                    html.Div(dcc.Graph(id='graph-price-m2', config={'displayModeBar': False}),
-                            style={'flex': '1', 'minWidth': '500px'})
-                ], className="grid-2")
-            ], className="section-card"),
+                    html.Div("Niveau des Prix", className="section-title"),
+                    html.Div([
+                        html.Div(dcc.Graph(id='graph-boxplot', config={'displayModeBar': False}),
+                                style={'flex': '1', 'minWidth': '500px'}),
+                        html.Div(dcc.Graph(id='graph-price-m2', config={'displayModeBar': False}),
+                                style={'flex': '1', 'minWidth': '500px'})
+                    ], className="grid-2")
+                ], className="section-card"),
 
-            # Section 4
-            html.Div([
-                html.Div("Analyse Territoriale", className="section-title"),
+                # Section 4
                 html.Div([
-                    html.Div(dcc.Graph(id='graph-expensive', config={'displayModeBar': False}),
-                            style={'flex': '1', 'minWidth': '500px'}),
-                    html.Div(dcc.Graph(id='graph-affordable', config={'displayModeBar': False}),
-                            style={'flex': '1', 'minWidth': '500px'})
-                ], className="grid-2")
-            ], className="section-card"),
+                    html.Div("Analyse Territoriale", className="section-title"),
+                    html.Div([
+                        html.Div(dcc.Graph(id='graph-expensive', config={'displayModeBar': False}),
+                                style={'flex': '1', 'minWidth': '500px'}),
+                        html.Div(dcc.Graph(id='graph-affordable', config={'displayModeBar': False}),
+                                style={'flex': '1', 'minWidth': '500px'})
+                    ], className="grid-2")
+                ], className="section-card"),
 
-            # Section 5
-            html.Div([
-                html.Div("Dispersion et Tranches de Prix", className="section-title"),
+                # Section 5
                 html.Div([
-                    html.Div(dcc.Graph(id='graph-scatter', config={'displayModeBar': False}),
-                            style={'flex': '1', 'minWidth': '500px'}),
-                    html.Div(dcc.Graph(id='graph-ranges', config={'displayModeBar': False}),
-                            style={'flex': '1', 'minWidth': '500px'})
-                ], className="grid-2")
-            ], className="section-card"),
+                    html.Div("Dispersion et Tranches de Prix", className="section-title"),
+                    html.Div([
+                        html.Div(dcc.Graph(id='graph-scatter', config={'displayModeBar': False}),
+                                style={'flex': '1', 'minWidth': '500px'}),
+                        html.Div(dcc.Graph(id='graph-ranges', config={'displayModeBar': False}),
+                                style={'flex': '1', 'minWidth': '500px'})
+                    ], className="grid-2")
+                ], className="section-card"),
 
-            # Section 6
-            html.Div([
-                html.Div("Évolution des Prix par Ancienneté", className="section-title"),
-                dcc.Graph(id='graph-evolution', config={'displayModeBar': False})
-            ], className="section-card"),
+                # Section 6
+                html.Div([
+                    html.Div("Évolution des Prix par Ancienneté", className="section-title"),
+                    dcc.Graph(id='graph-evolution', config={'displayModeBar': False})
+                ], className="section-card"),
 
-            # Section 7
-            html.Div([
-                html.Div("Statistiques par Zone", className="section-title"),
-                html.Div(id='stats-table')
-            ], className="section-card"),
+                # Section 7
+                html.Div([
+                    html.Div("Statistiques par Zone", className="section-title"),
+                    html.Div(id='stats-table')
+                ], className="section-card"),
 
-            # Footer
-            html.Div([
-                html.P("📊 Observatoire Immobilier - ENSAE Pierre Ndiaye © 2024 | Dakar, Sénégal",
-                    style={'textAlign': 'center', 'color': '#6B7280', 'fontSize': '13px'})
-            ], style={
-                'marginTop': '32px',
-                'paddingTop': '20px',
-                'borderTop': '2px solid rgba(255,255,255,0.3)'
-            })
+                # Footer
+                html.Div([
+                    html.P("📊 Observatoire Immobilier - ENSAE Pierre Ndiaye © 2024 | Dakar, Sénégal",
+                        style={'textAlign': 'center', 'color': '#6B7280', 'fontSize': '13px'})
+                ], style={
+                    'marginTop': '32px',
+                    'paddingTop': '20px',
+                    'borderTop': '2px solid rgba(255,255,255,0.3)'
+                })
 
-        ], className="dashboard-container")
-    ])
+            ], className="dashboard-container")
+        ])
 
     
     # ==================== CALLBACKS ====================
