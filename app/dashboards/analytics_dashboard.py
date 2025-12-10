@@ -98,6 +98,27 @@ class AnalyticsDashboard:
     }
     
     def __init__(self, server=None, routes_pathname_prefix="/", requests_pathname_prefix="/"):
+        # CSS injecté via un fichier externe ou inline
+        self.custom_css = """
+        * { font-family: 'Outfit', sans-serif; }
+        body { background: #F8FAFC; margin: 0; padding: 0; }
+        .graph-container { transition: all 0.3s ease; }
+        .graph-container:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,0.12); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.6s ease-out; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #1E40AF;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        """
+        
         self.app = dash.Dash(
             __name__,
             server=server,
@@ -112,12 +133,17 @@ class AnalyticsDashboard:
         )
         
         self._data_cache = {}
-        self._debug_mode = True  # Activez/Désactivez le mode debug ici
+        self._debug_mode = True
+        
+        # Configuration du layout (systématique)
+        self.setup_layout()
         
         if server:
             with server.app_context():
-                self.setup_layout()
                 self.setup_callbacks()
+        else:
+            # En mode standalone, callbacks directement
+            self.setup_callbacks()
     
     # ========================================================
     #              DATA LOADING AVEC GESTION D'ERREURS
@@ -1235,31 +1261,33 @@ class AnalyticsDashboard:
     def setup_layout(self):
         """Layout avec gestion d'erreurs intégrée"""
         
-        # CSS personnalisé
-        custom_css = """
-            * { font-family: 'Outfit', sans-serif; }
-            body { background: #F8FAFC; margin: 0; padding: 0; }
-            .graph-container { transition: all 0.3s ease; }
-            .graph-container:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,0.12); }
-            @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-            .fade-in { animation: fadeIn 0.6s ease-out; }
-            @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-            .loading-spinner {
-                border: 3px solid #f3f3f3;
-                border-top: 3px solid #1E40AF;
-                border-radius: 50%;
-                width: 40px;
-                height: 40px;
-                animation: spin 1s linear infinite;
-                margin: 20px auto;
-            }
-            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        """
+        self.app.index_string = '''
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Analytics Immobilier</title>
+                <style>
+                    ''' + self.custom_css + '''
+                </style>
+            </head>
+            <body>
+                <div id="react-entry-point">
+                    <div class="_dash-loading">
+                        <div class="loading-spinner"></div>
+                        <p>Chargement du dashboard...</p>
+                    </div>
+                </div>
+                <footer>
+                    {%config%}
+                    {%scripts%}
+                    {%renderer%}
+                </footer>
+            </body>
+        </html>
+        '''
         
         self.app.layout = html.Div([
-            # Injection CSS
-            html.Style(custom_css),
-            
             # URL pour déclencher le chargement initial
             dcc.Location(id='url', refresh=False),
             
@@ -1376,31 +1404,31 @@ class AnalyticsDashboard:
             # Graphiques principaux - Grille 2x3
             html.Div([
                 html.Div([
-                    html.Div(id="graph-ridge", className="graph-container fade-in", style={**self.graph_style}),
-                    html.Div(id="graph-3d-surface", className="graph-container fade-in", style={**self.graph_style}),
+                    html.Div(id="graph-ridge", className="fade-in", style={**self.graph_style}),
+                    html.Div(id="graph-3d-surface", className="fade-in", style={**self.graph_style}),
                 ], style={'display': 'grid', 'gridTemplateColumns': '1fr 1fr', 'gap': '24px', 'marginBottom': '24px'}),
                 
                 html.Div([
-                    html.Div(id="graph-heatmap", className="graph-container fade-in", style={**self.graph_style}),
-                    html.Div(id="graph-stacked-area", className="graph-container fade-in", style={**self.graph_style}),
+                    html.Div(id="graph-heatmap", className="fade-in", style={**self.graph_style}),
+                    html.Div(id="graph-stacked-area", className="fade-in", style={**self.graph_style}),
                 ], style={'display': 'grid', 'gridTemplateColumns': '1fr 1fr', 'gap': '24px', 'marginBottom': '24px'}),
                 
                 html.Div([
-                    html.Div(id="graph-parallel", className="graph-container fade-in", style={**self.graph_style}),
-                    html.Div(id="graph-treemap-sunburst", className="graph-container fade-in", style={**self.graph_style}),
+                    html.Div(id="graph-parallel", className="fade-in", style={**self.graph_style}),
+                    html.Div(id="graph-treemap-sunburst", className="fade-in", style={**self.graph_style}),
                 ], style={'display': 'grid', 'gridTemplateColumns': '1fr 1fr', 'gap': '24px', 'marginBottom': '24px'}),
             ], style={'maxWidth': '1800px', 'margin': '0 auto', 'padding': '0 32px'}, id="graphs-grid-1"),
             
             # Graphiques 3D et spéciaux - Pleine largeur
             html.Div([
-                html.Div(id="graph-bubble-4d", className="graph-container fade-in", style={**self.graph_style_full}),
-                html.Div(id="graph-clustering-3d", className="graph-container fade-in", style={**self.graph_style_full}),
-                html.Div(id="graph-animation", className="graph-container fade-in", style={**self.graph_style_full}),
-                html.Div(id="graph-dual-axis", className="graph-container fade-in", style={**self.graph_style_full}),
-                html.Div(id="graph-candlestick", className="graph-container fade-in", style={**self.graph_style_full}),
-                html.Div(id="graph-polar", className="graph-container fade-in", style={**self.graph_style_full}),
-                html.Div(id="graph-funnel", className="graph-container fade-in", style={**self.graph_style_full}),
-                html.Div(id="graph-waterfall", className="graph-container fade-in", style={**self.graph_style_full}),
+                html.Div(id="graph-bubble-4d", className="fade-in", style={**self.graph_style_full}),
+                html.Div(id="graph-clustering-3d", className="fade-in", style={**self.graph_style_full}),
+                html.Div(id="graph-animation", className="fade-in", style={**self.graph_style_full}),
+                html.Div(id="graph-dual-axis", className="fade-in", style={**self.graph_style_full}),
+                html.Div(id="graph-candlestick", className="fade-in", style={**self.graph_style_full}),
+                html.Div(id="graph-polar", className="fade-in", style={**self.graph_style_full}),
+                html.Div(id="graph-funnel", className="fade-in", style={**self.graph_style_full}),
+                html.Div(id="graph-waterfall", className="fade-in", style={**self.graph_style_full}),
             ], style={'maxWidth': '1800px', 'margin': '0 auto', 'padding': '0 32px'}, id="graphs-grid-2"),
             
             # Tableau de données détaillé
@@ -1423,7 +1451,7 @@ class AnalyticsDashboard:
             dcc.Store(id='filters-store', data={}),
             dcc.Store(id='data-store', data=[]),
             
-        ], style={'paddingBottom': '60px'})
+        ], id="main-container")
     
     @property
     def graph_style(self):
