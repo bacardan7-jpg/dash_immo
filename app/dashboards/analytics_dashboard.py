@@ -22,7 +22,7 @@ warnings.filterwarnings('ignore')
 #                    DASHBOARD ULTRA-AVANCÉ
 # ============================================================
 
-class UltraAdvancedAnalyticsDashboard:
+class AnalyticsDashboard:
     """Dashboard immobilier avec visualisations maximales"""
     
     COLORS = {
@@ -1240,7 +1240,7 @@ class UltraAdvancedAnalyticsDashboard:
 # ========================================================
 
 def create_ultra_dashboard(server=None, routes_pathname_prefix="/", requests_pathname_prefix="/"):
-    dashboard = UltraAdvancedAnalyticsDashboard(
+    dashboard = AnalyticsDashboard(
         server=server,
         routes_pathname_prefix=routes_pathname_prefix,
         requests_pathname_prefix=requests_pathname_prefix
