@@ -9,108 +9,105 @@ from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
-from ..database.models import db, LogerDakarProperty,  User, DashboardConfig
-from ..auth.decorators import analyst_required
+from sqlalchemy import func, and_, or_
 import json
-import io
 import base64
+from scipy import stats
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+import warnings
+warnings.filterwarnings('ignore')
 
-class AnalyticsDashboard:
-    """Dashboard d'analytics premium avec modèle de données enrichi"""
+# ============================================================
+#                    DASHBOARD ULTRA-AVANCÉ
+# ============================================================
 
+class UltraAdvancedAnalyticsDashboard:
+    """Dashboard immobilier avec visualisations maximales"""
+    
+    COLORS = {
+        'primary': '#1E40AF', 'secondary': '#EC4899', 'success': '#10B981',
+        'warning': '#F59E0B', 'danger': '#EF4444', 'info': '#06B6D4',
+        'purple': '#8B5CF6', 'teal': '#14B8A6',
+        'gradient_1': ['#667EEA', '#764BA2'], 'gradient_2': ['#F093FB', '#F5576C'],
+        'gradient_3': ['#4FACFE', '#00F2FE'], 'gradient_4': ['#43E97B', '#38F9D7']
+    }
+    
     def __init__(self, server=None, routes_pathname_prefix="/", requests_pathname_prefix="/"):
         self.app = dash.Dash(
             __name__,
             server=server,
-            external_stylesheets=[dbc.themes.BOOTSTRAP],
+            external_stylesheets=[
+                'https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap',
+                'https://unpkg.com/@tabler/icons-webfont@latest/tabler-icons.min.css',
+                dbc.themes.BOOTSTRAP
+            ],
             routes_pathname_prefix=routes_pathname_prefix,
             requests_pathname_prefix=requests_pathname_prefix,
             suppress_callback_exceptions=True
         )
         
-        # Cache pour les données filtrées
         self._data_cache = {}
-        
         if server:
             with server.app_context():
                 self.setup_layout()
                 self.setup_callbacks()
-        else:
-            self._layout_setup_deferred = True
-
-    # =================================================================
-    #                       OPTIONS & FILTRAGEE
-    # =================================================================
-    def get_filter_options(self):
-        """Récupérer les options de filtrage depuis LogerDakarProperty"""
-        try:
-            # Utilisation de la table consolidée pour meilleur performance
-            query = db.session.query(
-                LogerDakarProperty.city,
-                LogerDakarProperty.property_type,
-                LogerDakarProperty.source
-            ).distinct()
-            
-            cities = sorted([r.city for r in query.filter(LogerDakarProperty.city.isnot(None)).all() if r.city])
-            property_types = sorted([r.property_type for r in query.filter(LogerDakarProperty.property_type.isnot(None)).all() if r.property_type])
-            sources = sorted([r.source for r in query.filter(LogerDakarProperty.source.isnot(None)).all() if r.source])
-            
-            return {
-                "cities": cities,
-                "property_types": property_types,
-                "sources": sources
-            }
-        except Exception as e:
-            print(f"Erreur options: {e}")
-            return {"cities": [], "property_types": [], "sources": []}
-
-    def get_filtered_data(self, filters=None, limit=1000):
-        """Récupération optimisée avec caching"""
-        cache_key = str(sorted(filters.items())) if filters else "all"
-        
+    
+    # ========================================================
+    #                DATA LOADING & CACHING
+    # ========================================================
+    
+    def get_enriched_data(self, filters=None, limit=5000):
+        """Récupération enrichie avec jointures et scoring"""
+        cache_key = hash(str(sorted(filters.items())) if filters else "all")
         if cache_key in self._data_cache:
             return self._data_cache[cache_key]
         
         try:
-            query = db.session.query(LogerDakarProperty)
+            from app.database.models import db, ProprietesConsolidees
             
+            query = db.session.query(ProprietesConsolidees)
+            
+            # Application des filtres complexes
             if filters:
-                if filters.get('city') and filters['city'] != 'all':
-                    query = query.filter(LogerDakarProperty.city == filters['city'])
+                conditions = []
+                if filters.get('city') != 'all':
+                    conditions.append(ProprietesConsolidees.city == filters['city'])
+                if filters.get('property_type') != 'all':
+                    conditions.append(ProprietesConsolidees.property_type == filters['property_type'])
+                if filters.get('source') != 'all':
+                    conditions.append(ProprietesConsolidees.source == filters['source'])
                 
-                if filters.get('property_type') and filters['property_type'] != 'all':
-                    query = query.filter(LogerDakarProperty.property_type == filters['property_type'])
-                
-                if filters.get('source') and filters['source'] != 'all':
-                    query = query.filter(LogerDakarProperty.source == filters['source'])
-                
-                if filters.get('bedrooms') and filters['bedrooms'] != 'all':
-                    query = query.filter(LogerDakarProperty.bedrooms == int(filters['bedrooms']))
-                
-                # Filtres numériques
+                # Filtres numériques avancés
                 if filters.get('min_price'):
-                    query = query.filter(LogerDakarProperty.price >= filters['min_price'])
+                    conditions.append(ProprietesConsolidees.price >= filters['min_price'])
                 if filters.get('max_price'):
-                    query = query.filter(LogerDakarProperty.price <= filters['max_price'])
-                
+                    conditions.append(ProprietesConsolidees.price <= filters['max_price'])
                 if filters.get('min_surface'):
-                    query = query.filter(LogerDakarProperty.surface_area >= filters['min_surface'])
+                    conditions.append(ProprietesConsolidees.surface_area >= filters['min_surface'])
                 if filters.get('max_surface'):
-                    query = query.filter(LogerDakarProperty.surface_area <= filters['max_surface'])
-                
-                # Filtres avancés
+                    conditions.append(ProprietesConsolidees.surface_area <= filters['max_surface'])
+                if filters.get('bedrooms') != 'all':
+                    conditions.append(ProprietesConsolidees.bedrooms == int(filters['bedrooms']))
                 if filters.get('min_quality'):
-                    query = query.filter(LogerDakarProperty.quality_score >= filters['min_quality'])
+                    conditions.append(ProprietesConsolidees.quality_score >= filters['min_quality'])
                 
-                if filters.get('sentiment') and filters['sentiment'] != 'all':
-                    if filters['sentiment'] == 'positive':
-                        query = query.filter(LogerDakarProperty.description_sentiment > 0.2)
-                    elif filters['sentiment'] == 'negative':
-                        query = query.filter(LogerDakarProperty.description_sentiment < -0.2)
-                    else:
-                        query = query.filter(LogerDakarProperty.description_sentiment.between(-0.2, 0.2))
+                # Filtre sentiment avec seuils dynamiques
+                sentiment = filters.get('sentiment')
+                if sentiment == 'positive':
+                    conditions.append(ProprietesConsolidees.description_sentiment > 0.3)
+                elif sentiment == 'negative':
+                    conditions.append(ProprietesConsolidees.description_sentiment < -0.3)
+                elif sentiment == 'neutral':
+                    conditions.append(and_(
+                        ProprietesConsolidees.description_sentiment >= -0.3,
+                        ProprietesConsolidees.description_sentiment <= 0.3
+                    ))
+                
+                if conditions:
+                    query = query.filter(and_(*conditions))
             
-            # Optimisation: ne charger que les colonnes nécessaires
+            # Chargement optimisé avec colonnes essentielles
             data = query.limit(limit).all()
             
             result = [{
@@ -119,727 +116,1131 @@ class AnalyticsDashboard:
                 'price': float(r.price) if r.price else None,
                 'price_per_m2': float(r.price_per_m2) if r.price_per_m2 else None,
                 'city': r.city,
+                'district': r.district,
                 'property_type': r.property_type,
                 'bedrooms': r.bedrooms,
+                'bathrooms': r.bathrooms,
                 'surface_area': r.surface_area,
+                'land_area': r.land_area,
                 'source': r.source,
                 'quality_score': r.quality_score,
-                'description_sentiment': r.description_sentiment,
+                'sentiment': r.description_sentiment,
                 'scraped_at': r.scraped_at.isoformat() if r.scraped_at else None,
-                'view_count': r.view_count
+                'posted_time': r.posted_time.isoformat() if r.posted_time else None,
+                'view_count': r.view_count or 0,
+                'favorite_count': r.favorite_count or 0,
+                'contact_count': r.contact_count or 0,
+                'latitude': r.latitude,
+                'longitude': r.longitude,
+                'furnishing': r.furnishing,
+                'condition': r.condition,
+                'age_days': (datetime.utcnow() - r.scraped_at).days if r.scraped_at else None
             } for r in data]
             
-            # Cacher pour 60 secondes
+            # Mise en cache avec expiration
             self._data_cache[cache_key] = result
             import threading
-            threading.Timer(60.0, lambda: self._data_cache.pop(cache_key, None)).start()
+            threading.Timer(90.0, lambda: self._data_cache.pop(cache_key, None)).start()
             
             return result
+            
         except Exception as e:
-            print(f"Erreur filtrage: {e}")
+            print(f"Erreur chargement enrichi: {e}")
             return []
-
-    # =================================================================
-    #                     KPIs PREMIUM
-    # =================================================================
-    def calculate_advanced_kpis(self, data):
-        """Calculer les KPIs avancés depuis les données filtrées"""
+    
+    # ========================================================
+    #              CALCULS STATISTIQUES AVANCÉS
+    # ========================================================
+    
+    def calculate_ultra_kpis(self, data):
+        """KPIs avec analyses statistiques avancées"""
         if not data:
-            return {
-                'count': 0,
-                'avg_price': 0,
-                'median_price': 0,
-                'avg_price_per_m2': 0,
-                'quality_score': 0,
-                'sentiment': 0,
-                'opportunities': [],
-                'anomalies': []
-            }
+            return {}
         
         df = pd.DataFrame(data)
         
         # KPIs de base
-        count = len(df)
-        avg_price = df['price'].mean() if 'price' in df else 0
-        median_price = df['price'].median() if 'price' in df else 0
-        
-        # KPIs avancés
-        avg_price_per_m2 = df['price_per_m2'].mean() if 'price_per_m2' in df else 0
-        quality_score = df['quality_score'].mean() if 'quality_score' in df else 0
-        sentiment = df['description_sentiment'].mean() if 'description_sentiment' in df else 0
-        
-        # Détection d'opportunités (bon rapport qualité-prix)
-        opportunities = []
-        if not df.empty and 'price_per_m2' in df and 'quality_score' in df:
-            df['opportunity_score'] = (df['quality_score'] / 100) / (df['price_per_m2'] / 1_000_000)
-            top_ops = df.nlargest(3, 'opportunity_score')
-            opportunities = top_ops[['title', 'price', 'quality_score', 'city']].to_dict('records')
-        
-        # Détection d'anomalies (prix suspects)
-        anomalies = []
-        if 'price' in df and not df.empty:
-            Q1 = df['price'].quantile(0.25)
-            Q3 = df['price'].quantile(0.75)
-            IQR = Q3 - Q1
-            lower_bound = Q1 - 1.5 * IQR
-            upper_bound = Q3 + 1.5 * IQR
-            
-            anomaly_df = df[(df['price'] < lower_bound) | (df['price'] > upper_bound)]
-            anomalies = anomaly_df[['title', 'price', 'city']].head(3).to_dict('records')
-        
-        return {
-            'count': count,
-            'avg_price': avg_price,
-            'median_price': median_price,
-            'avg_price_per_m2': avg_price_per_m2,
-            'quality_score': quality_score,
-            'sentiment': sentiment,
-            'opportunities': opportunities,
-            'anomalies': anomalies
+        kpis = {
+            'count': len(df),
+            'avg_price': df['price'].mean(),
+            'median_price': df['price'].median(),
+            'std_price': df['price'].std(),
+            'avg_price_per_m2': df['price_per_m2'].mean(),
+            'avg_quality': df['quality_score'].mean(),
+            'avg_sentiment': df['sentiment'].mean(),
         }
-
-    # =================================================================
-    #                     GRAPHIQUES PREMIUM
-    # =================================================================
-    def create_radar_chart(self, data):
-        """Radar chart comparant les villes sur plusieurs axes"""
-        try:
-            df = pd.DataFrame(data)
-            if df.empty or 'city' not in df:
-                return go.Figure()
-            
-            # Agréger par ville
-            city_stats = df.groupby('city').agg({
-                'price': ['mean', 'std'],
-                'surface_area': 'mean',
-                'quality_score': 'mean',
-                'view_count': 'mean'
-            }).round(2)
-            
-            city_stats.columns = ['prix_moyen', 'volatilite', 'surface_moyenne', 'qualite', 'popularite']
-            
-            # Normaliser pour le radar (0-100)
-            for col in city_stats.columns:
-                max_val = city_stats[col].max()
-                if max_val > 0:
-                    city_stats[col] = (city_stats[col] / max_val) * 100
-            
-            fig = go.Figure()
-            
-            for city in city_stats.head(5).index:
-                values = city_stats.loc[city].tolist()
-                values += [values[0]]  # Fermer le radar
-                
-                fig.add_trace(go.Scatterpolar(
-                    r=values,
-                    theta=['Prix Moyen', 'Volatilité', 'Surface', 'Qualité', 'Popularité', 'Prix Moyen'],
-                    fill='toself',
-                    name=city,
-                    line=dict(width=2)
-                ))
-            
-            fig.update_layout(
-                polar=dict(
-                    radialaxis=dict(visible=True, range=[0, 100]),
-                    bgcolor='rgba(255,255,255,0.05)'
-                ),
-                height=450,
-                paper_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='white', family='Inter'),
-                title=dict(text='Comparaison Villes', x=0.5, font=dict(size=18, color='white'))
+        
+        # Variations et tendances (simulées avec percentiles)
+        q10, q90 = df['price'].quantile([0.1, 0.9])
+        kpis['price_volatility'] = ((q90 - q10) / kpis['median_price']) * 100
+        
+        # Score d'opportunité multi-dimensionnel
+        if 'price_per_m2' in df and 'quality_score' in df:
+            df['opportunity_score'] = (
+                (df['quality_score'] / 100) * 0.4 + 
+                (1 / (df['price_per_m2'] / df['price_per_m2'].median())) * 0.3 +
+                (df['view_count'] / df['view_count'].max()) * 0.2 +
+                (1 - df['age_days'] / df['age_days'].max()).fillna(0) * 0.1
             )
-            
-            return fig
-        except Exception as e:
-            print(f"Erreur radar: {e}")
-            return go.Figure()
+            top_ops = df.nlargest(5, 'opportunity_score')
+            kpis['opportunities'] = top_ops.to_dict('records')
+        
+        # Anomalies avec Z-score
+        if 'price_per_m2' in df:
+            z_scores = np.abs(stats.zscore(df['price_per_m2'].dropna()))
+            anomalies = df.loc[df['price_per_m2'].dropna().index[z_scores > 3]]
+            kpis['anomalies'] = anomalies.head(3).to_dict('records')
+            kpis['anomaly_count'] = len(anomalies)
+        
+        # Tendances par ville (top 5)
+        city_trends = df.groupby('city').agg({
+            'price': ['median', 'count'],
+            'price_per_m2': 'mean'
+        }).round(2)
+        city_trends.columns = ['median_price', 'count', 'avg_price_m2']
+        city_trends = city_trends.sort_values('median_price', ascending=False).head(5)
+        kpis['city_trends'] = city_trends.reset_index().to_dict('records')
+        
+        return kpis
     
-    def create_parallel_coordinates(self, data):
-        """Parallel coordinates pour analyse multi-critères"""
-        try:
-            df = pd.DataFrame(data)
-            if df.empty:
-                return go.Figure()
-            
-            # Sélectionner les colonnes pertinentes
-            cols = ['price', 'surface_area', 'bedrooms', 'quality_score']
-            df_filtered = df[cols].dropna()
-            
-            # Normaliser pour l'affichage
-            for col in cols:
-                if df_filtered[col].max() > 0:
-                    df_filtered[col] = (df_filtered[col] - df_filtered[col].min()) / (df_filtered[col].max() - df_filtered[col].min())
-            
-            fig = px.parallel_coordinates(
-                df_filtered.head(200),
-                color='price',
-                title="Analyse Multi-critères",
-                color_continuous_scale='Viridis'
-            )
-            
-            fig.update_layout(
-                height=450,
-                paper_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='white'),
-                title=dict(x=0.5, font=dict(size=18, color='white'))
-            )
-            
-            return fig
-        except Exception as e:
-            print(f"Erreur parallel coordinates: {e}")
-            return go.Figure()
+    # ========================================================
+    #              GRAPHIQUES SUPERPOSÉS & AVANCÉS
+    # ========================================================
     
-    def create_treemap_advanced(self, data):
-        """Treemap avec coloration par score"""
-        try:
-            df = pd.DataFrame(data)
-            if df.empty:
-                return go.Figure()
-            
-            # Préparer la hiérarchie
-            df['value'] = df['price'] * (df['quality_score'] / 100)
-            
-            fig = px.treemap(
-                df.head(100),
-                path=['source', 'city', 'property_type'],
-                values='value',
-                color='price_per_m2' if 'price_per_m2' in df else 'price',
-                color_continuous_scale='RdYlBu_r',
-                title="Valeur Marché par Segment"
-            )
-            
-            fig.update_layout(
-                height=500,
-                paper_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='white', size=12),
-                title=dict(x=0.5, font=dict(size=18, color='white'))
-            )
-            
-            return fig
-        except Exception as e:
-            print(f"Erreur treemap: {e}")
-            return go.Figure()
-
-    # =================================================================
-    #                         TABLE AVANCÉE
-    # =================================================================
-    def create_enhanced_table(self, data):
-        """Table avec tri, formatage et cellules enrichies"""
+    def create_superposed_violin_ridgeplot(self, data):
+        """Violin plot superposé (ridge plot) - Distribution par ville"""
         if not data:
-            return dash_table.DataTable(data=[], columns=[])
+            return go.Figure()
         
-        columns = [
-            {"name": "Titre", "id": "title", "type": "text"},
-            {"name": "Prix", "id": "price", "type": "numeric", "format": {"specifier": ",.0f"}},
-            {"name": "Prix/m²", "id": "price_per_m2", "type": "numeric", "format": {"specifier": ",.0f"}},
-            {"name": "Ville", "id": "city", "type": "text"},
-            {"name": "Type", "id": "property_type", "type": "text"},
-            {"name": "Surface", "id": "surface_area", "type": "numeric", "format": {"specifier": ".1f"}},
-            {"name": "Chambres", "id": "bedrooms", "type": "numeric"},
-            {"name": "Source", "id": "source", "type": "text"},
-            {"name": "Qualité", "id": "quality_score", "type": "numeric", "format": {"specifier": ".0f"}},
-            {"name": "Score", "id": "opportunity_score", "type": "numeric", "format": {"specifier": ".2f"}},
-        ]
-        
-        # Calculer le score d'opportunité
         df = pd.DataFrame(data)
-        if not df.empty and 'price_per_m2' in df and 'quality_score' in df:
-            df['opportunity_score'] = (df['quality_score'] / 100) / (df['price_per_m2'] / 1_000_000)
         
-        return dash_table.DataTable(
-            data=df.to_dict('records'),
-            columns=columns,
-            page_size=15,
-            sort_action='native',
-            filter_action='native',
-            style_table={
-                'overflowX': 'auto',
-                'borderRadius': '12px',
-                'overflow': 'hidden'
-            },
-            style_cell={
-                'backgroundColor': 'rgba(255,255,255,0.05)',
-                'color': 'white',
-                'border': '1px solid rgba(255,255,255,0.1)',
-                'textAlign': 'left',
-                'padding': '12px',
-                'fontFamily': 'Inter'
-            },
-            style_header={
-                'backgroundColor': 'rgba(255,255,255,0.15)',
-                'fontWeight': '600',
-                'borderBottom': '2px solid rgba(255,215,0,0.3)'
-            },
-            style_data_conditional=[
-                {
-                    'if': {'column_id': 'quality_score', 'filter_query': '{quality_score} >= 80'},
-                    'color': '#28a745',
-                    'fontWeight': '600'
-                },
-                {
-                    'if': {'column_id': 'quality_score', 'filter_query': '{quality_score} < 50'},
-                    'color': '#dc3545'
-                },
-                {
-                    'if': {'column_id': 'opportunity_score', 'filter_query': '{opportunity_score} >= 1.5'},
-                    'backgroundColor': 'rgba(40, 167, 69, 0.2)',
-                    'borderLeft': '4px solid #28a745'
-                }
-            ],
-            tooltip_data=[
-                {
-                    column: {'value': f"Prix/m²: {row.get('price_per_m2', 'N/A')}\nQualité: {row.get('quality_score', 'N/A')}/100", 
-                            'type': 'markdown'}
-                    for column in ['title', 'price']
-                } for row in data
-            ],
-            tooltip_delay=0,
-            tooltip_duration=None
+        fig = go.Figure()
+        
+        cities = df['city'].value_counts().head(8).index
+        
+        for i, city in enumerate(cities):
+            city_data = df[df['city'] == city]['price'].dropna()
+            
+            fig.add_trace(go.Violin(
+                y=city_data,
+                name=city,
+                side='positive',
+                spanmode='hard',
+                line_color=self.COLORS['primary'],
+                fillcolor=f'rgba(30, 64, 175, {0.6 - i*0.05})',
+                opacity=0.8,
+                meanline_visible=True,
+                width=2,
+                offsetgroup=i,
+                x0=i
+            ))
+        
+        fig.update_layout(
+            title="📈 Distribution Superposée des Prix par Ville (Ridge Plot)",
+            xaxis_title="Ville",
+            yaxis_title="Prix (FCFA)",
+            height=600,
+            showlegend=False,
+            violingap=0,
+            violingroupgap=0,
+            violinmode='overlay',
+            paper_bgcolor='white',
+            plot_bgcolor='white',
+            font=dict(family='Outfit', size=12),
+            margin=dict(l=40, r=40, t=80, b=60)
         )
-
-    # =================================================================
-    #                         LAYOUT PREMIUM
-    # =================================================================
+        
+        return fig
+    
+    def create_stacked_3d_surface(self, data):
+        """Surface 3D empilée - Prix, Surface, Qualité"""
+        if not data:
+            return go.Figure()
+        
+        df = pd.DataFrame(data)
+        df = df.dropna(subset=['price', 'surface_area', 'quality_score'])
+        
+        if df.empty:
+            return go.Figure()
+        
+        # Créer une grille pour la surface
+        x_grid = np.linspace(df['surface_area'].min(), df['surface_area'].max(), 50)
+        y_grid = np.linspace(df['quality_score'].min(), df['quality_score'].max(), 50)
+        X, Y = np.meshgrid(x_grid, y_grid)
+        
+        # Interpolation des prix
+        from scipy.interpolate import griddata
+        Z = griddata(
+            (df['surface_area'], df['quality_score']),
+            df['price'],
+            (X, Y),
+            method='cubic'
+        )
+        
+        fig = go.Figure(go.Surface(
+            x=x_grid,
+            y=y_grid,
+            z=Z,
+            colorscale='Viridis',
+            colorbar=dict(title="Prix (FCFA)")
+        ))
+        
+        fig.update_layout(
+            title="🗻 Surface 3D Empilée : Prix = f(Surface, Qualité)",
+            scene=dict(
+                xaxis_title="Surface (m²)",
+                yaxis_title="Score de Qualité",
+                zaxis_title="Prix (FCFA)",
+                camera=dict(eye=dict(x=1.5, y=1.5, z=1.5))
+            ),
+            height=700,
+            paper_bgcolor='white',
+            font=dict(family='Outfit', size=12)
+        )
+        
+        return fig
+    
+    def create_multi_layer_heatmap(self, data):
+        """Heatmap multi-couches : Corrélations + Densité"""
+        if not data:
+            return go.Figure()
+        
+        df = pd.DataFrame(data)
+        numeric_cols = ['price', 'surface_area', 'bedrooms', 'bathrooms', 
+                       'quality_score', 'sentiment', 'view_count']
+        df_numeric = df[numeric_cols].dropna()
+        
+        if df_numeric.empty:
+            return go.Figure()
+        
+        # Corrélations
+        corr_matrix = df_numeric.corr()
+        
+        # Densité (inverse de la variance)
+        density = 1 / df_numeric.var()
+        density_matrix = np.outer(density, density)
+        
+        # Combinaison : corrélation * densité
+        combined_matrix = corr_matrix * density_matrix
+        
+        fig = go.Figure()
+        
+        # Heatmap principale
+        fig.add_trace(go.Heatmap(
+            z=combined_matrix.values,
+            x=combined_matrix.columns,
+            y=combined_matrix.index,
+            colorscale='RdBu_r',
+            zmid=0,
+            text=combined_matrix.round(2).values,
+            texttemplate="%{text}",
+            textfont={"size": 10, "family": "Outfit"},
+            hoverongaps=False,
+            hovertemplate='%{x} vs %{y}<br>Valeur: %{z:.2f}<extra></extra>'
+        ))
+        
+        # Overlay : contours de haute corrélation
+        fig.add_trace(go.Contour(
+            z=corr_matrix.values,
+            x=corr_matrix.columns,
+            y=corr_matrix.index,
+            contours=dict(start=0.7, end=1.0, size=0.1),
+            line=dict(width=2, color='rgba(0,0,0,0.8)'),
+            showscale=False,
+            showlegend=False
+        ))
+        
+        fig.update_layout(
+            title="🔥 Heatmap Multi-Couches : Corrélations × Densité",
+            height=500,
+            paper_bgcolor='white',
+            font=dict(family='Outfit', size=12),
+            margin=dict(l=40, r=40, t=80, b=60)
+        )
+        
+        return fig
+    
+    def create_stacked_area_trends(self, data):
+        """Aires empilées - Tendances temporelles par source"""
+        if not data:
+            return go.Figure()
+        
+        df = pd.DataFrame(data)
+        df['scraped_at'] = pd.to_datetime(df['scraped_at'])
+        df = df.set_index('scraped_at')
+        
+        # Grouper par semaine et source
+        weekly_counts = df.groupby([pd.Grouper(freq='W'), 'source']).size().unstack(fill_value=0)
+        
+        fig = go.Figure()
+        
+        sources = weekly_counts.columns
+        colors = px.colors.qualitative.Set3
+        
+        for i, source in enumerate(sources):
+            fig.add_trace(go.Scatter(
+                x=weekly_counts.index,
+                y=weekly_counts[source],
+                mode='lines',
+                stackgroup='one',
+                name=source,
+                line=dict(width=0),
+                fillcolor=colors[i % len(colors)],
+                hovertemplate=f'{source}<br>Date: %{{x}}<br>Annonces: %{{y}}<extra></extra>'
+            ))
+        
+        fig.update_layout(
+            title="📊 Aires Empilées - Volume d'Annonces par Source (Semaine)",
+            xaxis_title="Date",
+            yaxis_title="Nombre d'annonces",
+            height=450,
+            paper_bgcolor='white',
+            plot_bgcolor='white',
+            font=dict(family='Outfit', size=12),
+            hovermode='x unified'
+        )
+        
+        return fig
+    
+    def create_parallel_coords_advanced(self, data):
+        """Parallel coordinates avec coloration multi-dimensionnelle"""
+        if not data:
+            return go.Figure()
+        
+        df = pd.DataFrame(data)
+        cols = ['price', 'surface_area', 'bedrooms', 'quality_score', 'sentiment']
+        df_filtered = df[cols].dropna().head(300)  # Limiter pour performance
+        
+        if df_filtered.empty:
+            return go.Figure()
+        
+        # Normalisation
+        df_norm = (df_filtered - df_filtered.min()) / (df_filtered.max() - df_filtered.min())
+        
+        # Score composite pour coloration
+        df_norm['composite'] = (
+            df_norm['price'] * 0.3 + 
+            df_norm['quality_score'] * 0.3 + 
+            df_norm['sentiment'] * 0.2 +
+            df_norm['surface_area'] * 0.2
+        )
+        
+        fig = px.parallel_coordinates(
+            df_norm,
+            color='composite',
+            dimensions=cols,
+            color_continuous_scale='Rainbow',
+            title="🌈 Parallel Coordinates Avancé (Coloration Composite)"
+        )
+        
+        fig.update_layout(
+            height=500,
+            paper_bgcolor='white',
+            font=dict(family='Outfit', size=10),
+            margin=dict(l=60, r=60, t=100, b=40)
+        )
+        
+        return fig
+    
+    def create_treemap_sunburst_combo(self, data):
+        """Treemap + Sunburst combinés - Structure hiérarchique"""
+        if not data:
+            return go.Figure()
+        
+        df = pd.DataFrame(data)
+        
+        # Préparer la hiérarchie
+        hierarchy = df.groupby(['source', 'city', 'property_type']).agg({
+            'price': 'mean',
+            'id': 'count'
+        }).reset_index()
+        hierarchy = hierarchy.rename(columns={'id': 'count'})
+        
+        fig = make_subplots(
+            rows=1, cols=2,
+            specs=[{"type": "treemap"}, {"type": "sunburst"}],
+            subplot_titles=("Treemap - Valeur Marché", "Sunburst - Distribution")
+        )
+        
+        # Treemap
+        fig.add_trace(go.Treemap(
+            labels=hierarchy['property_type'],
+            parents=hierarchy['city'],
+            values=hierarchy['price'],
+            textinfo="label+value+percent parent",
+            name="Treemap"
+        ), row=1, col=1)
+        
+        # Sunburst
+        fig.add_trace(go.Sunburst(
+            labels=hierarchy['property_type'],
+            parents=hierarchy['city'],
+            values=hierarchy['count'],
+            branchvalues="total",
+            name="Sunburst"
+        ), row=1, col=2)
+        
+        fig.update_layout(
+            title_text="🏘️ Visualisation Hiérarchique Double (Treemap + Sunburst)",
+            height=500,
+            paper_bgcolor='white',
+            font=dict(family='Outfit', size=12)
+        )
+        
+        return fig
+    
+    def create_bubble_matrix_4d(self, data):
+        """Bubble chart 4D : Prix, Surface, Qualité, Taille = Volume"""
+        if not data:
+            return go.Figure()
+        
+        df = pd.DataFrame(data)
+        df = df.dropna(subset=['price', 'surface_area', 'quality_score', 'view_count'])
+        
+        if df.empty:
+            return go.Figure()
+        
+        # Limiter pour performance
+        df_sample = df.sample(min(200, len(df)))
+        
+        fig = px.scatter(
+            df_sample,
+            x='surface_area',
+            y='price',
+            size='view_count',
+            color='quality_score',
+            hover_name='title',
+            hover_data=['city', 'property_type'],
+            color_continuous_scale='Viridis',
+            size_max=40,
+            title="🎈 Bubble Chart 4D : Surface × Prix × Vues × Qualité"
+        )
+        
+        fig.update_layout(
+            height=550,
+            paper_bgcolor='white',
+            font=dict(family='Outfit', size=12),
+            xaxis_title="Surface (m²)",
+            yaxis_title="Prix (FCFA)",
+            coloraxis_colorbar=dict(title="Score Qualité")
+        )
+        
+        return fig
+    
+    def create_candlestick_advanced(self, data):
+        """Candlestick chart - Prix OHLC par district"""
+        if not data:
+            return go.Figure()
+        
+        df = pd.DataFrame(data)
+        df = df.dropna(subset=['district', 'price'])
+        
+        if df.empty:
+            return go.Figure()
+        
+        # Calculer OHLC par district
+        district_stats = df.groupby('district')['price'].agg([
+            'min', 'max', 'mean', 'median'
+        ]).reset_index()
+        
+        fig = go.Figure(data=go.Candlestick(
+            x=district_stats['district'],
+            open=district_stats['median'],
+            high=district_stats['max'],
+            low=district_stats['min'],
+            close=district_stats['mean'],
+            increasing_line_color=self.COLORS['success'],
+            decreasing_line_color=self.COLORS['danger']
+        ))
+        
+        fig.update_layout(
+            title="📉 Candlestick Avancé - Prix OHLC par District",
+            yaxis_title="Prix (FCFA)",
+            xaxis_title="District",
+            height=500,
+            paper_bgcolor='white',
+            font=dict(family='Outfit', size=12),
+            xaxis_rangeslider_visible=False
+        )
+        
+        return fig
+    
+    def create_polar_scatter_multi(self, data):
+        """Scatter plot polaire multi-dimensionnel"""
+        if not data:
+            return go.Figure()
+        
+        df = pd.DataFrame(data)
+        df = df.dropna(subset=['quality_score', 'sentiment', 'view_count'])
+        
+        if df.empty:
+            return go.Figure()
+        
+        fig = go.Figure()
+        
+        property_types = df['property_type'].unique()
+        colors = px.colors.qualitative.Prism
+        
+        for i, prop_type in enumerate(property_types):
+            df_type = df[df['property_type'] == prop_type]
+            
+            fig.add_trace(go.Scatterpolar(
+                r=df_type['quality_score'],
+                theta=df_type['sentiment'],
+                mode='markers',
+                marker=dict(
+                    size=df_type['view_count'] / 10,
+                    color=colors[i % len(colors)],
+                    opacity=0.7,
+                    line=dict(width=1, color='white')
+                ),
+                name=prop_type,
+                hovertemplate='<b>%{text}</b><br>Qualité: %{r}<br>Sentiment: %{theta}<extra></extra>',
+                text=df_type['city']
+            ))
+        
+        fig.update_layout(
+            title="🎯 Scatter Polaire Multi-dimensionnel : Qualité × Sentiment × Vues",
+            polar=dict(
+                radialaxis=dict(title="Score Qualité", range=[0, 100]),
+                angularaxis=dict(title="Sentiment")
+            ),
+            height=600,
+            paper_bgcolor='white',
+            font=dict(family='Outfit', size=12)
+        )
+        
+        return fig
+    
+    def create_funnel_advanced(self, data):
+        """Funnel chart - Conversion qualité"""
+        if not data:
+            return go.Figure()
+        
+        df = pd.DataFrame(data)
+        
+        # Créer segments de qualité
+        quality_bins = pd.cut(df['quality_score'], 
+                             bins=[0, 30, 50, 70, 85, 100],
+                             labels=['🚨 Basse', '⚠️ Moyenne-Basse', '✅ Moyenne', 
+                                    '⭐ Haute', '💎 Premium'])
+        df['quality_segment'] = quality_bins
+        
+        funnel_data = df['quality_segment'].value_counts()
+        
+        fig = go.Figure(go.Funnel(
+            y=funnel_data.index,
+            x=funnel_data.values,
+            textinfo="value+percent initial",
+            textfont=dict(family="Outfit", size=14),
+            marker=dict(
+                color=[self.COLORS['danger'], self.COLORS['warning'], 
+                       self.COLORS['info'], self.COLORS['success'], 
+                       self.COLORS['primary']],
+                line=dict(width=2, color='white')
+            )
+        ))
+        
+        fig.update_layout(
+            title="🔻 Funnel Avancé - Distribution par Niveau de Qualité",
+            height=500,
+            paper_bgcolor='white',
+            font=dict(family='Outfit', size=12)
+        )
+        
+        return fig
+    
+    def create_waterfall_advanced(self, data):
+        """Waterfall chart - Impact des facteurs sur prix"""
+        if not data:
+            return go.Figure()
+        
+        df = pd.DataFrame(data)
+        
+        # Calculer l'impact moyen de chaque caractéristique
+        baseline = df['price'].min()
+        
+        impacts = {
+            'Prix de base': baseline,
+            '+ Surface moyenne': df['surface_area'].mean() * 100000,  # prix/m² simulé
+            '+ Chambres': df['bedrooms'].mean() * 5000000,
+            '+ Qualité': df['quality_score'].mean() * 50000,
+            '+ Sentiment': (df['sentiment'].mean() + 1) * 1000000,
+        }
+        
+        # Calculer les valeurs cumulées
+        values = list(impacts.values())
+        cumulative = np.cumsum(values)
+        
+        fig = go.Figure(go.Waterfall(
+            name="Prix",
+            orientation="v",
+            measure=["absolute"] + ["relative"] * (len(values)-1),
+            x=list(impacts.keys()),
+            textposition="outside",
+            text=[f"{v:,.0f}" for v in values],
+            y=values,
+            connector={"line":{"color":"rgb(63, 63, 63)"}},
+            increasing={"marker":{"color":self.COLORS['success']}},
+            decreasing={"marker":{"color":self.COLORS['danger']}},
+            totals={"marker":{"color":self.COLORS['primary']}}
+        ))
+        
+        fig.update_layout(
+            title="💧 Waterfall Avancé - Décomposition du Prix Moyen",
+            yaxis_title="Prix (FCFA)",
+            height=500,
+            paper_bgcolor='white',
+            font=dict(family='Outfit', size=12)
+        )
+        
+        return fig
+    
+    def create_clustering_3d(self, data):
+        """Clustering K-means en 3D"""
+        if not data:
+            return go.Figure()
+        
+        df = pd.DataFrame(data)
+        features = ['price', 'surface_area', 'quality_score']
+        df_cluster = df[features].dropna()
+        
+        if len(df_cluster) < 10:
+            return go.Figure()
+        
+        # Standardisation et clustering
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(df_cluster)
+        
+        n_clusters = min(5, len(df_cluster) // 3)
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+        clusters = kmeans.fit_predict(X_scaled)
+        
+        df_cluster['cluster'] = clusters
+        
+        fig = px.scatter_3d(
+            df_cluster,
+            x='price',
+            y='surface_area',
+            z='quality_score',
+            color='cluster',
+            size_max=15,
+            opacity=0.8,
+            color_discrete_sequence=px.colors.qualitative.Set3,
+            title="🧬 Clustering 3D - Segmentation Automatique du Marché"
+        )
+        
+        fig.update_layout(
+            height=600,
+            paper_bgcolor='white',
+            font=dict(family='Outfit', size=12),
+            scene=dict(
+                xaxis_title="Prix (FCFA)",
+                yaxis_title="Surface (m²)",
+                zaxis_title="Qualité"
+            )
+        )
+        
+        return fig
+    
+    def create_animation_timeseries(self, data):
+        """Animation temporelle des prix par ville"""
+        if not data:
+            return go.Figure()
+        
+        df = pd.DataFrame(data)
+        df['scraped_at'] = pd.to_datetime(df['scraped_at'])
+        
+        # Créer une plage de dates complète
+        date_range = pd.date_range(
+            start=df['scraped_at'].min(),
+            end=df['scraped_at'].max(),
+            freq='W'
+        )
+        
+        # Agréger par ville et date
+        animation_data = []
+        for date in date_range:
+            week_data = df[df['scraped_at'] <= date]
+            city_stats = week_data.groupby('city')['price'].median().reset_index()
+            city_stats['date'] = date
+            
+            animation_data.append(city_stats)
+        
+        if not animation_data:
+            return go.Figure()
+        
+        df_anim = pd.concat(animation_data, ignore_index=True)
+        top_cities = df['city'].value_counts().head(5).index
+        df_anim = df_anim[df_anim['city'].isin(top_cities)]
+        
+        fig = px.line(
+            df_anim,
+            x='date',
+            y='price',
+            color='city',
+            animation_frame='date',
+            animation_group='city',
+            range_y=[0, df_anim['price'].max() * 1.1],
+            markers=True,
+            title="📽️ Évolution Temporelle Animée des Prix par Ville"
+        )
+        
+        fig.update_layout(
+            height=500,
+            paper_bgcolor='white',
+            font=dict(family='Outfit', size=12),
+            xaxis_title="Date",
+            yaxis_title="Prix Médian (FCFA)"
+        )
+        
+        # Ajuster la vitesse de l'animation
+        fig.layout.updatemenus[0].buttons[0].args[1]['frame']['duration'] = 500
+        
+        return fig
+    
+    def create_dual_axis_advanced(self, data):
+        """Graphe à double axe Y avancé"""
+        if not data:
+            return go.Figure()
+        
+        df = pd.DataFrame(data)
+        
+        # Grouper par mois
+        df['scraped_at'] = pd.to_datetime(df['scraped_at'])
+        monthly = df.set_index('scraped_at').groupby([pd.Grouper(freq='M')]).agg({
+            'price': 'median',
+            'view_count': 'sum'
+        }).reset_index()
+        
+        fig = make_subplots(
+            rows=1, cols=1,
+            specs=[[{"secondary_y": True}]]
+        )
+        
+        # Axe Y1 : Prix
+        fig.add_trace(
+            go.Scatter(
+                x=monthly['scraped_at'],
+                y=monthly['price'],
+                mode='lines+markers',
+                name="Prix Médian",
+                line=dict(color=self.COLORS['primary'], width=3),
+                marker=dict(size=8)
+            ),
+            secondary_y=False
+        )
+        
+        # Axe Y2 : Vues
+        fig.add_trace(
+            go.Bar(
+                x=monthly['scraped_at'],
+                y=monthly['view_count'],
+                name="Volume de Vues",
+                marker=dict(color=self.COLORS['secondary'], opacity=0.6)
+            ),
+            secondary_y=True
+        )
+        
+        fig.update_xaxes(title_text="Date")
+        fig.update_yaxes(title_text="Prix Médian (FCFA)", secondary_y=False)
+        fig.update_yaxes(title_text="Nombre de Vues", secondary_y=True)
+        
+        fig.update_layout(
+            title_text="📊 Double Axe - Prix vs Volume d'Intérêt",
+            height=450,
+            paper_bgcolor='white',
+            font=dict(family='Outfit', size=12),
+            hovermode='x unified'
+        )
+        
+        return fig
+    
+    # ========================================================
+    #                    COMPOSANTS UI PREMIUM
+    # ========================================================
+    
+    def create_kpi_card_gradient(self, title, value, icon, color, trend=None):
+        """Carte KPI avec gradient animé"""
+        return html.Div([
+            html.Div([
+                html.Div([
+                    DashIconify(icon=icon, width=32, color="white")
+                ], style={
+                    'background': f'linear-gradient(135deg, {color}, {self.adjust_color_brightness(color, -30)})',
+                    'borderRadius': '16px',
+                    'padding': '16px',
+                    'boxShadow': f'0 8px 20px {color}40'
+                }),
+                html.Div(title, style={
+                    'fontSize': '14px',
+                    'fontWeight': '600',
+                    'color': '#64748B',
+                    'marginTop': '16px'
+                }),
+                html.Div(value, style={
+                    'fontSize': '28px',
+                    'fontWeight': '800',
+                    'color': '#1E293B',
+                    'marginTop': '8px'
+                }),
+                html.Div(trend, style={
+                    'fontSize': '12px',
+                    'color': self.COLORS['success'] if trend and '+' in trend else self.COLORS['danger'],
+                    'fontWeight': '600',
+                    'marginTop': '4px'
+                }) if trend else None
+            ], style={
+                'background': 'white',
+                'borderRadius': '20px',
+                'padding': '24px',
+                'boxShadow': '0 4px 20px rgba(0,0,0,0.08)',
+                'border': '1px solid #E2E8F0',
+                'transition': 'all 0.3s ease',
+                'cursor': 'pointer'
+            })
+        ])
+    
+    def adjust_color_brightness(self, hex_color, percent):
+        """Ajuster luminosité couleur"""
+        hex_color = hex_color.lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        r = max(0, min(255, r + int(r * percent / 100)))
+        g = max(0, min(255, g + int(g * percent / 100)))
+        b = max(0, min(255, b + int(b * percent / 100)))
+        return f'#{r:02x}{g:02x}{b:02x}'
+    
+    # ========================================================
+    #                      LAYOUT FINAL
+    # ========================================================
+    
     def setup_layout(self):
-        options = self.get_filter_options()
+        """Layout ultra-complet avec toutes les visualisations"""
         
         self.app.layout = html.Div([
-            # Animated background
-            html.Div(className='animated-bg'),
+            # CSS personnalisé
+            html.Style("""
+                * { font-family: 'Outfit', sans-serif; }
+                body { background: #F8FAFC; margin: 0; }
+                .graph-container { transition: all 0.3s ease; }
+                .graph-container:hover { transform: translateY(-5px); box-shadow: 0 12px 30px rgba(0,0,0,0.12); }
+                @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+                .fade-in { animation: fadeIn 0.6s ease-out; }
+            """),
             
-            # Loading overlay
+            # Header premium
             html.Div([
-                html.Div(className='spinner-glow'),
-                html.P('Analyse en cours...', className='loading-text')
-            ], id='loading-overlay', className='loading-overlay'),
-            
-            # Navigation
-            html.Nav([
                 html.Div([
                     html.Div([
-                        html.A([
-                            html.I(className='fas fa-search'),
-                            html.Span('Analytics Premium')
-                        ], href='/', className='nav-brand'),
-                        html.Button([
-                            html.Span(className='hamburger')
-                        ], className='nav-toggle', **{'aria-label': 'Menu'})
-                    ], className='nav-wrapper'),
+                        DashIconify(icon="mdi:home-analytics", width=40, color="white"),
+                        html.Div([
+                            html.H1("Observatoire Immobilier Ultra", style={
+                                'fontSize': '32px', 'fontWeight': '800', 'color': 'white', 'margin': '0'
+                            }),
+                            html.P("Analyse multi-dimensionnelle en temps réel", style={
+                                'fontSize': '14px', 'color': 'rgba(255,255,255,0.9)', 'margin': '4px 0 0 0'
+                            })
+                        ], style={'marginLeft': '16px'})
+                    ], style={'display': 'flex', 'alignItems': 'center'}),
+                    
                     html.Div([
-                        html.Ul([
-                            html.Li(html.A('Dashboard', href='/dashboard', className='nav-link')),
-                            html.Li(html.A('Analytics', href='/analytics', className='nav-link active')),
-                            html.Li(html.A('Carte', href='/map', className='nav-link')),
-                            html.Li(html.A('Admin', href='/admin', className='nav-link'))
-                        ], className='nav-links'),
-                        html.Div([
-                            html.Button([
-                                html.I(className='fas fa-save'),
-                                ' Sauver Filtres'
-                            ], id='save-filters-btn', className='glass-button btn-sm'),
-                            html.Button([
-                                html.I(className='fas fa-download'),
-                                ' Exporter'
-                            ], id='export-btn', className='glass-button btn-sm btn-success')
-                        ], className='nav-actions')
-                    ], className='nav-collapse')
-                ], className='container-fluid')
-            ], className='glass-nav'),
+                        html.Div(style={
+                            'width': '10px', 'height': '10px', 'background': '#10B981', 'borderRadius': '50%',
+                            'animation': 'pulse 2s infinite', 'marginRight': '8px'
+                        }),
+                        html.Span("LIVE ANALYTICS", style={
+                            'fontSize': '12px', 'fontWeight': '700', 'color': 'white', 'letterSpacing': '1px'
+                        })
+                    ], style={
+                        'background': 'rgba(255,255,255,0.15)', 'padding': '10px 18px', 'borderRadius': '24px',
+                        'backdropFilter': 'blur(10px)'
+                    })
+                ], style={
+                    'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center',
+                    'maxWidth': '1800px', 'margin': '0 auto', 'padding': '0 32px'
+                })
+            ], style={
+                'background': f'linear-gradient(135deg, {self.COLORS["primary"]}, {self.COLORS["purple"]})',
+                'padding': '32px 0', 'boxShadow': '0 6px 24px rgba(99, 102, 241, 0.3)', 'marginBottom': '40px'
+            }),
             
-            # Main content
-            html.Main([
+            # Filtres avancés
+            html.Div([
                 html.Div([
-                    # Hero section
-                    html.Section([
-                        html.Div([
-                            html.H1('Analyse Immobilière Avancée', className='hero-title'),
-                            html.P('Explorez les données avec des outils professionnels', className='hero-subtitle'),
-                            html.Div([
-                                html.Span('Live Analytics', className='glass-badge'),
-                                html.Button([
-                                    html.I(className='fas fa-play'),
-                                    ' Lancer Analyse'
-                                ], id='run-analysis-btn', className='glass-button btn-primary')
-                            ], className='hero-actions')
-                        ], className='hero-content')
-                    ], className='hero-section'),
+                    html.Div([
+                        dmc.MultiSelect(
+                            label="Villes (Multi-sélection)",
+                            id="filter-cities",
+                            data=[],  # Rempli par callback
+                            style={'marginBottom': '16px'}
+                        ),
+                        dmc.MultiSelect(
+                            label="Types de biens",
+                            id="filter-properties",
+                            data=[],  # Rempli par callback
+                        )
+                    ], style={'flex': '1'}),
                     
-                    # Advanced filters
-                    html.Section([
-                        html.Div([
-                            html.Div([
-                                html.H3('Filtres Intelligents', className='filters-title'),
-                                html.Div([
-                                    html.Div([
-                                        html.Label('Ville', className='filter-label'),
-                                        dcc.Dropdown(
-                                            id='filter-city',
-                                            options=[{'label': 'Toutes', 'value': 'all'}] + 
-                                                   [{'label': c, 'value': c} for c in options['cities']],
-                                            value='all',
-                                            className='modern-dropdown'
-                                        ),
-                                        html.Label('Type de bien', className='filter-label'),
-                                        dcc.Dropdown(
-                                            id='filter-property-type',
-                                            options=[{'label': 'Tous', 'value': 'all'}] + 
-                                                   [{'label': t, 'value': t} for t in options['property_types']],
-                                            value='all',
-                                            className='modern-dropdown'
-                                        )
-                                    ], className='filter-group'),
-                                    
-                                    html.Div([
-                                        html.Label('Prix (FCFA)', className='filter-label'),
-                                        dmc.RangeSlider(
-                                            id='price-range',
-                                            min=0,
-                                            max=200_000_000,
-                                            step=1_000_000,
-                                            value=[0, 200_000_000],
-                                            marks=[
-                                                {"value": 0, "label": "0"},
-                                                {"value": 50_000_000, "label": "50M"},
-                                                {"value": 100_000_000, "label": "100M"},
-                                                {"value": 200_000_000, "label": "200M+"}
-                                            ],
-                                        ),
-                                        html.Label('Surface (m²)', className='filter-label'),
-                                        dmc.RangeSlider(
-                                            id='surface-range',
-                                            min=0,
-                                            max=1000,
-                                            step=10,
-                                            value=[0, 1000],
-                                            marks=[
-                                                {"value": 0, "label": "0"},
-                                                {"value": 250, "label": "250"},
-                                                {"value": 500, "label": "500"},
-                                                {"value": 1000, "label": "1000+"}
-                                            ],
-                                        )
-                                    ], className='filter-group'),
-                                    
-                                    html.Div([
-                                        html.Label('Qualité minimale', className='filter-label'),
-                                        dmc.Slider(
-                                            id='quality-threshold',
-                                            min=0,
-                                            max=100,
-                                            step=10,
-                                            value=0,
-                                            marks=[
-                                                {"value": 0, "label": "Tous"},
-                                                {"value": 50, "label": "Moyen"},
-                                                {"value": 80, "label": "Haut"}
-                                            ],
-                                        ),
-                                        html.Label('Sentiment', className='filter-label'),
-                                        dcc.Dropdown(
-                                            id='sentiment-filter',
-                                            options=[
-                                                {'label': 'Tous', 'value': 'all'},
-                                                {'label': '😊 Positif', 'value': 'positive'},
-                                                {'label': '😐 Neutre', 'value': 'neutral'},
-                                                {'label': '😞 Négatif', 'value': 'negative'}
-                                            ],
-                                            value='all',
-                                            className='modern-dropdown'
-                                        )
-                                    ], className='filter-group')
-                                ], className='filters-grid'),
-                                
-                                html.Div([
-                                    html.Button([
-                                        html.I(className='fas fa-filter'),
-                                        ' Appliquer Filtres'
-                                    ], id='apply-filters-btn', className='glass-button'),
-                                    html.Button([
-                                        html.I(className='fas fa-undo'),
-                                        ' Réinitialiser'
-                                    ], id='reset-filters-btn', className='glass-button btn-secondary')
-                                ], className='filters-actions')
-                            ], className='glass-card filters-card')
-                        ], className='container')
-                    ], className='filters-section'),
+                    dmc.RangeSlider(
+                        label="Prix (FCFA)",
+                        id="price-range-slider",
+                        min=0, max=200_000_000, step=1_000_000,
+                        value=[0, 200_000_000],
+                        marks=[
+                            {"value": 0, "label": "0"},
+                            {"value": 50_000_000, "label": "50M"},
+                            {"value": 100_000_000, "label": "100M"},
+                            {"value": 200_000_000, "label": "200M+"}
+                        ],
+                        style={'flex': '1', 'marginLeft': '24px'}
+                    ),
                     
-                    # KPIs premium
-                    html.Section([
-                        html.Div([
-                            html.Div([
-                                html.Div(id='kpi-cards', className='kpi-grid'),
-                                html.Div(id='opportunities-panel', className='opportunities-panel')
-                            ], className='analytics-header')
-                        ], className='container')
-                    ], className='kpis-section'),
-                    
-                    # Charts grid
-                    html.Section([
-                        html.Div([
-                            html.Div([
-                                html.Div([
-                                    html.Div([
-                                        html.H3('Distribution & Corrélations', className='chart-section-title'),
-                                        dcc.Graph(id='violin-plot', className='chart-figure'),
-                                        dcc.Graph(id='correlation-heatmap', className='chart-figure'),
-                                        dcc.Graph(id='radar-chart', className='chart-figure')
-                                    ], className='col-lg-6'),
-                                    
-                                    html.Div([
-                                        html.H3('Structure du Marché', className='chart-section-title'),
-                                        dcc.Graph(id='treemap-chart', className='chart-figure'),
-                                        dcc.Graph(id='parallel-coordinates', className='chart-figure'),
-                                        html.Div(id='insights-panel', className='insights-glass-panel')
-                                    ], className='col-lg-6')
-                                ], className='row g-4')
-                            ], className='container')
-                        ], className='charts-section')
-                    ], className='analytics-section'),
-                    
-                    # Data table
-                    html.Section([
-                        html.Div([
-                            html.Div([
-                                html.Div([
-                                    html.H3('Données Détaillées', className='table-title'),
-                                    html.Div([
-                                        html.Span('Affichage: ', className='table-info'),
-                                        html.Span(id='table-row-count', className='table-count'),
-                                        html.Span(' lignes')
-                                    ], className='table-stats'),
-                                    html.Div([
-                                        dcc.Dropdown(
-                                            id='columns-selector',
-                                            options=[
-                                                {'label': 'Titre', 'value': 'title'},
-                                                {'label': 'Prix', 'value': 'price'},
-                                                {'label': 'Prix/m²', 'value': 'price_per_m2'},
-                                                {'label': 'Ville', 'value': 'city'},
-                                                {'label': 'Type', 'value': 'property_type'},
-                                                {'label': 'Surface', 'value': 'surface_area'},
-                                                {'label': 'Chambres', 'value': 'bedrooms'},
-                                                {'label': 'Qualité', 'value': 'quality_score'},
-                                                {'label': 'Sentiment', 'value': 'description_sentiment'},
-                                                {'label': 'Vues', 'value': 'view_count'}
-                                            ],
-                                            value=['title', 'price', 'city', 'property_type', 'quality_score'],
-                                            multi=True,
-                                            className='columns-selector'
-                                        )
-                                    ], className='table-controls')
-                                ], className='table-header'),
-                                html.Div(id='data-table-container')
-                            ], className='glass-card table-card')
-                        ], className='container')
-                    ], className='table-section')
-                ], className='analytics-wrapper')
-            ], className='has-sidebar'),
+                    html.Button([
+                        DashIconify(icon="mdi:filter-check", width=20, color="white"),
+                        html.Span("Appliquer", style={'marginLeft': '8px'})
+                    ], id="apply-filters", style={
+                        'background': f'linear-gradient(135deg, {self.COLORS["success"]}, {self.adjust_color_brightness(self.COLORS["success"], -30)})',
+                        'color': 'white', 'border': 'none', 'borderRadius': '12px',
+                        'padding': '12px 24px', 'fontWeight': '600', 'cursor': 'pointer',
+                        'marginLeft': '24px', 'alignSelf': 'flex-end'
+                    })
+                ], style={
+                    'display': 'flex', 'gap': '24px', 'alignItems': 'flex-end',
+                    'maxWidth': '1800px', 'margin': '0 auto', 'padding': '0 32px'
+                })
+            ], style={'marginBottom': '40px'}),
             
-            # Hidden stores
-            dcc.Store(id='filters-store', storage_type='local'),
-            dcc.Store(id='data-store'),
-            dcc.Store(id='kpi-store'),
+            # KPIs Section
+            html.Div([
+                html.Div(id="kpi-grid", style={
+                    'display': 'grid',
+                    'gridTemplateColumns': 'repeat(auto-fit, minmax(280px, 1fr))',
+                    'gap': '24px',
+                    'maxWidth': '1800px', 'margin': '0 auto', 'padding': '0 32px'
+                })
+            ], style={'marginBottom': '40px'}),
             
-            # Scripts
-            html.Script(src='https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js'),
-            html.Script(src='https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js'),
-            html.Script(src='/static/js/analytics-animations.js')
-        ], className='dashboard-root')
-
-    # =================================================================
-    #                         CALLBACKS
-    # =================================================================
+            # Graphiques principaux - Grille 2x3
+            html.Div([
+                html.Div([
+                    html.Div(id="graph-ridge", className="graph-container fade-in", style={**self.graph_style}),
+                    html.Div(id="graph-3d-surface", className="graph-container fade-in", style={**self.graph_style}),
+                ], style={'display': 'grid', 'gridTemplateColumns': '1fr 1fr', 'gap': '24px', 'marginBottom': '24px'}),
+                
+                html.Div([
+                    html.Div(id="graph-heatmap", className="graph-container fade-in", style={**self.graph_style}),
+                    html.Div(id="graph-stacked-area", className="graph-container fade-in", style={**self.graph_style}),
+                ], style={'display': 'grid', 'gridTemplateColumns': '1fr 1fr', 'gap': '24px', 'marginBottom': '24px'}),
+                
+                html.Div([
+                    html.Div(id="graph-parallel", className="graph-container fade-in", style={**self.graph_style}),
+                    html.Div(id="graph-treemap-sunburst", className="graph-container fade-in", style={**self.graph_style}),
+                ], style={'display': 'grid', 'gridTemplateColumns': '1fr 1fr', 'gap': '24px', 'marginBottom': '24px'}),
+            ], style={'maxWidth': '1800px', 'margin': '0 auto', 'padding': '0 32px'}),
+            
+            # Graphiques 3D et spéciaux - Pleine largeur
+            html.Div([
+                html.Div(id="graph-bubble-4d", className="graph-container fade-in", style={**self.graph_style_full}),
+                html.Div(id="graph-clustering-3d", className="graph-container fade-in", style={**self.graph_style_full}),
+                html.Div(id="graph-animation", className="graph-container fade-in", style={**self.graph_style_full}),
+                html.Div(id="graph-dual-axis", className="graph-container fade-in", style={**self.graph_style_full}),
+                html.Div(id="graph-candlestick", className="graph-container fade-in", style={**self.graph_style_full}),
+                html.Div(id="graph-polar", className="graph-container fade-in", style={**self.graph_style_full}),
+                html.Div(id="graph-funnel", className="graph-container fade-in", style={**self.graph_style_full}),
+                html.Div(id="graph-waterfall", className="graph-container fade-in", style={**self.graph_style_full}),
+            ], style={'maxWidth': '1800px', 'margin': '0 auto', 'padding': '0 32px'}),
+            
+            # Tableau de données détaillé
+            html.Div([
+                html.Div([
+                    html.H2("📋 Données Détaillées", style={
+                        'fontSize': '24px', 'fontWeight': '700', 'color': '#1E293B', 'marginBottom': '20px'
+                    }),
+                    dash_table.DataTable(
+                        id='detailed-table',
+                        page_size=20,
+                        style_table={'overflowX': 'auto', 'borderRadius': '12px', 'overflow': 'hidden'},
+                        style_cell={'backgroundColor': 'white', 'color': '#1E293B', 'border': '1px solid #E2E8F0'},
+                        style_header={'backgroundColor': '#F1F5F9', 'fontWeight': '700', 'borderBottom': '2px solid #1E40AF'}
+                    )
+                ], style={**self.graph_style_full})
+            ], style={'maxWidth': '1800px', 'margin': '40px auto', 'padding': '0 32px'}),
+            
+            # Stores
+            dcc.Store(id='filters-store', data={}),
+            dcc.Store(id='data-store', data=[]),
+            
+            # Notification
+            html.Div(id="notification-container")
+            
+        ], style={'paddingBottom': '60px'})
+    
+    @property
+    def graph_style(self):
+        return {
+            'background': 'white',
+            'padding': '24px',
+            'borderRadius': '20px',
+            'boxShadow': '0 4px 20px rgba(0,0,0,0.08)',
+            'border': '1px solid #E2E8F0'
+        }
+    
+    @property
+    def graph_style_full(self):
+        return {
+            **self.graph_style,
+            'marginBottom': '24px'
+        }
+    
+    # ========================================================
+    #                      CALLBACKS
+    # ========================================================
+    
     def setup_callbacks(self):
-        """Callbacks interactifs avec debouncing"""
+        """Configuration des callbacks interactifs"""
         
-        # Appliquer filtres avec debouncing
         @callback(
-            Output('data-store', 'data'),
-            Output('loading-overlay', 'className', allow_duplicate=True),
-            Input('apply-filters-btn', 'n_clicks'),
-            Input('price-range', 'value'),
-            Input('surface-range', 'value'),
-            Input('quality-threshold', 'value'),
-            State('filter-city', 'value'),
-            State('filter-property-type', 'value'),
-            State('sentiment-filter', 'value'),
+            [
+                Output('filter-cities', 'data'),
+                Output('filter-properties', 'data')
+            ],
+            Input('apply-filters', 'n_clicks')
+        )
+        def load_filter_options(n_clicks):
+            """Charger les options de filtres"""
+            try:
+                from app.database.models import db, ProprietesConsolidees
+                
+                cities = db.session.query(ProprietesConsolidees.city).distinct().order_by(ProprietesConsolidees.city).all()
+                properties = db.session.query(ProprietesConsolidees.property_type).distinct().order_by(ProprietesConsolidees.property_type).all()
+                
+                city_options = [{"value": c[0], "label": f"📍 {c[0]}"} for c in cities if c[0]]
+                property_options = [{"value": p[0], "label": f"🏠 {p[0]}"} for p in properties if p[0]]
+                
+                return city_options, property_options
+                
+            except Exception as e:
+                print(f"Erreur chargement filtres: {e}")
+                return [], []
+        
+        @callback(
+            [
+                Output('data-store', 'data'),
+                Output('notification-container', 'children')
+            ],
+            [
+                Input('apply-filters', 'n_clicks')
+            ],
+            [
+                State('filter-cities', 'value'),
+                State('filter-properties', 'value'),
+                State('price-range-slider', 'value')
+            ],
             prevent_initial_call=True
         )
-        def apply_filters(n_clicks, price_range, surface_range, quality, city, prop_type, sentiment):
-            if not ctx.triggered:
-                raise dash.exceptions.PreventUpdate
-            
-            filters = {
-                'min_price': price_range[0],
-                'max_price': price_range[1],
-                'min_surface': surface_range[0],
-                'max_surface': surface_range[1],
-                'min_quality': quality,
-                'city': city,
-                'property_type': prop_type,
-                'sentiment': sentiment,
-                'source': 'all'  # À adapter si filtre source ajouté
-            }
-            
-            # Supprimer les filtres None
-            filters = {k: v for k, v in filters.items() if v is not None and v != 'all'}
-            
-            data = self.get_filtered_data(filters)
-            return data, 'loading-overlay show'
+        def apply_filters_and_load(n_clicks, cities, properties, price_range):
+            """Appliquer filtres et charger les données"""
+            try:
+                filters = {
+                    'cities': cities or [],
+                    'properties': properties or [],
+                    'min_price': price_range[0],
+                    'max_price': price_range[1]
+                }
+                
+                data = self.get_enriched_data(filters)
+                
+                notification = dmc.Notification(
+                    title="✅ Filtres appliqués",
+                    message=f"{len(data)} propriétés chargées",
+                    color="green",
+                    autoClose=3000
+                )
+                
+                return data, notification
+                
+            except Exception as e:
+                error_notification = dmc.Notification(
+                    title="❌ Erreur",
+                    message=str(e),
+                    color="red",
+                    autoClose=5000
+                )
+                return [], error_notification
         
-        # Calculer KPIs
         @callback(
-            Output('kpi-cards', 'children'),
-            Output('opportunities-panel', 'children'),
-            Input('data-store', 'data'),
-            prevent_initial_call=True
+            Output('kpi-grid', 'children'),
+            Input('data-store', 'data')
         )
         def update_kpis(data):
+            """Mettre à jour les KPIs"""
             if not data:
-                return [], html.Div('Aucune donnée')
+                return []
             
-            kpis = self.calculate_advanced_kpis(data)
+            kpis = self.calculate_ultra_kpis(data)
             
-            # Créer les cartes KPI
-            kpi_cards = [
-                self.create_premium_kpi_card(
-                    'Propriétés', f"{kpis['count']:,}",
-                    'fa-database', '#667eea', 0
-                ),
-                self.create_premium_kpi_card(
-                    'Prix Moyen', f"{kpis['avg_price']:,.0f} FCFA",
-                    'fa-coins', '#28a745', 0
-                ),
-                self.create_premium_kpi_card(
-                    'Prix/m²', f"{kpis['avg_price_per_m2']:,.0f}",
-                    'fa-ruler-combined', '#ff6b6b', 0
-                ),
-                self.create_premium_kpi_card(
-                    'Qualité', f"{kpis['quality_score']:.0f}/100",
-                    'fa-shield-alt', '#4ecdc4', 0
-                )
+            cards = [
+                self.create_kpi_card_gradient("🏠 Total", f"{kpis.get('count', 0):,}", "mdi:home", self.COLORS['primary']),
+                self.create_kpi_card_gradient("💰 Prix Moyen", f"{kpis.get('avg_price', 0):,.0f} FCFA", "mdi:currency-usd", self.COLORS['success']),
+                self.create_kpi_card_gradient("📊 Prix/m²", f"{kpis.get('avg_price_per_m2', 0):,.0f}", "mdi:ruler-square", self.COLORS['info']),
+                self.create_kpi_card_gradient("⭐ Qualité", f"{kpis.get('avg_quality', 0):.0f}/100", "mdi:shield-check", self.COLORS['warning']),
+                self.create_kpi_card_gradient("😊 Sentiment", f"{kpis.get('avg_sentiment', 0):.2f}", "mdi:emoticon-happy", self.COLORS['purple']),
+                self.create_kpi_card_gradient("⚠️ Anomalies", f"{kpis.get('anomaly_count', 0)}", "mdi:alert", self.COLORS['danger']),
             ]
             
-            # Panel opportunités
-            opportunities_html = html.Div([
-                html.H4('🎯 Top Opportunités', className='opportunities-title'),
-                html.Div([
-                    html.Div([
-                        html.Strong(opp['title'][:30] + '...'),
-                        html.Br(),
-                        html.Span(f"{opp['price']:,.0f} FCFA"),
-                        html.Span(f" | Score: {opp['quality_score']:.0f}"),
-                        html.Span(f" | {opp['city']}")
-                    ], className='opportunity-item') for opp in kpis['opportunities']
-                ], className='opportunities-list')
-            ], className='opportunities-panel') if kpis['opportunities'] else html.Div()
-            
-            return kpi_cards, opportunities_html
+            return cards
         
-        # Mettre à jour les graphiques
-        @callback(
-            Output('violin-plot', 'figure'),
-            Output('correlation-heatmap', 'figure'),
-            Output('radar-chart', 'figure'),
-            Output('treemap-chart', 'figure'),
-            Output('parallel-coordinates', 'figure'),
-            Output('loading-overlay', 'className', allow_duplicate=True),
-            Input('data-store', 'data'),
-            prevent_initial_call=True
-        )
-        def update_charts(data):
-            if not data:
-                figures = [go.Figure()] * 5
-                return *figures, 'loading-overlay'
-            
-            return (
-                self.create_price_violin_plot(data),
-                self.get_price_correlation_heatmap(data),
-                self.create_radar_chart(data),
-                self.create_treemap_advanced(data),
-                self.create_parallel_coordinates(data),
-                'loading-overlay'
+        # Callbacks pour tous les graphiques
+        graph_callbacks = [
+            ('graph-ridge', self.create_superposed_violin_ridgeplot),
+            ('graph-3d-surface', self.create_stacked_3d_surface),
+            ('graph-heatmap', self.create_multi_layer_heatmap),
+            ('graph-stacked-area', self.create_stacked_area_trends),
+            ('graph-parallel', self.create_parallel_coords_advanced),
+            ('graph-treemap-sunburst', self.create_treemap_sunburst_combo),
+            ('graph-bubble-4d', self.create_bubble_matrix_4d),
+            ('graph-clustering-3d', self.create_clustering_3d),
+            ('graph-animation', self.create_animation_timeseries),
+            ('graph-dual-axis', self.create_dual_axis_advanced),
+            ('graph-candlestick', self.create_candlestick_advanced),
+            ('graph-polar', self.create_polar_scatter_multi),
+            ('graph-funnel', self.create_funnel_advanced),
+            ('graph-waterfall', self.create_waterfall_advanced),
+        ]
+        
+        for graph_id, func in graph_callbacks:
+            @callback(
+                Output(graph_id, 'children'),
+                Input('data-store', 'data')
             )
+            def update_graph(data, func=func):
+                if not data:
+                    return dcc.Graph(figure=go.Figure(), config={'displayModeBar': False})
+                
+                fig = func(data)
+                return dcc.Graph(figure=fig, config={'displayModeBar': True, 'displaylogo': False})
         
-        # Mettre à jour la table
         @callback(
-            Output('data-table-container', 'children'),
-            Output('table-row-count', 'children'),
-            Input('data-store', 'data'),
-            Input('columns-selector', 'value')
+            Output('detailed-table', 'data'),
+            Output('detailed-table', 'columns'),
+            Input('data-store', 'data')
         )
-        def update_table(data, selected_columns):
+        def update_table(data):
+            """Mettre à jour le tableau détaillé"""
             if not data:
-                return "Aucune donnée", 0
-            
-            # Filtrer les colonnes
-            df = pd.DataFrame(data)
-            df_filtered = df[selected_columns] if selected_columns else df
-            
-            table = self.create_enhanced_table(df_filtered.to_dict('records'))
-            return table, len(df_filtered)
-        
-        # Sauvegarder les filtres
-        @callback(
-            Output('filters-store', 'data'),
-            Input('apply-filters-btn', 'n_clicks'),
-            State('filter-city', 'value'),
-            State('filter-property-type', 'value'),
-            State('price-range', 'value'),
-            State('quality-threshold', 'value'),
-            prevent_initial_call=True
-        )
-        def save_filters(n_clicks, city, prop_type, price_range, quality):
-            if not n_clicks:
-                raise dash.exceptions.PreventUpdate
-            
-            filters = {
-                'city': city,
-                'property_type': prop_type,
-                'price_range': price_range,
-                'quality_threshold': quality,
-                'saved_at': datetime.utcnow().isoformat()
-            }
-            
-            return filters
-        
-        # Exporter les données
-        @callback(
-            Output('export-notification', 'children'),
-            Input('export-btn', 'n_clicks'),
-            State('data-store', 'data'),
-            State('columns-selector', 'value'),
-            prevent_initial_call=True
-        )
-        def export_data(n_clicks, data, columns):
-            if not n_clicks or not data:
-                raise dash.exceptions.PreventUpdate
+                return [], []
             
             df = pd.DataFrame(data)
-            if columns:
-                df = df[columns]
+            columns = [{"name": col, "id": col} for col in df.columns]
             
-            # Générer CSV
-            csv_string = df.to_csv(index=False, encoding='utf-8')
-            b64 = base64.b64encode(csv_string.encode()).decode()
-            
-            # Créer notification avec lien de téléchargement
-            return dmc.Notification(
-                title="Export prêt",
-                message="Votre fichier CSV est prêt à être téléchargé",
-                color="green",
-                autoClose=5000,
-                action=html.A(
-                    "Télécharger",
-                    href=f"data:text/csv;base64,{b64}",
-                    download="immo_analytics_export.csv",
-                    className="export-link"
-                )
-            )
+            return df.to_dict('records'), columns
 
-# Factory function
-def create_premium_analytics_dashboard(server=None, routes_pathname_prefix="/", requests_pathname_prefix="/"):
-    dashboard = AnalyticsDashboard(
+# ========================================================
+#                    FACTORY FUNCTION
+# ========================================================
+
+def create_ultra_dashboard(server=None, routes_pathname_prefix="/", requests_pathname_prefix="/"):
+    dashboard = UltraAdvancedAnalyticsDashboard(
         server=server,
         routes_pathname_prefix=routes_pathname_prefix,
         requests_pathname_prefix=requests_pathname_prefix
