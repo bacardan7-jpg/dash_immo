@@ -55,7 +55,7 @@ except:
 # Enregistrer les blueprints
 app.register_blueprint(auth_bp, url_prefix='/auth')
 
-# Import dashboard creation functions
+# Import dashboard creation functionss
 from .dashboards.modern_main_dashboard import  create_observatoire_dashboard
 from .dashboards.analytics_dashboard import   create_ultra_dashboard
 from .dashboards.map_dashboard import PremiumMapDashboard
