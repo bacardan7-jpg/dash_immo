@@ -655,14 +655,14 @@ class ObservatoireModern:
             ),
             text=dist.values,
             textposition='outside',
-            textfont=dict(size=14, weight=700, color=self.COLORS['text_primary']),
+            textfont=dict(size=14, family='Outfit, sans-serif', color=self.COLORS['text_primary']),
             hovertemplate='<b>%{x}</b><br>Annonces: %{y}<br><extra></extra>'
         ))
         
         fig.update_layout(
             title=dict(
                 text='📊 Distribution des Types de Biens',
-                font=dict(size=20, weight=700, color=self.COLORS['text_primary']),
+                font=dict(size=20, family="Outfit, sans-serif", color=self.COLORS['text_primary']),
                 x=0,
                 xanchor='left'
             ),
@@ -675,14 +675,14 @@ class ObservatoireModern:
                 showline=True,
                 linewidth=2,
                 linecolor=self.COLORS['border'],
-                tickfont=dict(size=12, weight=600, color=self.COLORS['text_secondary'])
+                tickfont=dict(size=12, family="Outfit, sans-serif", color=self.COLORS['text_secondary'])
             ),
             yaxis=dict(
                 showgrid=True,
                 gridwidth=1,
                 gridcolor=self.COLORS['border'],
                 showline=False,
-                tickfont=dict(size=12, weight=600, color=self.COLORS['text_secondary'])
+                tickfont=dict(size=12, family="Outfit, sans-serif", color=self.COLORS['text_secondary'])
             ),
             hoverlabel=dict(
                 bgcolor="white",
@@ -728,7 +728,7 @@ class ObservatoireModern:
         fig.update_layout(
             title=dict(
                 text='💰 Distribution des Prix',
-                font=dict(size=20, weight=700, color=self.COLORS['text_primary']),
+                font=dict(size=20, family="Outfit, sans-serif", color=self.COLORS['text_primary']),
                 x=0,
                 xanchor='left'
             ),
@@ -741,14 +741,14 @@ class ObservatoireModern:
                 showgrid=True,
                 gridwidth=1,
                 gridcolor=self.COLORS['border'],
-                tickfont=dict(size=12, weight=600, color=self.COLORS['text_secondary'])
+                tickfont=dict(size=12, family="Outfit, sans-serif", color=self.COLORS['text_secondary'])
             ),
             yaxis=dict(
                 title='Nombre d\'annonces',
                 showgrid=True,
                 gridwidth=1,
                 gridcolor=self.COLORS['border'],
-                tickfont=dict(size=12, weight=600, color=self.COLORS['text_secondary'])
+                tickfont=dict(size=12, family="Outfit, sans-serif", color=self.COLORS['text_secondary'])
             ),
             hoverlabel=dict(
                 bgcolor="white",
@@ -784,14 +784,14 @@ class ObservatoireModern:
             ),
             text=[f"{self.format_number(v)} FCFA" for v in city_stats['median']],
             textposition='outside',
-            textfont=dict(size=12, weight=700, color=self.COLORS['text_primary']),
+            textfont=dict(size=12, family="Outfit, sans-serif", color=self.COLORS['text_primary']),
             hovertemplate='<b>%{y}</b><br>Prix médian: %{x:,.0f} FCFA<extra></extra>'
         ))
         
         fig.update_layout(
             title=dict(
                 text='🏙️ Top 10 Villes - Prix Médians',
-                font=dict(size=20, weight=700, color=self.COLORS['text_primary']),
+                font=dict(size=20, family="Outfit, sans-serif", color=self.COLORS['text_primary']),
                 x=0,
                 xanchor='left'
             ),
@@ -803,12 +803,12 @@ class ObservatoireModern:
                 showgrid=True,
                 gridwidth=1,
                 gridcolor=self.COLORS['border'],
-                tickfont=dict(size=12, weight=600, color=self.COLORS['text_secondary'])
+                tickfont=dict(size=12, family="Outfit, sans-serif", color=self.COLORS['text_secondary'])
             ),
             yaxis=dict(
                 showgrid=False,
                 showline=False,
-                tickfont=dict(size=12, weight=600, color=self.COLORS['text_secondary'])
+                tickfont=dict(size=12, family="Outfit, sans-serif", color=self.COLORS['text_secondary'])
             ),
             hoverlabel=dict(
                 bgcolor="white",
@@ -845,7 +845,7 @@ class ObservatoireModern:
             ),
             text=[f"{self.format_number(v)} FCFA/m²" for v in stats['median']],
             textposition='outside',
-            textfont=dict(size=12, weight=700)
+            textfont=dict(size=12, family="Outfit, sans-serif")
         ))
         
         fig.add_trace(go.Bar(
@@ -859,13 +859,13 @@ class ObservatoireModern:
             ),
             text=[f"{self.format_number(v)}" for v in stats['mean']],
             textposition='outside',
-            textfont=dict(size=11, weight=600)
+            textfont=dict(size=11, family="Outfit, sans-serif")
         ))
         
         fig.update_layout(
             title=dict(
                 text='📐 Prix au m² par Type',
-                font=dict(size=20, weight=700, color=self.COLORS['text_primary']),
+                font=dict(size=20, family="Outfit, sans-serif", color=self.COLORS['text_primary']),
                 x=0,
                 xanchor='left'
             ),
@@ -879,13 +879,13 @@ class ObservatoireModern:
                 showline=True,
                 linewidth=2,
                 linecolor=self.COLORS['border'],
-                tickfont=dict(size=12, weight=600, color=self.COLORS['text_secondary'])
+                tickfont=dict(size=12, family="Outfit, sans-serif", color=self.COLORS['text_secondary'])
             ),
             yaxis=dict(
                 showgrid=True,
                 gridwidth=1,
                 gridcolor=self.COLORS['border'],
-                tickfont=dict(size=12, weight=600, color=self.COLORS['text_secondary'])
+                tickfont=dict(size=12, family="Outfit, sans-serif", color=self.COLORS['text_secondary'])
             ),
             legend=dict(
                 orientation='h',
@@ -893,7 +893,7 @@ class ObservatoireModern:
                 y=1.02,
                 xanchor='right',
                 x=1,
-                font=dict(size=12, weight=600)
+                font=dict(size=12, family="Outfit, sans-serif")
             ),
             hoverlabel=dict(
                 bgcolor="white",
@@ -949,7 +949,7 @@ class ObservatoireModern:
         fig.update_layout(
             title=dict(
                 text='📈 Relation Prix - Surface',
-                font=dict(size=20, weight=700, color=self.COLORS['text_primary']),
+                font=dict(size=20, family="Outfit, sans-serif", color=self.COLORS['text_primary']),
                 x=0,
                 xanchor='left'
             ),
@@ -962,14 +962,14 @@ class ObservatoireModern:
                 showgrid=True,
                 gridwidth=1,
                 gridcolor=self.COLORS['border'],
-                tickfont=dict(size=12, weight=600, color=self.COLORS['text_secondary'])
+                tickfont=dict(size=12, family="Outfit, sans-serif", color=self.COLORS['text_secondary'])
             ),
             yaxis=dict(
                 title='Prix (FCFA)',
                 showgrid=True,
                 gridwidth=1,
                 gridcolor=self.COLORS['border'],
-                tickfont=dict(size=12, weight=600, color=self.COLORS['text_secondary'])
+                tickfont=dict(size=12, family="Outfit, sans-serif", color=self.COLORS['text_secondary'])
             ),
             legend=dict(
                 orientation='v',
@@ -980,7 +980,7 @@ class ObservatoireModern:
                 bgcolor='rgba(255,255,255,0.9)',
                 bordercolor=self.COLORS['border'],
                 borderwidth=1,
-                font=dict(size=11, weight=600)
+                font=dict(size=11, family="Outfit, sans-serif")
             ),
             hoverlabel=dict(
                 bgcolor="white",
