@@ -22,4 +22,4 @@ textblob==0.17.1
 gunicorn==21.2.0
 Werkzeug==2.3.7
 scipy
-sckit-learn
+scikit-learn
