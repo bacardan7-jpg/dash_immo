@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
-from ..database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty, ProprietesConsolidees
+from ..database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty 
 
 class PremiumMapDashboard:
     """Dashboard cartographique premium avec clusters et heatmap"""
@@ -37,14 +37,14 @@ class PremiumMapDashboard:
             
             # Scores par ville
             city_stats = db.session.query(
-                ProprietesConsolidees.city,
-                db.func.count(ProprietesConsolidees.id),
-                db.func.avg(ProprietesConsolidees.price),
-                db.func.stddev(ProprietesConsolidees.price)
+                LogerDakarProperty.city,
+                db.func.count(LogerDakarProperty.id),
+                db.func.avg(LogerDakarProperty.price),
+                db.func.stddev(LogerDakarProperty.price)
             ).filter(
-                ProprietesConsolidees.city.isnot(None),
-                ProprietesConsolidees.price > 1000,
-            ).group_by(ProprietesConsolidees.city).all()
+                LogerDakarProperty.city.isnot(None),
+                LogerDakarProperty.price > 1000,
+            ).group_by(LogerDakarProperty.city).all()
             
             for city, count, avg, std in city_stats:
                 score = min(100, (count / 50) * 20 + (avg / 1000000) * 30)
@@ -378,11 +378,11 @@ class PremiumMapDashboard:
         def generate_city_analysis(self, city):
             """Générer l'analyse détaillée d'une ville"""
             stats = db.session.query(
-                db.func.count(ProprietesConsolidees.id),
-                db.func.avg(ProprietesConsolidees.price),
-                db.func.stddev(ProprietesConsolidees.price),
-                db.func.avg(ProprietesConsolidees.surface_area)
-            ).filter(ProprietesConsolidees.city == city).first()
+                db.func.count(LogerDakarProperty.id),
+                db.func.avg(LogerDakarProperty.price),
+                db.func.stddev(LogerDakarProperty.price),
+                db.func.avg(LogerDakarProperty.surface_area)
+            ).filter(LogerDakarProperty.city == city).first()
             
             return html.Div([
                 html.H4(f'Analyse {city}', className='city-title'),

@@ -9,7 +9,7 @@ from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
-from ..database.models import db, loger_dakar_properties,  User, DashboardConfig
+from ..database.models import db, LogerDakarProperty,  User, DashboardConfig
 from ..auth.decorators import analyst_required
 import json
 import io
@@ -42,18 +42,18 @@ class AnalyticsDashboard:
     #                       OPTIONS & FILTRAGE
     # =================================================================
     def get_filter_options(self):
-        """Récupérer les options de filtrage depuis loger_dakar_properties"""
+        """Récupérer les options de filtrage depuis LogerDakarProperty"""
         try:
             # Utilisation de la table consolidée pour meilleur performance
             query = db.session.query(
-                loger_dakar_properties.city,
-                loger_dakar_properties.property_type,
-                loger_dakar_properties.source
+                LogerDakarProperty.city,
+                LogerDakarProperty.property_type,
+                LogerDakarProperty.source
             ).distinct()
             
-            cities = sorted([r.city for r in query.filter(loger_dakar_properties.city.isnot(None)).all() if r.city])
-            property_types = sorted([r.property_type for r in query.filter(loger_dakar_properties.property_type.isnot(None)).all() if r.property_type])
-            sources = sorted([r.source for r in query.filter(loger_dakar_properties.source.isnot(None)).all() if r.source])
+            cities = sorted([r.city for r in query.filter(LogerDakarProperty.city.isnot(None)).all() if r.city])
+            property_types = sorted([r.property_type for r in query.filter(LogerDakarProperty.property_type.isnot(None)).all() if r.property_type])
+            sources = sorted([r.source for r in query.filter(LogerDakarProperty.source.isnot(None)).all() if r.source])
             
             return {
                 "cities": cities,
@@ -72,43 +72,43 @@ class AnalyticsDashboard:
             return self._data_cache[cache_key]
         
         try:
-            query = db.session.query(loger_dakar_properties)
+            query = db.session.query(LogerDakarProperty)
             
             if filters:
                 if filters.get('city') and filters['city'] != 'all':
-                    query = query.filter(loger_dakar_properties.city == filters['city'])
+                    query = query.filter(LogerDakarProperty.city == filters['city'])
                 
                 if filters.get('property_type') and filters['property_type'] != 'all':
-                    query = query.filter(loger_dakar_properties.property_type == filters['property_type'])
+                    query = query.filter(LogerDakarProperty.property_type == filters['property_type'])
                 
                 if filters.get('source') and filters['source'] != 'all':
-                    query = query.filter(loger_dakar_properties.source == filters['source'])
+                    query = query.filter(LogerDakarProperty.source == filters['source'])
                 
                 if filters.get('bedrooms') and filters['bedrooms'] != 'all':
-                    query = query.filter(loger_dakar_properties.bedrooms == int(filters['bedrooms']))
+                    query = query.filter(LogerDakarProperty.bedrooms == int(filters['bedrooms']))
                 
                 # Filtres numériques
                 if filters.get('min_price'):
-                    query = query.filter(loger_dakar_properties.price >= filters['min_price'])
+                    query = query.filter(LogerDakarProperty.price >= filters['min_price'])
                 if filters.get('max_price'):
-                    query = query.filter(loger_dakar_properties.price <= filters['max_price'])
+                    query = query.filter(LogerDakarProperty.price <= filters['max_price'])
                 
                 if filters.get('min_surface'):
-                    query = query.filter(loger_dakar_properties.surface_area >= filters['min_surface'])
+                    query = query.filter(LogerDakarProperty.surface_area >= filters['min_surface'])
                 if filters.get('max_surface'):
-                    query = query.filter(loger_dakar_properties.surface_area <= filters['max_surface'])
+                    query = query.filter(LogerDakarProperty.surface_area <= filters['max_surface'])
                 
                 # Filtres avancés
                 if filters.get('min_quality'):
-                    query = query.filter(loger_dakar_properties.quality_score >= filters['min_quality'])
+                    query = query.filter(LogerDakarProperty.quality_score >= filters['min_quality'])
                 
                 if filters.get('sentiment') and filters['sentiment'] != 'all':
                     if filters['sentiment'] == 'positive':
-                        query = query.filter(loger_dakar_properties.description_sentiment > 0.2)
+                        query = query.filter(LogerDakarProperty.description_sentiment > 0.2)
                     elif filters['sentiment'] == 'negative':
-                        query = query.filter(loger_dakar_properties.description_sentiment < -0.2)
+                        query = query.filter(LogerDakarProperty.description_sentiment < -0.2)
                     else:
-                        query = query.filter(loger_dakar_properties.description_sentiment.between(-0.2, 0.2))
+                        query = query.filter(LogerDakarProperty.description_sentiment.between(-0.2, 0.2))
             
             # Optimisation: ne charger que les colonnes nécessaires
             data = query.limit(limit).all()
