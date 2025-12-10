@@ -34,6 +34,9 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 }
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key-tres-securise')
 
+from flask_cors import CORS
+CORS(app)
+
 # Initialiser la base de données
 db.init_app(app)
 
