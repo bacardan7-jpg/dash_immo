@@ -414,6 +414,3 @@ def create_premium_map_dashboard(server=None, routes_pathname_prefix="/", reques
         requests_pathname_prefix=requests_pathname_prefix
     )
     return dashboard.app
-
-# Backwards-compatible alias: existing code expects `MapDashboard` class
-MapDashboard = PremiumMapDashboard

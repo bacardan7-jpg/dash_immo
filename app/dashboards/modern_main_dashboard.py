@@ -87,7 +87,7 @@ class ObservatoireComplet:
                         model.scraped_at
                     ).filter(
                         model.price.isnot(None),
-                        model.price > 0,
+                        model.price > 10000,
                         model.price < 1e10
                     )
                     

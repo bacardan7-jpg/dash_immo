@@ -287,10 +287,6 @@ def create_tables():
         # Order matters for FK dependencies: create users first, then tables that reference it
         tables_to_create = [
             (User, 'users'),
-            (DashboardConfig, 'dashboard_configs'),
-            (AuditLog, 'audit_logs'),
-            (ProprietesConsolidees, 'proprietes_consolidees'),
-            (MarketIndex, 'market_indices')
         ]
 
         for model, name in tables_to_create:
