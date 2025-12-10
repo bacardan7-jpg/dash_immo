@@ -684,26 +684,6 @@ class ObservatoireComplet:
                 # Section 0: KPI Header
                 html.Div(id='kpi-header', style={'marginBottom': '32px'}),
                 
-                # Note méthodologique
-                html.Div([
-                    html.H2("📋 Règles Méthodologiques", 
-                           style={'color': self.COLORS['primary'], 'marginBottom': '16px', 'fontSize': '20px'}),
-                    html.Ul([
-                        html.Li("✓ Tous les indicateurs sont segmentés par type de logement"),
-                        html.Li("✓ Les prix globaux tous biens confondus ne sont pas affichés"),
-                        html.Li("✓ Données issues d'annonces observées sur le marché"),
-                        html.Li("✓ Analyse descriptive uniquement - pas de prédiction"),
-                        html.Li("✓ Médiane privilégiée pour éviter l'influence des valeurs extrêmes"),
-                        html.Li("✓ Quartiles (P25, P75) utilisés pour mesurer la dispersion"),
-                        html.Li("✓ Zones avec moins de 3 annonces exclues de l'analyse territoriale"),
-                    ], style={'fontSize': '14px', 'lineHeight': '1.8', 'color': '#374151'})
-                ], style={
-                    'background': '#FEF3C7',
-                    'padding': '24px',
-                    'borderRadius': '12px',
-                    'border': '2px solid #F59E0B',
-                    'marginBottom': '32px'
-                }),
                 
                 # Section 1: Structure de l'offre
                 html.Div(id='section-1', style={'marginBottom': '32px'}),
