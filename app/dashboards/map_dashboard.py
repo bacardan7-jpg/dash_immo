@@ -43,7 +43,7 @@ class PremiumMapDashboard:
                 db.func.stddev(ProprietesConsolidees.price)
             ).filter(
                 ProprietesConsolidees.city.isnot(None),
-                ProprietesConsolidees.price > 0
+                ProprietesConsolidees.price > 1000,
             ).group_by(ProprietesConsolidees.city).all()
             
             for city, count, avg, std in city_stats:

@@ -655,7 +655,7 @@ class AnalyticsDashboard:
         # Appliquer filtres avec debouncing
         @callback(
             Output('data-store', 'data'),
-            Output('loading-overlay', 'className'),
+            Output('loading-overlay', 'className', allow_duplicate=True),
             Input('apply-filters-btn', 'n_clicks'),
             Input('price-range', 'value'),
             Input('surface-range', 'value'),
@@ -743,7 +743,7 @@ class AnalyticsDashboard:
             Output('radar-chart', 'figure'),
             Output('treemap-chart', 'figure'),
             Output('parallel-coordinates', 'figure'),
-            Output('loading-overlay', 'className'),
+            Output('loading-overlay', 'className', allow_duplicate=True),
             Input('data-store', 'data'),
             prevent_initial_call=True
         )
