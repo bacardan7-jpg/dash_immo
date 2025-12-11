@@ -22,10 +22,10 @@ from app.components.dash_sidebar_component import create_sidebar_layout
 
 # Import sécurisé
 try:
-    from ..database.models import db,   ExpatDakarProperty, LogerDakarProperty
+    from ..database.models import db, CoinAfrigue, ExpatDakarProperty, LogerDakarProperty
 except ImportError:
     try:
-        from database.models import db,   ExpatDakarProperty, LogerDakarProperty
+        from database.models import db, CoinAfrigue, ExpatDakarProperty, LogerDakarProperty
     except ImportError:
         db = CoinAfrigue = ExpatDakarProperty = LogerDakarProperty = None
 
@@ -73,12 +73,12 @@ class EnhancedMainDashboard:
     
     def safe_import_models(self):
         try:
-            from app.database.models import db,   ExpatDakarProperty, LogerDakarProperty
-            return db,   ExpatDakarProperty, LogerDakarProperty
+            from app.database.models import db, CoinAfrigue, ExpatDakarProperty, LogerDakarProperty
+            return db, CoinAfrigue, ExpatDakarProperty, LogerDakarProperty
         except ImportError:
             try:
-                from database.models import db,   ExpatDakarProperty, LogerDakarProperty
-                return db,   ExpatDakarProperty, LogerDakarProperty
+                from database.models import db, CoinAfrigue, ExpatDakarProperty, LogerDakarProperty
+                return db, CoinAfrigue, ExpatDakarProperty, LogerDakarProperty
             except Exception as e:
                 print(f"❌ Erreur import models: {e}")
                 return None, None, None, None
@@ -86,13 +86,13 @@ class EnhancedMainDashboard:
     def safe_get_data(self, property_type=None, city=None, status='Tous', limit=1500):
         """Récupération sécurisée avec filtres"""
         try:
-            db,   ExpatDakarProperty, LogerDakarProperty = self.safe_import_models()
+            db, CoinAfrigue, ExpatDakarProperty, LogerDakarProperty = self.safe_import_models()
             if not db:
                 return pd.DataFrame()
             
             all_data = []
             
-            for model in [  ExpatDakarProperty, LogerDakarProperty]:
+            for model in [CoinAfrigue, ExpatDakarProperty, LogerDakarProperty]:
                 try:
                     query = db.session.query(
                         model.city, model.property_type, model.price,
@@ -499,6 +499,72 @@ class EnhancedMainDashboard:
         fig.update_layout(height=300, plot_bgcolor='white', paper_bgcolor='white')
         return fig
     
+    # ==================== UI COMPONENTS ====================
+    
+    def adjust_color_brightness(self, hex_color, percent):
+        """Ajuster la luminosité d'une couleur"""
+        try:
+            hex_color = hex_color.lstrip('#')
+            r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+            r = max(0, min(255, r + int(r * percent / 100)))
+            g = max(0, min(255, g + int(g * percent / 100)))
+            b = max(0, min(255, b + int(b * percent / 100)))
+            return f'#{r:02x}{g:02x}{b:02x}'
+        except:
+            return hex_color
+    
+    def format_number(self, num):
+        """Formater un nombre avec espaces"""
+        if num == 0:
+            return "0"
+        if num >= 1_000_000:
+            return f"{num/1_000_000:.1f}M"
+        if num >= 1_000:
+            return f"{num/1_000:.0f}K"
+        return f"{int(num):,}".replace(',', ' ')
+    
+    # 🔴 **MÉTHODE MANQUANTE - À AJOUTER**
+    def create_kpi_card(self, icon, title, value, color, suffix="", trend=None):
+        """Carte KPI moderne avec design cohérent"""
+        trend_element = html.Div([
+            DashIconify(
+                icon="mdi:trending-up" if trend and trend > 0 else "mdi:trending-down",
+                width=16, color=self.COLORS['success'] if trend and trend > 0 else self.COLORS['danger']
+            ),
+            html.Span(
+                f"+{trend}%" if trend and trend > 0 else f"{trend}%",
+                style={
+                    'fontSize': '12px', 'fontWeight': '600',
+                    'color': self.COLORS['success'] if trend and trend > 0 else self.COLORS['danger'],
+                    'marginLeft': '4px'
+                }
+            )
+        ], style={'display': 'flex', 'alignItems': 'center'}) if trend is not None else None
+
+        return html.Div([
+            html.Div([DashIconify(icon=icon, width=28, color="white")],
+                style={
+                    'background': f'linear-gradient(135deg, {color}, {self.adjust_color_brightness(color, -20)})',
+                    'borderRadius': '16px', 'padding': '14px', 'display': 'flex',
+                    'alignItems': 'center', 'justifyContent': 'center',
+                    'boxShadow': f'0 8px 16px {color}30', 'marginBottom': '16px'
+                }
+            ),
+            html.Div(title, style={
+                'fontSize': '13px', 'fontWeight': '500',
+                'color': self.COLORS['text_secondary'], 'marginBottom': '8px'
+            }),
+            html.Div(f"{self.format_number(value)}{suffix}", style={
+                'fontSize': '26px', 'fontWeight': '700',
+                'color': self.COLORS['text_primary'], 'marginBottom': '8px'
+            }),
+            trend_element
+        ], style={
+            'background': 'white', 'borderRadius': '20px', 'padding': '24px',
+            'boxShadow': '0 4px 20px rgba(0,0,0,0.06)', 'border': f'1px solid {self.COLORS["border"]}',
+            'transition': 'all 0.3s ease', 'height': '100%'
+        })
+    
     # ==================== LAYOUT ====================
     
     def setup_layout(self):
@@ -731,7 +797,7 @@ class EnhancedMainDashboard:
                 return [styled_error] * 10  # 🔴 EXACTEMENT 10 valeurs
 
 
-def create_observatoire_dashboard(server=None, routes_pathname_prefix="/dashboard/", requests_pathname_prefix="/dashboard/"):
+def create_ultra_dashboard(server=None, routes_pathname_prefix="/dashboard/", requests_pathname_prefix="/dashboard/"):
     """Factory function"""
     dashboard = EnhancedMainDashboard(
         server=server,
