@@ -178,8 +178,8 @@ class PremiumMapDashboard:
             
             # Définir les sources à interroger
             models_to_query = []
-            if not sources or 'CoinAfrique' in sources:
-                models_to_query.append((CoinAfrique, 'CoinAfrique'))
+           # if not sources or 'CoinAfrique' in sources:
+           #     models_to_query.append((CoinAfrique, 'CoinAfrique'))
             if not sources or 'ExpatDakar' in sources:
                 models_to_query.append((ExpatDakarProperty, 'ExpatDakar'))
             if not sources or 'LogerDakar' in sources:
