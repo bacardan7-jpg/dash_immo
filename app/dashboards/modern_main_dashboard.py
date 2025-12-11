@@ -22,10 +22,10 @@ from app.components.dash_sidebar_component import create_sidebar_layout
 
 # Import sécurisé
 try:
-    from ..database.models import db, CoinAfrigue, ExpatDakarProperty, LogerDakarProperty
+    from ..database.models import db,   ExpatDakarProperty, LogerDakarProperty
 except ImportError:
     try:
-        from database.models import db, CoinAfrigue, ExpatDakarProperty, LogerDakarProperty
+        from database.models import db,   ExpatDakarProperty, LogerDakarProperty
     except ImportError:
         db = CoinAfrigue = ExpatDakarProperty = LogerDakarProperty = None
 
@@ -73,12 +73,12 @@ class EnhancedMainDashboard:
     
     def safe_import_models(self):
         try:
-            from app.database.models import db, CoinAfrigue, ExpatDakarProperty, LogerDakarProperty
-            return db, CoinAfrigue, ExpatDakarProperty, LogerDakarProperty
+            from app.database.models import db,   ExpatDakarProperty, LogerDakarProperty
+            return db,   ExpatDakarProperty, LogerDakarProperty
         except ImportError:
             try:
-                from database.models import db, CoinAfrigue, ExpatDakarProperty, LogerDakarProperty
-                return db, CoinAfrigue, ExpatDakarProperty, LogerDakarProperty
+                from database.models import db,   ExpatDakarProperty, LogerDakarProperty
+                return db,   ExpatDakarProperty, LogerDakarProperty
             except Exception as e:
                 print(f"❌ Erreur import models: {e}")
                 return None, None, None, None
@@ -86,13 +86,13 @@ class EnhancedMainDashboard:
     def safe_get_data(self, property_type=None, city=None, status='Tous', limit=1500):
         """Récupération sécurisée avec filtres"""
         try:
-            db, CoinAfrigue, ExpatDakarProperty, LogerDakarProperty = self.safe_import_models()
+            db,   ExpatDakarProperty, LogerDakarProperty = self.safe_import_models()
             if not db:
                 return pd.DataFrame()
             
             all_data = []
             
-            for model in [CoinAfrigue, ExpatDakarProperty, LogerDakarProperty]:
+            for model in [  ExpatDakarProperty, LogerDakarProperty]:
                 try:
                     query = db.session.query(
                         model.city, model.property_type, model.price,
