@@ -24,6 +24,267 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modern-ui.css') }}">
     
+    <style>
+        /* Enhanced Sidebar Styles */
+        .glass-sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 280px;
+            height: 100vh;
+            background: linear-gradient(180deg, 
+                rgba(15, 12, 41, 0.98) 0%, 
+                rgba(48, 43, 99, 0.98) 50%, 
+                rgba(36, 36, 62, 0.98) 100%
+            );
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
+            overflow-y: auto;
+            z-index: 1000;
+            padding-top: 2rem;
+            transition: transform 0.3s ease;
+        }
+        
+        .glass-sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .glass-sidebar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .glass-sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+        
+        /* Sidebar Header */
+        .sidebar-header {
+            padding: 0 1.5rem 1.5rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .sidebar-logo {
+            font-size: 2.5rem;
+            color: #ffd700;
+            filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.5));
+            margin-bottom: 0.5rem;
+        }
+        
+        .sidebar-title {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: linear-gradient(45deg, #ffd700, #ffed4e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 0;
+        }
+        
+        /* User Info Card */
+        .sidebar-user-card {
+            margin: 1.5rem;
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            text-align: center;
+        }
+        
+        .sidebar-avatar {
+            width: 70px;
+            height: 70px;
+            margin: 0 auto 1rem;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: 800;
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .sidebar-username {
+            color: white;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .sidebar-role-badge {
+            display: inline-block;
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .role-admin {
+            background: rgba(220, 53, 69, 0.2);
+            color: #dc3545;
+            border: 1px solid rgba(220, 53, 69, 0.3);
+        }
+        
+        .role-analyst {
+            background: rgba(13, 110, 253, 0.2);
+            color: #0d6efd;
+            border: 1px solid rgba(13, 110, 253, 0.3);
+        }
+        
+        .role-viewer {
+            background: rgba(25, 135, 84, 0.2);
+            color: #198754;
+            border: 1px solid rgba(25, 135, 84, 0.3);
+        }
+        
+        /* Sidebar Navigation */
+        .sidebar-nav {
+            padding: 0 1rem 2rem;
+        }
+        
+        .sidebar-section-title {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 1rem 0.5rem 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .sidebar-links {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .sidebar-links .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.875rem 1rem;
+            color: rgba(255, 255, 255, 0.9);
+            text-decoration: none;
+            border-radius: 12px;
+            margin-bottom: 0.5rem;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .sidebar-links .nav-link i {
+            width: 20px;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+        
+        .sidebar-links .nav-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+            color: white;
+        }
+        
+        .sidebar-links .nav-link.active {
+            background: rgba(102, 126, 234, 0.2);
+            border-left: 3px solid #667eea;
+        }
+        
+        .nav-link-admin {
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+        
+        .nav-link-admin i {
+            color: #ffd700;
+        }
+        
+        .nav-link-danger {
+            color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+        }
+        
+        .nav-badge {
+            margin-left: auto;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+        
+        /* Main content with sidebar */
+        .has-sidebar {
+            margin-left: 280px;
+            min-height: 100vh;
+        }
+        
+        .no-sidebar {
+            margin-left: 0;
+        }
+        
+        /* Sidebar toggle for mobile */
+        .sidebar-toggle-mobile {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1001;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 12px;
+            width: 50px;
+            height: 50px;
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            cursor: pointer;
+            display: none;
+        }
+        
+        /* Responsive */
+        @media (max-width: 991px) {
+            .glass-sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .glass-sidebar.show {
+                transform: translateX(0);
+            }
+            
+            .has-sidebar {
+                margin-left: 0;
+            }
+            
+            .sidebar-toggle-mobile {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+        }
+        
+        /* Sidebar Footer */
+        .sidebar-footer {
+            padding: 1.5rem;
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: auto;
+        }
+        
+        .sidebar-footer p {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.85rem;
+            margin: 0;
+        }
+        
+        /* Divider */
+        .sidebar-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 1.5rem 0.5rem;
+        }
+    </style>
+    
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -38,176 +299,150 @@
         </div>
     </div>
     
-    <!-- Navigation principale -->
-    <nav class="glass-nav sticky-top" role="navigation" aria-label="Navigation principale">
-        <div class="container-fluid">
-            <div class="nav-wrapper">
-                <a class="nav-brand" href="{{ url_for('index') }}" aria-label="Accueil ImmoAnalytics">
-                    <i class="fas fa-home"></i>
-                    <span>ImmoAnalytics</span>
-                </a>
-                
-                <button class="nav-toggle" 
-                        type="button" 
-                        aria-label="Menu mobile"
-                        aria-expanded="false"
-                        aria-controls="navbarNav">
-                    <span class="hamburger"></span>
-                </button>
-                
-                <div class="nav-collapse" id="navbarNav">
-                    <ul class="nav-links">
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" 
-                               href="{{ url_for('index') }}">
-                                <i class="fas fa-tachometer-alt"></i>
-                                <span>Accueil</span>
-                            </a>
-                        </li>
-                        
-                        {% if current_user.is_authenticated %}
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" 
-                               href="{{ url_for('dashboard') }}">
-                                <i class="fas fa-chart-line"></i>
-                                <span>Dashboard</span>
-                            </a>
-                        </li>
-                        
-                        {% if current_user.is_analyst() %}
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'analytics' %}active{% endif %}" 
-                               href="{{ url_for('analytics') }}">
-                                <i class="fas fa-search"></i>
-                                <span>Analyse</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'map_view' %}active{% endif %}" 
-                               href="{{ url_for('map_view') }}">
-                                <i class="fas fa-map"></i>
-                                <span>Carte</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                        
-                        {% if current_user.is_admin() %}
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'admin' %}active{% endif %}" 
-                               href="{{ url_for('admin') }}">
-                                <i class="fas fa-cog"></i>
-                                <span>Admin</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                        {% endif %}
-                    </ul>
-                    
-                    <ul class="nav-actions">
-                        {% if current_user.is_authenticated %}
-                        <li class="nav-item dropdown">
-                            <button class="nav-user" 
-                                    data-bs-toggle="dropdown" 
-                                    aria-expanded="false"
-                                    aria-haspopup="true">
-                                <div class="avatar">
-                                    {{ current_user.username[:2].upper() }}
-                                </div>
-                                <span class="username">{{ current_user.username }}</span>
-                                <i class="fas fa-chevron-down"></i>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li>
-                                    <a class="dropdown-item" href="{{ url_for('auth.profile') }}">
-                                        <i class="fas fa-user-cog"></i>
-                                        <span>Mon profil</span>
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{{ url_for('auth.settings') }}">
-                                        <i class="fas fa-sliders-h"></i>
-                                        <span>Paramètres</span>
-                                    </a>
-                                </li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li>
-                                    <a class="dropdown-item" href="{{ url_for('auth.logout') }}">
-                                        <i class="fas fa-sign-out-alt"></i>
-                                        <span>Déconnexion</span>
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
-                        {% else %}
-                        <li class="nav-item">
-                            <a class="glass-button" href="{{ url_for('auth.login') }}">
-                                <i class="fas fa-sign-in-alt"></i>
-                                <span>Connexion</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                    </ul>
-                </div>
+    <!-- Mobile Sidebar Toggle -->
+    {% if current_user.is_authenticated %}
+    <button class="sidebar-toggle-mobile" id="sidebarToggleMobile" type="button">
+        <i class="fas fa-bars"></i>
+    </button>
+    {% endif %}
+    
+    <!-- Enhanced Sidebar -->
+    {% if current_user.is_authenticated %}
+    <aside class="glass-sidebar" id="mainSidebar" role="complementary" aria-label="Sidebar navigation">
+        <!-- Sidebar Header -->
+        <div class="sidebar-header">
+            <a href="{{ url_for('index') }}" style="text-decoration: none;">
+                <i class="fas fa-home sidebar-logo"></i>
+                <h3 class="sidebar-title">ImmoAnalytics</h3>
+            </a>
+        </div>
+        
+        <!-- User Info Card -->
+        <div class="sidebar-user-card">
+            <div class="sidebar-avatar">
+                {% if current_user.first_name and current_user.last_name %}
+                    {{ current_user.first_name[0] }}{{ current_user.last_name[0] }}
+                {% else %}
+                    {{ current_user.username[:2].upper() }}
+                {% endif %}
+            </div>
+            <h5 class="sidebar-username">
+                {% if current_user.first_name %}
+                    {{ current_user.first_name }} {{ current_user.last_name }}
+                {% else %}
+                    {{ current_user.username }}
+                {% endif %}
+            </h5>
+            <div class="sidebar-role-badge 
+                {% if current_user.is_admin() %}role-admin
+                {% elif current_user.is_analyst() %}role-analyst
+                {% else %}role-viewer{% endif %}">
+                {% if current_user.is_admin() %}
+                    <i class="fas fa-user-shield me-1"></i>Administrateur
+                {% elif current_user.is_analyst() %}
+                    <i class="fas fa-user-tie me-1"></i>Analyste
+                {% else %}
+                    <i class="fas fa-user me-1"></i>Viewer
+                {% endif %}
             </div>
         </div>
-    </nav>
-    
-    <!-- Sidebar -->
-    {% if current_user.is_authenticated %}
-    <aside class="glass-sidebar d-none d-lg-block" role="complementary" aria-label="Sidebar navigation">
+        
+        <!-- Navigation Menu -->
         <nav class="sidebar-nav">
             <ul class="sidebar-links">
+                <!-- Section: Dashboards (Admin + Analyst) -->
+                {% if user_capabilities.can_view_dashboard %}
+                <div class="sidebar-section-title">Tableaux de bord</div>
+                
                 <li class="nav-item">
                     <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" 
                        href="{{ url_for('dashboard') }}">
-                        <i class="fas fa-tachometer-alt"></i>
-                        <span>Tableau de bord</span>
+                        <i class="fas fa-chart-line"></i>
+                        <span>Dashboard Principal</span>
                     </a>
                 </li>
                 
-                {% if current_user.is_analyst() %}
                 <li class="nav-item">
                     <a class="nav-link {% if request.endpoint == 'analytics' %}active{% endif %}" 
                        href="{{ url_for('analytics') }}">
-                        <i class="fas fa-search"></i>
-                        <span>Explorateur</span>
+                        <i class="fas fa-chart-bar"></i>
+                        <span>Analytics Avancés</span>
                     </a>
                 </li>
+                
                 <li class="nav-item">
                     <a class="nav-link {% if request.endpoint == 'map_view' %}active{% endif %}" 
                        href="{{ url_for('map_view') }}">
                         <i class="fas fa-map-marked-alt"></i>
-                        <span>Carte</span>
+                        <span>Vue Cartographique</span>
                     </a>
                 </li>
                 {% endif %}
                 
-                {% if current_user.is_admin() %}
+                <!-- Section: Recherche (Tous) -->
+                <div class="sidebar-section-title">
+                    {% if user_capabilities.can_view_dashboard %}Recherche{% endif %}
+                </div>
+                
                 <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'admin' %}active{% endif %}" 
+                    <a class="nav-link {% if request.endpoint == 'viewer' %}active{% endif %}" 
+                       href="{{ url_for('viewer') }}">
+                        <i class="fas fa-search"></i>
+                        <span>Recherche IA</span>
+                        <span class="nav-badge">NEW</span>
+                    </a>
+                </li>
+                
+                <!-- Section: Administration (Admin only) -->
+                {% if user_capabilities.can_manage_users %}
+                <div class="sidebar-section-title">Administration</div>
+                
+                <li class="nav-item">
+                    <a class="nav-link nav-link-admin {% if request.endpoint == 'admin' %}active{% endif %}" 
                        href="{{ url_for('admin') }}">
-                        <i class="fas fa-cogs"></i>
-                        <span>Administration</span>
+                        <i class="fas fa-user-shield"></i>
+                        <span>Panneau Admin</span>
                     </a>
                 </li>
                 {% endif %}
+                
+                <!-- Divider -->
+                <div class="sidebar-divider"></div>
+                
+                <!-- Section: Mon Compte -->
+                <div class="sidebar-section-title">Mon Compte</div>
                 
                 <li class="nav-item">
                     <a class="nav-link {% if request.endpoint == 'auth.profile' %}active{% endif %}" 
                        href="{{ url_for('auth.profile') }}">
-                        <i class="fas fa-user"></i>
-                        <span>Mon profil</span>
+                        <i class="fas fa-user-circle"></i>
+                        <span>Mon Profil</span>
                     </a>
                 </li>
                 
-                <li class="nav-item mt-auto">
-                    <a class="nav-link text-danger" href="{{ url_for('auth.logout') }}">
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'auth.settings' %}active{% endif %}" 
+                       href="{{ url_for('auth.settings') }}">
+                        <i class="fas fa-cog"></i>
+                        <span>Paramètres</span>
+                    </a>
+                </li>
+                
+                <li class="nav-item">
+                    <a class="nav-link nav-link-danger" 
+                       href="{{ url_for('auth.logout') }}">
                         <i class="fas fa-sign-out-alt"></i>
                         <span>Déconnexion</span>
                     </a>
                 </li>
             </ul>
         </nav>
+        
+        <!-- Sidebar Footer -->
+        <div class="sidebar-footer">
+            <p>© 2024 ImmoAnalytics</p>
+            <p style="color: rgba(255, 255, 255, 0.3); font-size: 0.75rem;">v1.0.0</p>
+        </div>
     </aside>
     {% endif %}
     
@@ -251,6 +486,64 @@
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/animations.js') }}"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    <!-- Sidebar Toggle Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.getElementById('mainSidebar');
+            const toggleBtn = document.getElementById('sidebarToggleMobile');
+            
+            if (toggleBtn && sidebar) {
+                // Créer l'overlay
+                const overlay = document.createElement('div');
+                overlay.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.5);
+                    z-index: 999;
+                    display: none;
+                    opacity: 0;
+                    transition: opacity 0.3s ease;
+                `;
+                overlay.id = 'sidebarOverlay';
+                document.body.appendChild(overlay);
+                
+                function toggleSidebar() {
+                    sidebar.classList.toggle('show');
+                    if (sidebar.classList.contains('show')) {
+                        overlay.style.display = 'block';
+                        setTimeout(() => overlay.style.opacity = '1', 10);
+                    } else {
+                        overlay.style.opacity = '0';
+                        setTimeout(() => overlay.style.display = 'none', 300);
+                    }
+                }
+                
+                toggleBtn.addEventListener('click', toggleSidebar);
+                overlay.addEventListener('click', toggleSidebar);
+                
+                // Fermer sur Escape
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape' && sidebar.classList.contains('show')) {
+                        toggleSidebar();
+                    }
+                });
+                
+                // Fermer sur clic de lien (mobile)
+                const navLinks = sidebar.querySelectorAll('.nav-link');
+                navLinks.forEach(link => {
+                    link.addEventListener('click', function() {
+                        if (window.innerWidth < 992) {
+                            toggleSidebar();
+                        }
+                    });
+                });
+            }
+        });
+    </script>
     
     {% block extra_js %}{% endblock %}
 </body>
