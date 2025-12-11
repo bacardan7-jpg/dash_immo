@@ -7,6 +7,7 @@ Version: 2.0 - Fixed
 
 import dash
 from dash import html, dcc, Input, Output, State, callback, dash_table, ctx
+from app.components.dash_sidebar_component import create_sidebar_layout
 import dash_mantine_components as dmc
 import dash_bootstrap_components as dbc
 from dash_iconify import DashIconify
@@ -1527,6 +1528,8 @@ def create_ultra_dashboard(server=None, routes_pathname_prefix="/analytics/", re
             routes_pathname_prefix=routes_pathname_prefix,
             requests_pathname_prefix=requests_pathname_prefix
         )
+        original_layout = dashboard.app.layout
+        dashboard.app.layout = create_sidebar_layout(original_layout)
         print("✅ Analytics Dashboard créé avec succès")
         return dashboard.app
     except Exception as e:
