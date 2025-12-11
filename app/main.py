@@ -67,7 +67,7 @@ from .components.admin_panel import AdminPanel
 
 # Initialize Dash apps immediately (before first request)
 # modern dashboard -> served at /dashboard/
-dash_app1 = create_enhanced_dashboard(server=app,
+dash_app1 = create_observatoire_dashboard(server=app,
                                     routes_pathname_prefix="/dashboard/",
                                     requests_pathname_prefix="/dashboard/")
 # analytics -> served at /analytics/
