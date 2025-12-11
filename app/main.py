@@ -1,3 +1,4 @@
+from curses import flash
 import os
 from app.dashboards.main_dashboard import create_enhanced_dashboard
 import dash
@@ -101,10 +102,27 @@ dash_app5.config.suppress_callback_exceptions = True
 
 
 # Routes Flask principales
+# Dans main.py
+
 @app.route('/')
 def index():
-    """Page d'accueil"""
+    """Page d'accueil avec redirection selon le rôle"""
+    if current_user.is_authenticated:
+        if current_user.role == 'viewer':
+            return redirect(url_for('viewer'))
+        elif current_user.role in ['analyst', 'admin']:
+            return redirect(url_for('dashboard'))
     return render_template('index.html')
+
+# Dans main.py
+
+@app.errorhandler(403)
+def forbidden(error):
+    """Gérer les accès interdits"""
+    if current_user.is_authenticated and current_user.role == 'viewer':
+        flash("Accès réservé aux analystes et administrateurs. Redirection vers votre espace.", "warning")
+        return redirect(url_for('viewer'))
+    return jsonify({'error': 'Permissions insuffisantes'}), 403
 
 
 @app.route('/dashboard')

@@ -50,6 +50,7 @@ def log_audit_action(user_id, action, resource, details=None, success=True):
     db.session.add(audit_log)
     db.session.commit()
 
+
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -114,7 +115,14 @@ def login():
             
             flash('Connexion réussie!', 'success')
             next_page = request.args.get('next')
-            return redirect(next_page or url_for('dashboard'))
+            
+            # REDIRECTION SELON LE RÔLE
+            if user.role == 'viewer':
+                return redirect(url_for('viewer'))  # Espace viewer dédié
+            elif user.role in ['analyst', 'admin']:
+                return redirect(next_page or url_for('dashboard'))
+            else:
+                return redirect(url_for('index'))
         else:
             # Journaliser l'échec de connexion
             if user:
