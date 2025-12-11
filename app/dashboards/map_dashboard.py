@@ -21,6 +21,19 @@ import traceback
 import base64
 from sqlalchemy.exc import SQLAlchemyError, OperationalError
 
+# Import du détecteur de statut
+try:
+    from .status_detector import detect_listing_status
+except ImportError:
+    try:
+        from status_detector import detect_listing_status
+    except ImportError:
+        # Fallback si module non disponible
+        def detect_listing_status(title=None, price=None, property_type=None, source=None, native_status=None):
+            if price and price < 1_500_000:
+                return 'Location'
+            return 'Vente'
+
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -203,9 +216,26 @@ class PremiumMapDashboard:
                             
                             coords = self.CITY_COORDINATES[city_clean]
                             
-                            # Calculer prix/m²
+                            # Extraire les données de base
                             price = float(prop.price) if prop.price else 0
                             surface = float(prop.surface_area) if prop.surface_area and prop.surface_area > 0 else None
+                            title = str(prop.title) if hasattr(prop, 'title') and prop.title else None
+                            prop_type = str(prop.property_type) if prop.property_type else 'Autre'
+                            
+                            # NOUVEAU: Détecter le statut (Vente/Location)
+                            # Vérifier d'abord si la source a un champ 'status' natif
+                            native_status = str(prop.status) if hasattr(prop, 'status') and prop.status else None
+                            
+                            # Utiliser le module StatusDetector
+                            status = detect_listing_status(
+                                title=title,
+                                price=price,
+                                property_type=prop_type,
+                                source=source_name,
+                                native_status=native_status
+                            )
+                            
+                            # Calculer prix/m²
                             price_per_m2 = price / surface if surface and surface > 0 and price > 0 else None
                             
                             # Calculer l'âge de l'annonce
@@ -220,7 +250,9 @@ class PremiumMapDashboard:
                                 'population': coords['population'],
                                 'lat': coords['lat'],
                                 'lon': coords['lon'],
-                                'property_type': str(prop.property_type) if prop.property_type else 'Autre',
+                                'property_type': prop_type,
+                                'status': status,  # NOUVEAU: Vente ou Location
+                                'title': title[:100] if title else None,
                                 'price': price,
                                 'surface_area': surface,
                                 'price_per_m2': price_per_m2,
@@ -243,7 +275,7 @@ class PremiumMapDashboard:
                 return pd.DataFrame()
             
             df = pd.DataFrame(all_data)
-            
+            df['city'] = df['city'].apply(lambda x: x.lower().split(',')[0] if isinstance(x, str) else x)
             # Enrichissement des données
             if not df.empty:
                 # Score de densité par ville (nombre d'annonces / population)
@@ -498,6 +530,73 @@ class PremiumMapDashboard:
             logger.error(f"Erreur city comparison: {e}")
             return go.Figure()
     
+    def create_status_distribution(self, df):
+        """Distribution Vente vs Location avec insights"""
+        if df.empty or 'status' not in df.columns:
+            return go.Figure()
+        
+        try:
+            # Statistiques par statut
+            status_stats = df.groupby('status').agg({
+                'price': ['count', 'median', 'mean'],
+                'price_per_m2': 'median'
+            }).reset_index()
+            
+            status_stats.columns = ['status', 'count', 'median_price', 'mean_price', 'median_price_m2']
+            
+            fig = make_subplots(
+                rows=1, cols=2,
+                subplot_titles=('Répartition des Annonces', 'Prix Médian par Statut'),
+                specs=[[{'type': 'pie'}, {'type': 'bar'}]]
+            )
+            
+            # Graphique 1: Pie chart
+            colors = [self.COLORS['success'], self.COLORS['warning']]
+            fig.add_trace(
+                go.Pie(
+                    labels=status_stats['status'],
+                    values=status_stats['count'],
+                    marker=dict(colors=colors),
+                    hole=0.4,
+                    textinfo='label+percent',
+                    textfont=dict(size=14)
+                ),
+                row=1, col=1
+            )
+            
+            # Graphique 2: Bar chart des prix
+            fig.add_trace(
+                go.Bar(
+                    x=status_stats['status'],
+                    y=status_stats['median_price'],
+                    marker=dict(color=colors),
+                    text=status_stats['median_price'].apply(lambda x: f"{x/1_000_000:.1f}M"),
+                    textposition='outside',
+                    name='Prix Médian'
+                ),
+                row=1, col=2
+            )
+            
+            fig.update_layout(
+                title=dict(
+                    text='🏷️ Analyse Vente vs Location',
+                    font=dict(size=20, family='Outfit, sans-serif', color=self.COLORS['text_primary']),
+                    x=0.5,
+                    xanchor='center'
+                ),
+                showlegend=False,
+                height=450,
+                paper_bgcolor=self.COLORS['bg_card'],
+                plot_bgcolor=self.COLORS['bg_card'],
+                font=dict(color=self.COLORS['text_primary'])
+            )
+            
+            return fig
+            
+        except Exception as e:
+            logger.error(f"Erreur status distribution: {e}")
+            return go.Figure()
+    
     def create_regional_analysis(self, df):
         """Analyse par région"""
         if df.empty:
@@ -686,6 +785,27 @@ class PremiumMapDashboard:
                             ], style={'flex': '1', 'minWidth': '200px'}),
                             
                             html.Div([
+                                html.Label("Statut", style={
+                                    'fontSize': '13px',
+                                    'fontWeight': '600',
+                                    'color': self.COLORS['text_secondary'],
+                                    'marginBottom': '8px',
+                                    'display': 'block'
+                                }),
+                                dcc.Dropdown(
+                                    id='map-status-filter',
+                                    options=[
+                                        {'label': '🏘️ Tous', 'value': 'Tous'},
+                                        {'label': '💰 Vente', 'value': 'Vente'},
+                                        {'label': '🏠 Location', 'value': 'Location'}
+                                    ],
+                                    value='Tous',
+                                    clearable=False,
+                                    style={'borderRadius': '12px'}
+                                )
+                            ], style={'flex': '1', 'minWidth': '200px'}),
+                            
+                            html.Div([
                                 html.Label("Type de carte", style={
                                     'fontSize': '13px',
                                     'fontWeight': '600',
@@ -776,7 +896,7 @@ class PremiumMapDashboard:
                     # Analyses
                     html.Div([
                         html.Div([
-                            dcc.Graph(id='city-comparison', config={'displayModeBar': False})
+                            dcc.Graph(id='status-distribution', config={'displayModeBar': False})
                         ], style={
                             'background': self.COLORS['bg_card'],
                             'padding': '24px',
@@ -786,7 +906,7 @@ class PremiumMapDashboard:
                         }),
                         
                         html.Div([
-                            dcc.Graph(id='regional-analysis', config={'displayModeBar': False})
+                            dcc.Graph(id='city-comparison', config={'displayModeBar': False})
                         ], style={
                             'background': self.COLORS['bg_card'],
                             'padding': '24px',
@@ -797,7 +917,22 @@ class PremiumMapDashboard:
                     ], style={
                         'display': 'grid',
                         'gridTemplateColumns': 'repeat(auto-fit, minmax(600px, 1fr))',
-                        'gap': '24px'
+                        'gap': '24px',
+                        'marginBottom': '24px'
+                    }),
+                    
+                    html.Div([
+                        html.Div([
+                            dcc.Graph(id='regional-analysis', config={'displayModeBar': False})
+                        ], style={
+                            'background': self.COLORS['bg_card'],
+                            'padding': '24px',
+                            'borderRadius': '20px',
+                            'boxShadow': '0 4px 20px rgba(0,0,0,0.3)',
+                            'border': f'1px solid {self.COLORS["border"]}'
+                        })
+                    ], style={
+                        'marginBottom': '24px'
                     })
                     
                 ], style={
@@ -844,7 +979,7 @@ class PremiumMapDashboard:
             Input('map-data-store', 'data')
         )
         def update_kpis(data):
-            """Mettre à jour les KPIs"""
+            """Mettre à jour les KPIs avec statut"""
             try:
                 if not data:
                     return html.Div("Aucune donnée", style={
@@ -860,14 +995,20 @@ class PremiumMapDashboard:
                 prix_median = df['price'].median()
                 prix_m2_median = df['price_per_m2'].median() if 'price_per_m2' in df.columns else 0
                 
+                # Nouveaux KPIs basés sur le statut
+                vente_count = len(df[df['status'] == 'Vente']) if 'status' in df.columns else 0
+                location_count = len(df[df['status'] == 'Location']) if 'status' in df.columns else 0
+                
                 return html.Div([
                     self.create_kpi_card("🏠", "Annonces Totales", f"{total_annonces:,}".replace(',', ' ')),
-                    self.create_kpi_card("🏙️", "Villes Couvertes", str(total_villes)),
-                    self.create_kpi_card("💰", "Prix Médian", f"{prix_median/1_000_000:.1f}M FCFA"),
-                    self.create_kpi_card("📐", "Prix/m² Médian", f"{prix_m2_median:,.0f} FCFA".replace(',', ' ')),
+                    self.create_kpi_card("💰", "À Vendre", f"{vente_count:,}".replace(',', ' ')),
+                    self.create_kpi_card("🏘️", "À Louer", f"{location_count:,}".replace(',', ' ')),
+                    self.create_kpi_card("🏙️", "Villes", str(total_villes)),
+                    self.create_kpi_card("💵", "Prix Médian", f"{prix_median/1_000_000:.1f}M"),
+                    self.create_kpi_card("📐", "Prix/m²", f"{prix_m2_median:,.0f}".replace(',', ' ')),
                 ], style={
                     'display': 'grid',
-                    'gridTemplateColumns': 'repeat(auto-fit, minmax(220px, 1fr))',
+                    'gridTemplateColumns': 'repeat(auto-fit, minmax(200px, 1fr))',
                     'gap': '20px'
                 })
                 
@@ -878,23 +1019,33 @@ class PremiumMapDashboard:
         @self.app.callback(
             [
                 Output('main-map', 'figure'),
+                Output('status-distribution', 'figure'),
                 Output('city-comparison', 'figure'),
                 Output('regional-analysis', 'figure')
             ],
             [
                 Input('map-data-store', 'data'),
                 Input('map-color-by', 'value'),
-                Input('map-type', 'value')
+                Input('map-type', 'value'),
+                Input('map-status-filter', 'value')
             ]
         )
-        def update_visualizations(data, color_by, map_type):
-            """Mettre à jour toutes les visualisations"""
+        def update_visualizations(data, color_by, map_type, status_filter):
+            """Mettre à jour toutes les visualisations avec filtre statut"""
             try:
                 if not data:
                     empty = self.create_empty_figure("Chargement...")
-                    return empty, go.Figure(), go.Figure()
+                    return empty, go.Figure(), go.Figure(), go.Figure()
                 
                 df = pd.DataFrame(data)
+                
+                # Appliquer le filtre statut
+                if status_filter and status_filter != 'Tous' and 'status' in df.columns:
+                    df = df[df['status'] == status_filter]
+                
+                if df.empty:
+                    empty = self.create_empty_figure(f"Aucune annonce pour: {status_filter}")
+                    return empty, go.Figure(), go.Figure(), go.Figure()
                 
                 # Carte principale
                 if map_type == 'heatmap':
@@ -902,19 +1053,23 @@ class PremiumMapDashboard:
                 else:
                     main_map = self.create_interactive_map(df, color_by)
                 
-                # Comparaison des villes
+                # Distribution statut (utiliser toutes les données, pas filtrées)
+                df_all = pd.DataFrame(data)
+                status_dist = self.create_status_distribution(df_all)
+                
+                # Comparaison des villes (avec filtre)
                 city_comp = self.create_city_comparison_chart(df)
                 
-                # Analyse régionale
+                # Analyse régionale (avec filtre)
                 regional = self.create_regional_analysis(df)
                 
-                return main_map, city_comp, regional
+                return main_map, status_dist, city_comp, regional
                 
             except Exception as e:
                 logger.error(f"Erreur update_visualizations: {e}")
                 traceback.print_exc()
                 empty = self.create_empty_figure(f"Erreur: {str(e)}")
-                return empty, go.Figure(), go.Figure()
+                return empty, go.Figure(), go.Figure(), go.Figure()
     
     def create_kpi_card(self, icon, title, value):
         """Carte KPI simple"""

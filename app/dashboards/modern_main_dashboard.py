@@ -17,6 +17,19 @@ import numpy as np
 from sqlalchemy import func
 import traceback
 
+# Import du détecteur de statut
+try:
+    from .status_detector import detect_listing_status
+except ImportError:
+    try:
+        from status_detector import detect_listing_status
+    except ImportError:
+        # Fallback si module non disponible
+        def detect_listing_status(title=None, price=None, property_type=None, source=None, native_status=None):
+            if price and price < 1_500_000:
+                return 'Location'
+            return 'Vente'
+
 
 class ObservatoireModern:
     """Observatoire Immobilier - Design Moderne et Captivant"""
@@ -139,7 +152,6 @@ class ObservatoireModern:
                 return pd.DataFrame()
             
             df = pd.DataFrame(all_data)
-            df['city'] = df['city'].apply(lambda x: x.split(',')[0] if isinstance(x, str) else x)
             
             # Calculer prix/m²
             if not df.empty and 'surface_area' in df.columns:

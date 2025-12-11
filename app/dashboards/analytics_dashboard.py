@@ -26,6 +26,19 @@ import warnings
 import traceback
 import sys
 
+# Import du détecteur de statut
+try:
+    from .status_detector import detect_listing_status
+except ImportError:
+    try:
+        from status_detector import detect_listing_status
+    except ImportError:
+        # Fallback si module non disponible
+        def detect_listing_status(title=None, price=None, property_type=None, source=None, native_status=None):
+            if price and price < 1_500_000:
+                return 'Location'
+            return 'Vente'
+
 warnings.filterwarnings('ignore')
 
 
@@ -224,13 +237,13 @@ class AnalyticsDashboard:
         try:
             # Import sécurisé
             try:
-                from app.database.models import db, ExpatDakarProperty, LogerDakarProperty
+                from app.database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
             except ImportError:
-                from database.models import db,  ExpatDakarProperty, LogerDakarProperty
+                from database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
             
             all_data = []
             
-            for model in [ExpatDakarProperty, LogerDakarProperty]:
+            for model in [CoinAfrique, ExpatDakarProperty, LogerDakarProperty]:
                 try:
                     query = db.session.query(
                         model.city,
@@ -271,10 +284,23 @@ class AnalyticsDashboard:
                             
                             price = float(r.price) if r.price else 0
                             surface = float(r.surface_area) if r.surface_area and r.surface_area > 0 else None
+                            title = str(r.title) if hasattr(r, 'title') and r.title else None
+                            prop_type = str(r.property_type) if r.property_type else 'Autre'
+                            
+                            # Détection du statut (Vente/Location)
+                            native_status = str(r.status) if hasattr(r, 'status') and r.status else None
+                            status = detect_listing_status(
+                                title=title,
+                                price=price,
+                                property_type=prop_type,
+                                source=model.__name__,
+                                native_status=native_status
+                            )
                             
                             record_dict = {
                                 'city': str(r.city) if r.city else 'Non spécifié',
-                                'property_type': str(r.property_type) if r.property_type else 'Autre',
+                                'property_type': prop_type,
+                                'status': status,  # NOUVEAU
                                 'price': price,
                                 'surface_area': surface,
                                 'bedrooms': int(r.bedrooms) if r.bedrooms else None,
@@ -296,6 +322,7 @@ class AnalyticsDashboard:
                 return pd.DataFrame()
             
             df = pd.DataFrame(all_data)
+            df['city'] = df['city'].apply(lambda x: x.lower().split(',')[0] if isinstance(x, str) else x)
             
             # Enrichissement des données
             if not df.empty:
@@ -330,7 +357,6 @@ class AnalyticsDashboard:
             }
         
         df = pd.DataFrame(data) if isinstance(data, list) else data
-        df["city"] = df["city"].apply(lambda x: x.lower().split(",")[0] if isinstance(x, str) else x)
         
         kpis = {}
         
@@ -431,24 +457,32 @@ class AnalyticsDashboard:
             if 'price' not in df.columns or 'property_type' not in df.columns:
                 return self._create_empty_graph("Colonnes manquantes", "🎻 Violin Plot Superposé")
             
+            # Filtrer les NaN et les valeurs invalides
+            df_clean = df[df['price'].notna() & (df['price'] > 0)].copy()
+            
+            if df_clean.empty:
+                return self._create_empty_graph("Pas de données valides", "🎻 Violin Plot Superposé")
+            
             fig = go.Figure()
             
-            property_types = df['property_type'].unique()
+            property_types = df_clean['property_type'].unique()
             colors = [self.COLORS['primary'], self.COLORS['secondary'], 
                      self.COLORS['success'], self.COLORS['warning'], self.COLORS['info']]
             
             for i, ptype in enumerate(property_types):
-                df_type = df[df['property_type'] == ptype]
+                df_type = df_clean[df_clean['property_type'] == ptype]
                 
-                fig.add_trace(go.Violin(
-                    y=df_type['price'],
-                    name=ptype,
-                    box_visible=True,
-                    meanline_visible=True,
-                    fillcolor=colors[i % len(colors)],
-                    opacity=0.6,
-                    line_color=colors[i % len(colors)]
-                ))
+                # S'assurer qu'il y a des données
+                if len(df_type) > 0 and df_type['price'].notna().sum() > 0:
+                    fig.add_trace(go.Violin(
+                        y=df_type['price'].dropna(),
+                        name=ptype,
+                        box_visible=True,
+                        meanline_visible=True,
+                        fillcolor=colors[i % len(colors)],
+                        opacity=0.6,
+                        line_color=colors[i % len(colors)]
+                    ))
             
             fig.update_layout(
                 title=dict(
@@ -468,6 +502,7 @@ class AnalyticsDashboard:
             
         except Exception as e:
             print(f"Erreur violin plot: {e}")
+            traceback.print_exc()
             return self._create_empty_graph(f"Erreur: {str(e)}", "🎻 Violin Plot Superposé")
     
     def create_stacked_3d_surface(self, data):
@@ -596,9 +631,18 @@ class AnalyticsDashboard:
             # Compter par type et date
             trend = df_dated.groupby(['date', 'property_type']).size().reset_index(name='count')
             
+            # Filtrer les types avec au moins quelques données
+            trend = trend[trend['count'] > 0]
+            
+            if trend.empty:
+                return self._create_empty_graph("Pas assez de données", "📈 Tendances Temporelles")
+            
             fig = go.Figure()
             
-            for ptype in trend['property_type'].unique():
+            colors = [self.COLORS['primary'], self.COLORS['secondary'], 
+                     self.COLORS['success'], self.COLORS['warning'], self.COLORS['info']]
+            
+            for i, ptype in enumerate(trend['property_type'].unique()):
                 df_type = trend[trend['property_type'] == ptype]
                 fig.add_trace(go.Scatter(
                     x=df_type['date'],
@@ -606,7 +650,7 @@ class AnalyticsDashboard:
                     mode='lines',
                     name=ptype,
                     stackgroup='one',
-                    fillcolor='rgba(99, 102, 241, 0.6)'
+                    fillcolor=f'rgba({int(colors[i % len(colors)][1:3], 16)}, {int(colors[i % len(colors)][3:5], 16)}, {int(colors[i % len(colors)][5:7], 16)}, 0.6)'
                 ))
             
             fig.update_layout(
@@ -628,6 +672,7 @@ class AnalyticsDashboard:
             
         except Exception as e:
             print(f"Erreur stacked area: {e}")
+            traceback.print_exc()
             return self._create_empty_graph(f"Erreur: {str(e)}", "📈 Tendances Temporelles")
     
     def create_parallel_coords_advanced(self, data):
@@ -699,18 +744,35 @@ class AnalyticsDashboard:
             if 'city' not in df.columns or 'property_type' not in df.columns:
                 return self._create_empty_graph("Colonnes manquantes", "🌳 Treemap Hiérarchique")
             
+            # Filtrer les données invalides
+            df_clean = df[
+                df['city'].notna() & 
+                df['property_type'].notna() & 
+                df['price'].notna() & 
+                (df['price'] > 0)
+            ].copy()
+            
+            if df_clean.empty:
+                return self._create_empty_graph("Pas de données valides", "🌳 Treemap Hiérarchique")
+            
             # Agréger les données
-            hierarchy = df.groupby(['city', 'property_type']).agg({
+            hierarchy = df_clean.groupby(['city', 'property_type']).agg({
                 'price': ['count', 'mean']
             }).reset_index()
             
             hierarchy.columns = ['city', 'property_type', 'count', 'avg_price']
             
+            # Filtrer les groupes avec au moins 1 enregistrement
+            hierarchy = hierarchy[hierarchy['count'] > 0]
+            
+            if hierarchy.empty:
+                return self._create_empty_graph("Pas de groupes valides", "🌳 Treemap Hiérarchique")
+            
             fig = go.Figure(go.Treemap(
                 labels=hierarchy['property_type'],
                 parents=hierarchy['city'],
                 values=hierarchy['count'],
-                text=hierarchy['avg_price'].apply(lambda x: f"{x/1_000_000:.1f}M"),
+                text=hierarchy['avg_price'].apply(lambda x: f"{x/1_000_000:.1f}M" if pd.notna(x) and x > 0 else "N/A"),
                 textposition='middle center',
                 marker=dict(
                     colorscale='Viridis',
@@ -733,6 +795,7 @@ class AnalyticsDashboard:
             
         except Exception as e:
             print(f"Erreur treemap: {e}")
+            traceback.print_exc()
             return self._create_empty_graph(f"Erreur: {str(e)}", "🌳 Treemap Hiérarchique")
     
     def create_bubble_matrix_4d(self, data):
