@@ -93,7 +93,11 @@ dash_app4 = admin_panel.app
 # Configurer les exceptions des callbacks
 for dash_app in [dash_app1, dash_app2, dash_app3, dash_app4, dash_app5]:
     if dash_app:
+        dash_app.css.append_css({
+            'external_url': '/static/css/sidebar.css'
+        })
         dash_app.config.suppress_callback_exceptions = True
+
 
 
 # =============================================================================

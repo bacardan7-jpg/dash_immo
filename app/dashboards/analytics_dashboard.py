@@ -77,7 +77,7 @@ class ErrorManager:
             html.Details([
                 html.Summary("Détails techniques", style={'cursor': 'pointer', 'color': '#dc3545'}),
                 html.Pre(details, style={
-                    'background': '#f8f9fa',
+                    'background': "#1a5692",
                     'padding': '12px',
                     'borderRadius': '8px',
                     'fontSize': '12px',
