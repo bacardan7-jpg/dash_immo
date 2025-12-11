@@ -132,10 +132,25 @@ class ObservatoireModern:
                             if r.scraped_at:
                                 age_days = (datetime.utcnow() - r.scraped_at).days
                             
+                            price = float(r.price) if r.price else 0
+                            title = str(r.title) if hasattr(r, 'title') and r.title else None
+                            prop_type = str(r.property_type) if r.property_type else 'Autre'
+                            
+                            # Détection du statut (Vente/Location)
+                            native_status = str(r.status) if hasattr(r, 'status') and r.status else None
+                            status = detect_listing_status(
+                                title=title,
+                                price=price,
+                                property_type=prop_type,
+                                source=model.__name__,
+                                native_status=native_status
+                            )
+                            
                             all_data.append({
                                 'city': str(r.city) if r.city else 'Non spécifié',
-                                'property_type': str(r.property_type) if r.property_type else 'Autre',
-                                'price': float(r.price) if r.price else 0,
+                                'property_type': prop_type,
+                                'status': status,  # NOUVEAU
+                                'price': price,
                                 'surface_area': float(r.surface_area) if r.surface_area and r.surface_area > 0 else None,
                                 'bedrooms': int(r.bedrooms) if r.bedrooms else None,
                                 'bathrooms': int(r.bathrooms) if r.bathrooms else None,
@@ -464,6 +479,32 @@ class ObservatoireModern:
                             id='city-selector',
                             options=[{'label': f'📍 {city}', 'value': city} for city in cities],
                             value='Toutes',
+                            clearable=False,
+                            style={
+                                'borderRadius': '12px',
+                                'fontSize': '14px',
+                                'fontWeight': '500'
+                            }
+                        )
+                    ], style={'flex': '1', 'minWidth': '200px'}),
+                    
+                    # Filtre Statut (NOUVEAU)
+                    html.Div([
+                        html.Label("Statut (🔴 CRITIQUE)", style={
+                            'fontSize': '13px',
+                            'fontWeight': '700',
+                            'color': self.COLORS['warning'],
+                            'marginBottom': '8px',
+                            'display': 'block'
+                        }),
+                        dcc.Dropdown(
+                            id='status-selector',
+                            options=[
+                                {'label': '🏘️ Tous', 'value': 'Tous'},
+                                {'label': '💰 Vente', 'value': 'Vente'},
+                                {'label': '🏠 Location', 'value': 'Location'}
+                            ],
+                            value='Tous',
                             clearable=False,
                             style={
                                 'borderRadius': '12px',
@@ -1153,14 +1194,21 @@ class ObservatoireModern:
             [
                 Input('property-type-selector', 'value'),
                 Input('city-selector', 'value'),
+                Input('status-selector', 'value'),
                 Input('refresh-button', 'n_clicks')
             ]
         )
-        def update_dashboard(property_type, city, n_clicks):
-            """Mise à jour du dashboard"""
+        def update_dashboard(property_type, city, status, n_clicks):
+            """Mise à jour du dashboard avec FILTRE STATUT"""
             try:
                 # Charger données
                 df = self.safe_get_data(property_type, city)
+                
+                # 🔴 CRITIQUE: FILTRER PAR STATUT AVANT TOUTE ANALYSE
+                if not df.empty and status and status != 'Tous' and 'status' in df.columns:
+                    df = df[df['status'] == status].copy()
+                    print(f"✅ Main Dashboard filtré par statut: {status} -> {len(df)} enregistrements")
+                
                 kpi = self.safe_calculate_kpi(df, property_type, city)
                 
                 # KPI Section
@@ -1201,9 +1249,16 @@ class ObservatoireModern:
                             self.COLORS['purple'], 
                             "%"
                         ),
+                        self.create_modern_kpi_card(
+                            "mdi:tag-multiple" if status == 'Tous' else ("mdi:currency-usd" if status == 'Vente' else "mdi:home-city"),
+                            f"Statut: {status}", 
+                            len(df), 
+                            self.COLORS['secondary'] if status == 'Vente' else (self.COLORS['teal'] if status == 'Location' else self.COLORS['text_secondary']),
+                            ""
+                        ),
                     ], style={
                         'display': 'grid',
-                        'gridTemplateColumns': 'repeat(auto-fit, minmax(220px, 1fr))',
+                        'gridTemplateColumns': 'repeat(auto-fit, minmax(200px, 1fr))',
                         'gap': '20px'
                     })
                 ])
