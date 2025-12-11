@@ -6,7 +6,7 @@ Version: 1.0 - Viewer Experience
 """
 
 import dash
-from dash import html, dcc, Input, Output, State, ALL, callback_context, MATCH
+from dash import Dash, html, dcc, Input, Output, State, ALL, callback_context, MATCH
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
 import plotly.graph_objects as go
@@ -1345,18 +1345,39 @@ class ViewerDashboard:
             return str(len(favorites))
 
 
-def create_viewer_dashboard(server=None, routes_pathname_prefix="/viewer/", requests_pathname_prefix="/viewer/"):
-    """Factory function pour créer le viewer dashboard"""
-    try:
-        dashboard = ViewerDashboard(
-            server=server,
-            routes_pathname_prefix=routes_pathname_prefix,
-            requests_pathname_prefix=requests_pathname_prefix
-        )
-        print("✅ Viewer Dashboard créé avec succès")
-        return dashboard.app
-    except Exception as e:
-        print(f"❌ ERREUR création Viewer Dashboard: {e}")
-        import traceback
-        traceback.print_exc()
-        raise
+
+from ..components.dash_sidebar_component import create_sidebar_layout
+
+
+def create_viewer_dashboard(server, routes_pathname_prefix="/viewer/", requests_pathname_prefix="/viewer/"):
+    """
+    Dashboard Viewer avec sidebar intégrée
+    """
+    
+    # Créer l'app Dash
+    app = Dash(
+        __name__,
+        server=server,
+        routes_pathname_prefix=routes_pathname_prefix,
+        requests_pathname_prefix=requests_pathname_prefix,
+        external_stylesheets=[
+            dbc.themes.BOOTSTRAP,
+            "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        ],
+        suppress_callback_exceptions=True
+    )
+    
+    # Contenu du dashboard (votre code existant)
+    dashboard_content = html.Div([
+        html.H1("🔍 Recherche Immobilière IA", className="mb-4"),
+        
+        # Votre contenu dashboard ici
+        html.Div([
+            # Chatbot, filters, results, etc.
+        ])
+    ])
+    
+    # WRAPPER AVEC SIDEBAR
+    app.layout = create_sidebar_layout(dashboard_content)
+    
+    return app
