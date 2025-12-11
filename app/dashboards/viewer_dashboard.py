@@ -6,7 +6,7 @@ Version: 1.0 - Viewer Experience
 """
 
 import dash
-from dash import html, dcc, Input, Output, State, ALL, callback_context
+from dash import html, dcc, Input, Output, State, ALL, callback_context, MATCH
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
 import plotly.graph_objects as go
@@ -17,6 +17,7 @@ import numpy as np
 import json
 import base64
 from sqlalchemy import func, and_, or_
+import re
 
 # Import du détecteur de statut
 try:
@@ -29,6 +30,230 @@ except ImportError:
             if price and price < 1_500_000:
                 return 'Location'
             return 'Vente'
+
+
+class AIAssistant:
+    """Assistant IA pour analyser les messages et générer des réponses intelligentes"""
+    
+    @staticmethod
+    def extract_budget(message):
+        """Extraire le budget du message"""
+        # Chercher des nombres suivis de M, millions, FCFA, etc.
+        patterns = [
+            r'(\d+(?:\.\d+)?)\s*(?:millions?|m)\s*(?:fcfa|cfa)?',
+            r'(\d+(?:\.\d+)?)\s*(?:k|mille)\s*(?:fcfa|cfa)?',
+            r'(\d{1,3}(?:\s*\d{3})*)\s*(?:fcfa|cfa)',
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, message.lower())
+            if match:
+                value = float(match.group(1).replace(' ', ''))
+                if 'k' in message.lower() or 'mille' in message.lower():
+                    return int(value * 1000)
+                elif 'm' in message.lower() or 'million' in message.lower():
+                    return int(value * 1_000_000)
+                else:
+                    return int(value)
+        return None
+    
+    @staticmethod
+    def extract_bedrooms(message):
+        """Extraire le nombre de chambres"""
+        patterns = [
+            r'(\d+)\s*chambres?',
+            r'(\d+)\s*ch\b',
+            r'(\d+)\s*pieces?',
+            r'f(\d+)',  # F3, F4, etc.
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, message.lower())
+            if match:
+                return int(match.group(1))
+        return None
+    
+    @staticmethod
+    def extract_city(message):
+        """Extraire la ville du message"""
+        cities = {
+            'dakar': 'Dakar',
+            'pikine': 'Pikine',
+            'guediawaye': 'Guédiawaye',
+            'guédiawaye': 'Guédiawaye',
+            'rufisque': 'Rufisque',
+            'thies': 'Thiès',
+            'thiès': 'Thiès',
+            'mbour': 'Mbour',
+            'saint-louis': 'Saint-Louis',
+            'kaolack': 'Kaolack',
+            'ziguinchor': 'Ziguinchor'
+        }
+        
+        message_lower = message.lower()
+        for key, value in cities.items():
+            if key in message_lower:
+                return value
+        return None
+    
+    @staticmethod
+    def extract_property_type(message):
+        """Extraire le type de propriété"""
+        types = {
+            'appartement': 'Appartement',
+            'appart': 'Appartement',
+            'villa': 'Villa',
+            'maison': 'Villa',
+            'studio': 'Studio',
+            'duplex': 'Duplex',
+            'terrain': 'Terrain',
+            'parcelle': 'Terrain'
+        }
+        
+        message_lower = message.lower()
+        for key, value in types.items():
+            if key in message_lower:
+                return value
+        return None
+    
+    @staticmethod
+    def detect_transaction_type(message):
+        """Détecter Vente ou Location"""
+        message_lower = message.lower()
+        
+        location_keywords = ['louer', 'location', 'loyer', 'mensuel', 'mois', 'bail']
+        vente_keywords = ['acheter', 'achat', 'vendre', 'vente', 'acquisition', 'acquérir']
+        
+        has_location = any(kw in message_lower for kw in location_keywords)
+        has_vente = any(kw in message_lower for kw in vente_keywords)
+        
+        if has_location and not has_vente:
+            return 'Location'
+        elif has_vente and not has_location:
+            return 'Vente'
+        return None
+    
+    @staticmethod
+    def generate_response(message, extracted_data, current_filters):
+        """Générer une réponse intelligente basée sur l'analyse"""
+        response_parts = []
+        suggestions = []
+        
+        # Salutations
+        greetings = ['salut', 'bonjour', 'bonsoir', 'hello', 'hi']
+        if any(g in message.lower() for g in greetings):
+            response_parts.append("👋 **Bonjour !** Je suis ravi de vous aider à trouver votre bien idéal.")
+            response_parts.append("\n💡 **Comment puis-je vous aider ?**\n- Dites-moi votre budget\n- Précisez le type de bien recherché\n- Indiquez votre ville préférée\n- Mentionnez vos besoins en confort")
+            return {'message': '\n'.join(response_parts), 'suggestions': [], 'filters': {}}
+        
+        # Budget
+        if extracted_data.get('budget'):
+            budget = extracted_data['budget']
+            if budget < 1_500_000:
+                response_parts.append(f"💰 **Budget:** {budget/1_000:.0f}K FCFA → Idéal pour une **location**")
+                suggestions.append({
+                    'type': 'status',
+                    'value': 'Location',
+                    'label': '🏠 Chercher en Location',
+                    'icon': 'mdi:home-city'
+                })
+            else:
+                response_parts.append(f"💰 **Budget:** {budget/1_000_000:.1f}M FCFA → Vous pouvez envisager un **achat**")
+                suggestions.append({
+                    'type': 'status',
+                    'value': 'Vente',
+                    'label': '💰 Chercher à l\'achat',
+                    'icon': 'mdi:cash'
+                })
+        
+        # Type de transaction
+        if extracted_data.get('transaction_type'):
+            trans_type = extracted_data['transaction_type']
+            icon = '🏠' if trans_type == 'Location' else '💰'
+            response_parts.append(f"{icon} **Type:** Vous cherchez en **{trans_type}**")
+            suggestions.append({
+                'type': 'status',
+                'value': trans_type,
+                'label': f'{icon} {trans_type}',
+                'icon': 'mdi:home-city' if trans_type == 'Location' else 'mdi:cash'
+            })
+        
+        # Type de bien
+        if extracted_data.get('property_type'):
+            prop_type = extracted_data['property_type']
+            response_parts.append(f"🏠 **Type de bien:** {prop_type}")
+            suggestions.append({
+                'type': 'property_type',
+                'value': prop_type,
+                'label': f'🏠 {prop_type}',
+                'icon': 'mdi:home'
+            })
+        
+        # Chambres
+        if extracted_data.get('bedrooms'):
+            bedrooms = extracted_data['bedrooms']
+            response_parts.append(f"🛏️ **Chambres:** Minimum {bedrooms} chambres")
+            suggestions.append({
+                'type': 'bedrooms',
+                'value': bedrooms,
+                'label': f'🛏️ {bedrooms}+ chambres',
+                'icon': 'mdi:bed'
+            })
+        
+        # Ville
+        if extracted_data.get('city'):
+            city = extracted_data['city']
+            response_parts.append(f"📍 **Localisation:** {city}")
+            suggestions.append({
+                'type': 'city',
+                'value': city,
+                'label': f'📍 {city}',
+                'icon': 'mdi:map-marker'
+            })
+        
+        # Recommandations intelligentes
+        if extracted_data.get('budget') and extracted_data.get('transaction_type'):
+            budget = extracted_data['budget']
+            trans = extracted_data['transaction_type']
+            
+            if trans == 'Location' and budget < 500_000:
+                response_parts.append("\n💡 **Recommandation:** Avec ce budget, je vous suggère de chercher des **studios** ou **chambres meublées**.")
+            elif trans == 'Vente' and budget < 30_000_000:
+                response_parts.append("\n💡 **Recommandation:** Ce budget est parfait pour un **appartement** ou un **terrain** en périphérie.")
+            elif trans == 'Vente' and budget >= 100_000_000:
+                response_parts.append("\n💡 **Recommandation:** Excellent budget ! Vous pouvez viser des **villas haut de gamme** ou **immeubles**.")
+        
+        # Message par défaut si rien n'est extrait
+        if not response_parts:
+            response_parts.append("🤔 Je n'ai pas bien compris votre demande.")
+            response_parts.append("\n**Exemples de questions que vous pouvez poser:**")
+            response_parts.append("- *Je cherche à louer un appartement 3 chambres à Dakar*")
+            response_parts.append("- *Quel est le prix moyen d'une villa à Rufisque ?*")
+            response_parts.append("- *J'ai un budget de 50 millions, que puis-je acheter ?*")
+            response_parts.append("- *Studio meublé en location à Pikine*")
+        
+        # Appel à l'action
+        if suggestions:
+            response_parts.append("\n✨ **Cliquez sur les suggestions ci-dessous pour appliquer les filtres automatiquement !**")
+        
+        return {
+            'message': '\n\n'.join(response_parts),
+            'suggestions': suggestions,
+            'filters': extracted_data
+        }
+    
+    @staticmethod
+    def analyze_message(message, current_filters):
+        """Analyser le message complet et retourner la réponse"""
+        extracted = {
+            'budget': AIAssistant.extract_budget(message),
+            'bedrooms': AIAssistant.extract_bedrooms(message),
+            'city': AIAssistant.extract_city(message),
+            'property_type': AIAssistant.extract_property_type(message),
+            'transaction_type': AIAssistant.detect_transaction_type(message)
+        }
+        
+        return AIAssistant.generate_response(message, extracted, current_filters)
 
 
 class ViewerDashboard:
@@ -54,7 +279,7 @@ class ViewerDashboard:
         
         # CSS personnalisé
         self.custom_css = """
-        * { font-family: 'Inter', sans-serif; }
+        * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
         body { background: #F8FAFC; margin: 0; padding: 0; }
         
         .property-card { 
@@ -77,6 +302,7 @@ class ViewerDashboard:
         
         .filter-chip {
             transition: all 0.2s ease;
+            cursor: pointer;
         }
         .filter-chip:hover {
             transform: scale(1.05);
@@ -84,9 +310,39 @@ class ViewerDashboard:
         
         .favorite-heart {
             transition: all 0.2s ease;
+            cursor: pointer;
         }
         .favorite-heart:hover {
             transform: scale(1.2);
+        }
+        
+        .suggestion-chip {
+            transition: all 0.2s ease;
+            cursor: pointer;
+            display: inline-block;
+        }
+        .suggestion-chip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
+        }
+        
+        /* Scrollbar personnalisée */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #F1F5F9;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #CBD5E1;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94A3B8;
         }
         """
         
@@ -129,12 +385,7 @@ class ViewerDashboard:
                 return None, None, None, None
     
     def search_properties(self, filters):
-        """
-        Recherche intelligente de propriétés avec filtres avancés
-        
-        Args:
-            filters: dict avec budget, status, type, ville, chambres, etc.
-        """
+        """Recherche intelligente de propriétés avec filtres avancés"""
         try:
             db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty = self.safe_import_models()
             
@@ -143,12 +394,10 @@ class ViewerDashboard:
             
             all_properties = []
             
-            # Budget
+            # Extraire les filtres
             min_budget = filters.get('min_budget', 0)
             max_budget = filters.get('max_budget', 1e12)
-            
-            # Autres filtres
-            status_filter = filters.get('status')  # Vente ou Location
+            status_filter = filters.get('status')
             property_type = filters.get('property_type')
             city = filters.get('city')
             min_bedrooms = filters.get('min_bedrooms', 0)
@@ -161,26 +410,19 @@ class ViewerDashboard:
                 (LogerDakarProperty, 'LogerDakar')
             ]:
                 try:
-                    query = db.session.query(
-                        model.id,
-                        model.title,
-                        model.city,
-                        model.property_type,
-                        model.price,
-                        model.surface_area,
-                        model.bedrooms,
-                        model.bathrooms,
-                        model.scraped_at
-                    ).filter(
+                    query = db.session.query(model)
+                    
+                    # Filtres de base
+                    query = query.filter(
                         model.price.isnot(None),
                         model.price >= min_budget,
                         model.price <= max_budget
                     )
                     
-                    if city:
+                    if city and city != '':
                         query = query.filter(model.city.ilike(f'%{city}%'))
                     
-                    if property_type:
+                    if property_type and property_type != '':
                         query = query.filter(model.property_type.ilike(f'%{property_type}%'))
                     
                     if min_bedrooms > 0:
@@ -197,7 +439,7 @@ class ViewerDashboard:
                     for prop in properties:
                         try:
                             price = float(prop.price) if prop.price else 0
-                            title = str(prop.title) if prop.title else None
+                            title = str(prop.title) if hasattr(prop, 'title') and prop.title else None
                             prop_type = str(prop.property_type) if prop.property_type else 'Autre'
                             
                             # Détecter le statut
@@ -211,7 +453,7 @@ class ViewerDashboard:
                             )
                             
                             # Filtrer par statut si spécifié
-                            if status_filter and status != status_filter:
+                            if status_filter and status_filter != 'Tous' and status != status_filter:
                                 continue
                             
                             all_properties.append({
@@ -240,78 +482,9 @@ class ViewerDashboard:
             
         except Exception as e:
             print(f"Erreur search_properties: {e}")
+            import traceback
+            traceback.print_exc()
             return pd.DataFrame()
-    
-    def generate_ai_response(self, user_message, user_filters):
-        """
-        Génère une réponse IA basée sur le message de l'utilisateur
-        """
-        # Analyser l'intention de l'utilisateur
-        message_lower = user_message.lower()
-        
-        # Budget mentions
-        budget_keywords = ['budget', 'prix', 'coût', 'coute', 'argent', 'million', 'fcfa']
-        location_keywords = ['louer', 'location', 'loyer', 'mensuel', 'mois']
-        vente_keywords = ['acheter', 'achat', 'vendre', 'vente', 'acquisition']
-        confort_keywords = ['chambre', 'salle de bain', 'surface', 'm²', 'grand', 'spacieux']
-        ville_keywords = ['dakar', 'pikine', 'rufisque', 'thiès', 'ville', 'quartier']
-        
-        # Construire la réponse
-        response_parts = []
-        suggestions = []
-        
-        # Détection budget
-        if any(kw in message_lower for kw in budget_keywords):
-            budget = user_filters.get('max_budget', 0)
-            if budget > 0:
-                if budget < 1_500_000:
-                    response_parts.append(f"💰 Avec un budget de {budget/1_000_000:.1f}M FCFA, je vous recommande de chercher en **location**.")
-                    suggestions.append({'type': 'status', 'value': 'Location', 'label': '🏠 Chercher en Location'})
-                else:
-                    response_parts.append(f"💰 Votre budget de {budget/1_000_000:.1f}M FCFA vous permet d'envisager un **achat**.")
-                    suggestions.append({'type': 'status', 'value': 'Vente', 'label': '💰 Chercher à l\'achat'})
-        
-        # Détection intention vente/location
-        if any(kw in message_lower for kw in location_keywords):
-            response_parts.append("🏠 Vous cherchez une **location**. Je vais filtrer les annonces de loyer pour vous.")
-            suggestions.append({'type': 'status', 'value': 'Location', 'label': '🏠 Locations uniquement'})
-        
-        if any(kw in message_lower for kw in vente_keywords):
-            response_parts.append("💰 Vous cherchez à **acheter**. Je vais vous montrer les propriétés à vendre.")
-            suggestions.append({'type': 'status', 'value': 'Vente', 'label': '💰 Ventes uniquement'})
-        
-        # Détection confort
-        if any(kw in message_lower for kw in confort_keywords):
-            if 'chambre' in message_lower:
-                # Extraire le nombre si mentionné
-                import re
-                numbers = re.findall(r'\d+', message_lower)
-                if numbers:
-                    nb_chambres = int(numbers[0])
-                    response_parts.append(f"🛏️ Vous recherchez un bien avec **{nb_chambres} chambres minimum**.")
-                    suggestions.append({'type': 'bedrooms', 'value': nb_chambres, 'label': f'🛏️ {nb_chambres}+ chambres'})
-        
-        # Détection ville
-        if any(kw in message_lower for kw in ville_keywords):
-            for ville in ['dakar', 'pikine', 'rufisque', 'thiès', 'guédiawaye', 'mbour']:
-                if ville in message_lower:
-                    response_parts.append(f"📍 Recherche concentrée sur **{ville.title()}**.")
-                    suggestions.append({'type': 'city', 'value': ville.title(), 'label': f'📍 {ville.title()}'})
-                    break
-        
-        # Réponse par défaut
-        if not response_parts:
-            response_parts.append("👋 Bonjour ! Je suis votre assistant immobilier. Comment puis-je vous aider dans votre recherche ?")
-            response_parts.append("\n\n**Quelques exemples de questions :**")
-            response_parts.append("- Quel est mon budget ?")
-            response_parts.append("- Je cherche à louer à Dakar")
-            response_parts.append("- Appartement 3 chambres à vendre")
-            response_parts.append("- Maison avec jardin à Rufisque")
-        
-        return {
-            'message': '\n\n'.join(response_parts),
-            'suggestions': suggestions
-        }
     
     # ==================== LAYOUT ====================
     
@@ -325,7 +498,15 @@ class ViewerDashboard:
             html.Link(rel='stylesheet', href=f'data:text/css;base64,{css_b64}'),
             
             # Stores
-            dcc.Store(id='user-filters-store', data={}),
+            dcc.Store(id='user-filters-store', data={
+                'max_budget': 50_000_000,
+                'min_budget': 0,
+                'status': 'Tous',
+                'property_type': '',
+                'city': '',
+                'min_bedrooms': 0,
+                'min_bathrooms': 0
+            }),
             dcc.Store(id='favorites-store', data=[]),
             dcc.Store(id='search-results-store', data=[]),
             dcc.Store(id='chat-history-store', data=[]),
@@ -394,7 +575,7 @@ class ViewerDashboard:
                         html.Div([
                             html.Div([
                                 DashIconify(icon="mdi:robot", width=24, color=self.COLORS['primary']),
-                                html.Span("Assistant IA", style={
+                                html.Span("Assistant IA Immobilier", style={
                                     'fontSize': '18px',
                                     'fontWeight': '700',
                                     'color': self.COLORS['text_primary'],
@@ -403,7 +584,17 @@ class ViewerDashboard:
                             ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '20px'}),
                             
                             # Zone messages
-                            html.Div(id='chat-messages', style={
+                            html.Div(id='chat-messages', children=[
+                                # Message de bienvenue initial
+                                self.create_ai_message(
+                                    "👋 **Bonjour !** Je suis votre assistant immobilier intelligent.\n\n"
+                                    "💬 **Dites-moi ce que vous cherchez**, par exemple:\n"
+                                    "- *Je veux louer un appartement 3 chambres à Dakar*\n"
+                                    "- *J'ai un budget de 50 millions pour acheter*\n"
+                                    "- *Studio meublé en location à Pikine*\n\n"
+                                    "✨ Je vais analyser votre demande et vous proposer les meilleures options !"
+                                )
+                            ], style={
                                 'height': '400px',
                                 'overflowY': 'auto',
                                 'marginBottom': '16px',
@@ -418,7 +609,7 @@ class ViewerDashboard:
                                 dcc.Input(
                                     id='chat-input',
                                     type='text',
-                                    placeholder="Posez votre question... (ex: Je cherche un appartement 2 chambres à louer)",
+                                    placeholder="Décrivez votre recherche... (ex: appartement 2 chambres à louer)",
                                     style={
                                         'flex': '1',
                                         'padding': '12px 16px',
@@ -430,7 +621,7 @@ class ViewerDashboard:
                                 ),
                                 html.Button([
                                     DashIconify(icon="mdi:send", width=20, color="white")
-                                ], id='chat-send-button', style={
+                                ], id='chat-send-button', n_clicks=0, style={
                                     'background': f'linear-gradient(135deg, {self.COLORS["primary"]}, {self.COLORS["purple"]})',
                                     'border': 'none',
                                     'borderRadius': '12px',
@@ -486,7 +677,7 @@ class ViewerDashboard:
                                     },
                                     tooltip={"placement": "bottom", "always_visible": True}
                                 ),
-                                html.Div(id='budget-display', style={
+                                html.Div(id='budget-display', children="50 Millions FCFA", style={
                                     'textAlign': 'center',
                                     'marginTop': '8px',
                                     'fontSize': '16px',
@@ -507,9 +698,9 @@ class ViewerDashboard:
                                 dcc.RadioItems(
                                     id='status-filter',
                                     options=[
-                                        {'label': '  Tous', 'value': 'Tous'},
-                                        {'label': '  Vente', 'value': 'Vente'},
-                                        {'label': '  Location', 'value': 'Location'}
+                                        {'label': ' Tous', 'value': 'Tous'},
+                                        {'label': ' Vente', 'value': 'Vente'},
+                                        {'label': ' Location', 'value': 'Location'}
                                     ],
                                     value='Tous',
                                     inline=True,
@@ -591,7 +782,7 @@ class ViewerDashboard:
                             html.Button([
                                 DashIconify(icon="mdi:magnify", width=20, color="white"),
                                 html.Span("Rechercher", style={'marginLeft': '8px'})
-                            ], id='search-button', style={
+                            ], id='search-button', n_clicks=0, style={
                                 'width': '100%',
                                 'background': f'linear-gradient(135deg, {self.COLORS["success"]}, {self.COLORS["teal"]})',
                                 'border': 'none',
@@ -617,10 +808,47 @@ class ViewerDashboard:
                     # Section droite - Résultats
                     html.Div([
                         # Stats rapides
-                        html.Div(id='search-stats', style={'marginBottom': '24px'}),
+                        html.Div(id='search-stats', children=[
+                            html.Div([
+                                DashIconify(icon="mdi:information-outline", width=24, color=self.COLORS['info']),
+                                html.Span("Utilisez les filtres ou le chatbot pour commencer votre recherche", style={
+                                    'marginLeft': '12px',
+                                    'fontSize': '14px',
+                                    'color': self.COLORS['text_secondary']
+                                })
+                            ], style={
+                                'display': 'flex',
+                                'alignItems': 'center',
+                                'padding': '20px',
+                                'background': 'white',
+                                'borderRadius': '12px',
+                                'boxShadow': '0 2px 8px rgba(0,0,0,0.06)'
+                            })
+                        ], style={'marginBottom': '24px'}),
                         
                         # Résultats
-                        html.Div(id='search-results', style={
+                        html.Div(id='search-results', children=[
+                            html.Div([
+                                DashIconify(icon="mdi:magnify", width=80, color=self.COLORS['text_secondary'], style={'opacity': '0.3'}),
+                                html.H3("Lancez une recherche", style={
+                                    'color': self.COLORS['text_secondary'],
+                                    'marginTop': '16px'
+                                }),
+                                html.P("Décrivez votre besoin au chatbot ou ajustez les filtres pour trouver votre bien idéal", style={
+                                    'color': self.COLORS['text_secondary'],
+                                    'opacity': '0.7'
+                                })
+                            ], style={
+                                'display': 'flex',
+                                'flexDirection': 'column',
+                                'alignItems': 'center',
+                                'justifyContent': 'center',
+                                'padding': '80px 20px',
+                                'background': 'white',
+                                'borderRadius': '20px',
+                                'textAlign': 'center'
+                            })
+                        ], style={
                             'display': 'grid',
                             'gridTemplateColumns': 'repeat(auto-fill, minmax(320px, 1fr))',
                             'gap': '20px'
@@ -632,10 +860,100 @@ class ViewerDashboard:
                     'gap': '32px',
                     'maxWidth': '1800px',
                     'margin': '0 auto',
-                    'padding': '0 32px 60px 32px'
+                    'padding': '0 32px 60px 32px',
+                    'flexWrap': 'wrap'
                 })
             ], style={'background': self.COLORS['bg_main'], 'minHeight': 'calc(100vh - 200px)'})
         ])
+    
+    # ==================== UI HELPERS ====================
+    
+    def create_user_message(self, message):
+        """Créer une bulle de message utilisateur"""
+        return html.Div([
+            html.Div([
+                html.Div(message, style={
+                    'background': f'linear-gradient(135deg, {self.COLORS["primary"]}, {self.COLORS["purple"]})',
+                    'color': 'white',
+                    'padding': '12px 16px',
+                    'borderRadius': '12px',
+                    'fontSize': '14px',
+                    'maxWidth': '80%',
+                    'marginLeft': 'auto',
+                    'boxShadow': '0 2px 8px rgba(0,0,0,0.1)'
+                })
+            ], style={'display': 'flex', 'justifyContent': 'flex-end'})
+        ], className='chat-message', style={'marginBottom': '16px'})
+    
+    def create_ai_message(self, message, suggestions=None):
+        """Créer une bulle de message IA avec suggestions optionnelles"""
+        elements = [
+            html.Div([
+                html.Div([
+                    DashIconify(icon="mdi:robot", width=32, color=self.COLORS['primary'])
+                ], style={
+                    'width': '40px',
+                    'height': '40px',
+                    'borderRadius': '50%',
+                    'background': f'{self.COLORS["primary"]}15',
+                    'display': 'flex',
+                    'alignItems': 'center',
+                    'justifyContent': 'center',
+                    'marginRight': '12px',
+                    'flexShrink': '0'
+                }),
+                html.Div([
+                    dcc.Markdown(message, style={
+                        'fontSize': '14px',
+                        'lineHeight': '1.6',
+                        'color': self.COLORS['text_primary']
+                    })
+                ], style={
+                    'background': 'white',
+                    'padding': '12px 16px',
+                    'borderRadius': '12px',
+                    'boxShadow': '0 2px 8px rgba(0,0,0,0.06)',
+                    'flex': '1'
+                })
+            ], style={
+                'display': 'flex',
+                'marginBottom': '12px'
+            })
+        ]
+        
+        # Ajouter les suggestions si présentes
+        if suggestions and len(suggestions) > 0:
+            suggestion_chips = []
+            for i, sug in enumerate(suggestions):
+                suggestion_chips.append(
+                    html.Div([
+                        DashIconify(icon=sug.get('icon', 'mdi:check'), width=16, color=self.COLORS['primary']),
+                        html.Span(sug['label'], style={'marginLeft': '6px', 'fontSize': '13px'})
+                    ], id={'type': 'suggestion-chip', 'index': i}, className='suggestion-chip', style={
+                        'background': f'{self.COLORS["primary"]}10',
+                        'color': self.COLORS['primary'],
+                        'border': f'1px solid {self.COLORS["primary"]}30',
+                        'padding': '8px 14px',
+                        'borderRadius': '20px',
+                        'fontSize': '13px',
+                        'fontWeight': '500',
+                        'marginRight': '8px',
+                        'marginBottom': '8px',
+                        'display': 'inline-flex',
+                        'alignItems': 'center'
+                    })
+                )
+            
+            elements.append(
+                html.Div(suggestion_chips, style={
+                    'display': 'flex',
+                    'flexWrap': 'wrap',
+                    'marginLeft': '52px',
+                    'marginBottom': '8px'
+                })
+            )
+        
+        return html.Div(elements, className='chat-message', style={'marginBottom': '16px'})
     
     # ==================== CALLBACKS ====================
     
@@ -664,20 +982,23 @@ class ViewerDashboard:
                 State('property-type-filter', 'value'),
                 State('city-filter', 'value'),
                 State('bedrooms-slider', 'value')
-            ]
+            ],
+            prevent_initial_call=True
         )
         def perform_search(n_clicks, budget, status, prop_type, city, bedrooms):
             if not n_clicks:
-                return {}, []
+                return dash.no_update, []
             
             filters = {
                 'max_budget': budget,
                 'min_budget': 0,
-                'status': status if status != 'Tous' else None,
-                'property_type': prop_type if prop_type else None,
-                'city': city if city else None,
-                'min_bedrooms': bedrooms if bedrooms > 0 else 0
+                'status': status,
+                'property_type': prop_type,
+                'city': city,
+                'min_bedrooms': bedrooms
             }
+            
+            print(f"🔍 Recherche avec filtres: {filters}")
             
             df = self.search_properties(filters)
             
@@ -685,6 +1006,7 @@ class ViewerDashboard:
                 return filters, []
             
             results = df.to_dict('records')
+            print(f"✅ {len(results)} résultats trouvés")
             return filters, results
         
         @self.app.callback(
@@ -693,15 +1015,26 @@ class ViewerDashboard:
         )
         def update_search_stats(results):
             if not results:
-                return html.Div("Aucun résultat. Ajustez vos critères de recherche.", style={
+                return html.Div([
+                    DashIconify(icon="mdi:information-outline", width=24, color=self.COLORS['info']),
+                    html.Span("Utilisez les filtres ou le chatbot pour commencer votre recherche", style={
+                        'marginLeft': '12px',
+                        'fontSize': '14px',
+                        'color': self.COLORS['text_secondary']
+                    })
+                ], style={
+                    'display': 'flex',
+                    'alignItems': 'center',
                     'padding': '20px',
-                    'textAlign': 'center',
-                    'color': self.COLORS['text_secondary'],
                     'background': 'white',
-                    'borderRadius': '12px'
+                    'borderRadius': '12px',
+                    'boxShadow': '0 2px 8px rgba(0,0,0,0.06)'
                 })
             
             df = pd.DataFrame(results)
+            
+            vente_count = len(df[df['status'] == 'Vente'])
+            location_count = len(df[df['status'] == 'Location'])
             
             return html.Div([
                 html.Div([
@@ -718,16 +1051,21 @@ class ViewerDashboard:
                         })
                     ]),
                     html.Div([
-                        html.Span(f"Prix moyen: {df['price'].mean()/1_000_000:.1f}M FCFA", style={
+                        html.Span(f"💰 {vente_count} à vendre", style={
                             'fontSize': '14px',
                             'color': self.COLORS['text_secondary'],
                             'marginRight': '20px'
                         }),
-                        html.Span(f"Surface moyenne: {df['surface_area'].mean():.0f}m²" if df['surface_area'].notna().sum() > 0 else "", style={
+                        html.Span(f"🏠 {location_count} en location", style={
+                            'fontSize': '14px',
+                            'color': self.COLORS['text_secondary'],
+                            'marginRight': '20px'
+                        }),
+                        html.Span(f"Prix moyen: {df['price'].mean()/1_000_000:.1f}M FCFA", style={
                             'fontSize': '14px',
                             'color': self.COLORS['text_secondary']
                         })
-                    ])
+                    ], style={'marginTop': '8px'})
                 ])
             ], style={
                 'background': 'white',
@@ -751,7 +1089,7 @@ class ViewerDashboard:
                         'color': self.COLORS['text_secondary'],
                         'marginTop': '16px'
                     }),
-                    html.P("Utilisez les filtres ou le chatbot pour trouver votre bien idéal", style={
+                    html.P("Décrivez votre besoin au chatbot ou ajustez les filtres pour trouver votre bien idéal", style={
                         'color': self.COLORS['text_secondary'],
                         'opacity': '0.7'
                     })
@@ -763,7 +1101,8 @@ class ViewerDashboard:
                     'justifyContent': 'center',
                     'padding': '80px 20px',
                     'background': 'white',
-                    'borderRadius': '20px'
+                    'borderRadius': '20px',
+                    'textAlign': 'center'
                 })
             
             cards = []
@@ -815,8 +1154,17 @@ class ViewerDashboard:
                                 'borderRadius': '6px',
                                 'fontSize': '11px',
                                 'fontWeight': '600'
+                            }),
+                            html.Span(prop['source'], style={
+                                'background': self.COLORS['bg_main'],
+                                'color': self.COLORS['text_secondary'],
+                                'padding': '4px 10px',
+                                'borderRadius': '6px',
+                                'fontSize': '10px',
+                                'fontWeight': '600',
+                                'marginLeft': '8px'
                             })
-                        ], style={'marginBottom': '12px'}),
+                        ], style={'marginBottom': '12px', 'display': 'flex'}),
                         
                         html.H4(prop['title'], style={
                             'fontSize': '15px',
@@ -872,7 +1220,7 @@ class ViewerDashboard:
                                 'fontWeight': '800',
                                 'color': self.COLORS['primary']
                             }),
-                            html.Span(" FCFA" + ("/mois" if prop['status'] == 'Location' else ""), style={
+                            html.Span(" FCFA" + (" /mois" if prop['status'] == 'Location' else ""), style={
                                 'fontSize': '13px',
                                 'color': self.COLORS['text_secondary'],
                                 'marginLeft': '4px'
@@ -894,7 +1242,12 @@ class ViewerDashboard:
             [
                 Output('chat-messages', 'children'),
                 Output('chat-history-store', 'data'),
-                Output('chat-input', 'value')
+                Output('chat-input', 'value'),
+                Output('budget-slider', 'value'),
+                Output('status-filter', 'value'),
+                Output('property-type-filter', 'value'),
+                Output('city-filter', 'value'),
+                Output('bedrooms-slider', 'value')
             ],
             [
                 Input('chat-send-button', 'n_clicks'),
@@ -903,63 +1256,41 @@ class ViewerDashboard:
             [
                 State('chat-input', 'value'),
                 State('chat-history-store', 'data'),
-                State('user-filters-store', 'data')
-            ]
+                State('user-filters-store', 'data'),
+                State('budget-slider', 'value'),
+                State('status-filter', 'value'),
+                State('property-type-filter', 'value'),
+                State('city-filter', 'value'),
+                State('bedrooms-slider', 'value')
+            ],
+            prevent_initial_call=True
         )
-        def update_chat(n_clicks, n_submit, message, history, filters):
+        def update_chat(n_clicks, n_submit, message, history, filters, 
+                       current_budget, current_status, current_prop_type, 
+                       current_city, current_bedrooms):
+            
+            # Vérifier si appelé
             if not message or (not n_clicks and not n_submit):
-                if not history:
-                    # Message de bienvenue
-                    return [
-                        html.Div([
-                            html.Div([
-                                DashIconify(icon="mdi:robot", width=32, color=self.COLORS['primary'])
-                            ], style={
-                                'width': '40px',
-                                'height': '40px',
-                                'borderRadius': '50%',
-                                'background': f'{self.COLORS["primary"]}15',
-                                'display': 'flex',
-                                'alignItems': 'center',
-                                'justifyContent': 'center',
-                                'marginRight': '12px'
-                            }),
-                            html.Div([
-                                html.Div("Assistant IA", style={
-                                    'fontSize': '12px',
-                                    'fontWeight': '600',
-                                    'color': self.COLORS['text_secondary'],
-                                    'marginBottom': '4px'
-                                }),
-                                html.Div("👋 Bonjour ! Je suis votre assistant immobilier. Dites-moi ce que vous recherchez et je vous aiderai à trouver le bien idéal !", style={
-                                    'fontSize': '14px',
-                                    'lineHeight': '1.6',
-                                    'color': self.COLORS['text_primary']
-                                })
-                            ], style={
-                                'background': 'white',
-                                'padding': '12px 16px',
-                                'borderRadius': '12px',
-                                'boxShadow': '0 2px 8px rgba(0,0,0,0.06)',
-                                'flex': '1'
-                            })
-                        ], className='chat-message', style={
-                            'display': 'flex',
-                            'marginBottom': '16px'
-                        })
-                    ], history, ""
-                return [self.render_chat_history(history)], history, ""
+                return dash.no_update, dash.no_update, dash.no_update, \
+                       dash.no_update, dash.no_update, dash.no_update, \
+                       dash.no_update, dash.no_update
             
             # Ajouter le message utilisateur
+            if not history:
+                history = []
+            
             history.append({
                 'role': 'user',
                 'message': message,
                 'timestamp': datetime.now().isoformat()
             })
             
-            # Générer réponse IA
-            ai_response = self.generate_ai_response(message, filters)
+            # Analyser le message avec l'IA
+            print(f"🤖 Analyse du message: {message}")
+            ai_response = AIAssistant.analyze_message(message, filters)
+            print(f"✅ Réponse IA: {ai_response}")
             
+            # Ajouter la réponse IA
             history.append({
                 'role': 'assistant',
                 'message': ai_response['message'],
@@ -967,7 +1298,44 @@ class ViewerDashboard:
                 'timestamp': datetime.now().isoformat()
             })
             
-            return [self.render_chat_history(history)], history, ""
+            # Mettre à jour les filtres si l'IA a extrait des infos
+            extracted = ai_response.get('filters', {})
+            
+            new_budget = extracted.get('budget', current_budget)
+            if new_budget is None:
+                new_budget = current_budget
+            
+            new_status = extracted.get('transaction_type', current_status)
+            if new_status is None:
+                new_status = current_status
+            
+            new_prop_type = extracted.get('property_type', current_prop_type)
+            if new_prop_type is None:
+                new_prop_type = current_prop_type
+            
+            new_city = extracted.get('city', current_city)
+            if new_city is None:
+                new_city = current_city
+            
+            new_bedrooms = extracted.get('bedrooms', current_bedrooms)
+            if new_bedrooms is None:
+                new_bedrooms = current_bedrooms
+            
+            # Rendre l'historique du chat
+            messages_ui = []
+            for msg in history:
+                if msg['role'] == 'user':
+                    messages_ui.append(self.create_user_message(msg['message']))
+                else:
+                    messages_ui.append(
+                        self.create_ai_message(
+                            msg['message'],
+                            msg.get('suggestions', [])
+                        )
+                    )
+            
+            return messages_ui, history, "", new_budget, new_status, \
+                   new_prop_type, new_city, new_bedrooms
         
         @self.app.callback(
             Output('favorites-count', 'children'),
@@ -975,65 +1343,6 @@ class ViewerDashboard:
         )
         def update_favorites_count(favorites):
             return str(len(favorites))
-    
-    def render_chat_history(self, history):
-        """Rendre l'historique du chat"""
-        messages = []
-        
-        for msg in history:
-            if msg['role'] == 'user':
-                messages.append(
-                    html.Div([
-                        html.Div([
-                            html.Div(msg['message'], style={
-                                'background': f'linear-gradient(135deg, {self.COLORS["primary"]}, {self.COLORS["purple"]})',
-                                'color': 'white',
-                                'padding': '12px 16px',
-                                'borderRadius': '12px',
-                                'fontSize': '14px',
-                                'maxWidth': '80%',
-                                'marginLeft': 'auto',
-                                'boxShadow': '0 2px 8px rgba(0,0,0,0.1)'
-                            })
-                        ], style={'display': 'flex', 'justifyContent': 'flex-end'})
-                    ], className='chat-message', style={'marginBottom': '16px'})
-                )
-            else:
-                messages.append(
-                    html.Div([
-                        html.Div([
-                            DashIconify(icon="mdi:robot", width=32, color=self.COLORS['primary'])
-                        ], style={
-                            'width': '40px',
-                            'height': '40px',
-                            'borderRadius': '50%',
-                            'background': f'{self.COLORS["primary"]}15',
-                            'display': 'flex',
-                            'alignItems': 'center',
-                            'justifyContent': 'center',
-                            'marginRight': '12px',
-                            'flexShrink': '0'
-                        }),
-                        html.Div([
-                            dcc.Markdown(msg['message'], style={
-                                'fontSize': '14px',
-                                'lineHeight': '1.6',
-                                'color': self.COLORS['text_primary']
-                            })
-                        ], style={
-                            'background': 'white',
-                            'padding': '12px 16px',
-                            'borderRadius': '12px',
-                            'boxShadow': '0 2px 8px rgba(0,0,0,0.06)',
-                            'flex': '1'
-                        })
-                    ], className='chat-message', style={
-                        'display': 'flex',
-                        'marginBottom': '16px'
-                    })
-                )
-        
-        return messages
 
 
 def create_viewer_dashboard(server=None, routes_pathname_prefix="/viewer/", requests_pathname_prefix="/viewer/"):
