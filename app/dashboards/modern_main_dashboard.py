@@ -7,6 +7,7 @@ Version: 2.0 - Modern Design
 
 import dash
 from dash import html, dcc, Input, Output, State, callback
+from app.components.dash_sidebar_component import create_sidebar_layout
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
 import plotly.graph_objects as go
@@ -1411,4 +1412,6 @@ def create_observatoire_dashboard(server=None, routes_pathname_prefix="/", reque
         routes_pathname_prefix=routes_pathname_prefix,
         requests_pathname_prefix=requests_pathname_prefix
     )
+    original_layout = dashboard.app.layout
+    dashboard.app.layout = create_sidebar_layout(original_layout)
     return dashboard.app
