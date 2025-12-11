@@ -1,4 +1,4 @@
-from curses import flash
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
 import os
 from app.dashboards.main_dashboard import create_enhanced_dashboard
 import dash
@@ -6,13 +6,13 @@ from dash import html, dcc
 import dash_mantine_components as dmc
 import dash_bootstrap_components as dbc
 from dash_iconify import DashIconify
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
-from flask_login import LoginManager, login_required, current_user
+from flask_login import LoginManager, login_required, current_user, logout_user
 from flask_caching import Cache
 from flask_jwt_extended import JWTManager
 from sqlalchemy.pool import NullPool
 import redis
 from datetime import datetime, timedelta
+from flask_cors import CORS
 
 # Importer les composants
 from .database.models import db, User, CoinAfrique, ExpatDakarProperty, LogerDakarProperty, ProprietesConsolidees, AuditLog, DashboardConfig, MarketIndex
@@ -22,20 +22,18 @@ from .auth.decorators import admin_required, analyst_required
 # Configuration Flask
 app = Flask(__name__)
 
-# Database configuration - Neon requires SSL, use NullPool for fresh connections
+# Database configuration
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'votre-secret-key-tres-securise')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://neondb_owner:npg_9vrYBWUeT7js@ep-raspy-dust-a4a9f62f-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'poolclass': NullPool,  # Fresh connection for each query - avoids stale SSL connections
+    'poolclass': NullPool,
     'connect_args': {
         'connect_timeout': 10,
         'sslmode': 'require'
     }
 }
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key-tres-securise')
-
-from flask_cors import CORS
 
 CORS(app)
 
@@ -60,80 +58,85 @@ except:
 # Enregistrer les blueprints
 app.register_blueprint(auth_bp, url_prefix='/auth')
 
-# Import dashboard creation functionss
-from .dashboards.modern_main_dashboard import  create_observatoire_dashboard
-from .dashboards.analytics_dashboard import   create_ultra_dashboard
+# Import dashboard creation functions
+from .dashboards.modern_main_dashboard import create_observatoire_dashboard
+from .dashboards.analytics_dashboard import create_ultra_dashboard
 from .dashboards.map_dashboard import PremiumMapDashboard
 from .dashboards.viewer_dashboard import create_viewer_dashboard
 from .components.admin_panel import AdminPanel
 
-# Initialize Dash apps immediately (before first request)
-# modern dashboard -> served at /dashboard/
-dash_app1 = create_observatoire_dashboard(server=app,
-                                    routes_pathname_prefix="/dashboard/",
-                                    requests_pathname_prefix="/dashboard/")
-# analytics -> served at /analytics/
-dash_app2 = create_ultra_dashboard(server=app,
-                                         routes_pathname_prefix="/analytics/",
-                                         requests_pathname_prefix="/analytics/")
-# map -> served at /map/
-map_dashboard = PremiumMapDashboard(server=app,
-                             routes_pathname_prefix="/map/",
-                             requests_pathname_prefix="/map/")
+# Initialize Dash apps
+dash_app1 = create_observatoire_dashboard(server=app, routes_pathname_prefix="/dashboard/", requests_pathname_prefix="/dashboard/")
+dash_app2 = create_ultra_dashboard(server=app, routes_pathname_prefix="/analytics/", requests_pathname_prefix="/analytics/")
+map_dashboard = PremiumMapDashboard(server=app, routes_pathname_prefix="/map/", requests_pathname_prefix="/map/")
 dash_app3 = map_dashboard.app
-
-# viewer -> served at /viewer/ (NOUVEAU)
-dash_app5 = create_viewer_dashboard(server=app,
-                                    routes_pathname_prefix="/viewer/",
-                                    requests_pathname_prefix="/viewer/")
-
-# admin -> served at /admin/
-admin_panel = AdminPanel(server=app,
-                         routes_pathname_prefix="/admin/",
-                         requests_pathname_prefix="/admin/")
+dash_app5 = create_viewer_dashboard(server=app, routes_pathname_prefix="/viewer/", requests_pathname_prefix="/viewer/")
+admin_panel = AdminPanel(server=app, routes_pathname_prefix="/admin/", requests_pathname_prefix="/admin/")
 dash_app4 = admin_panel.app
 
 # Ensure callback exceptions allowed
-dash_app1.config.suppress_callback_exceptions = True
-dash_app2.config.suppress_callback_exceptions = True
-dash_app3.config.suppress_callback_exceptions = True
-dash_app4.config.suppress_callback_exceptions = True
-dash_app5.config.suppress_callback_exceptions = True
+for dash_app in [dash_app1, dash_app2, dash_app3, dash_app4, dash_app5]:
+    dash_app.config.suppress_callback_exceptions = True
 
+# ============================================
+# NOUVELLE STRUCTURE DE ROUTES POUR NAVIGATION
+# ============================================
 
-# Routes Flask principales
-# Dans main.py
+@app.context_processor
+def inject_navigation():
+    """Rend la navigation disponible dans tous les templates"""
+    return {
+        'home_url': url_for('home'),
+        'logout_url': url_for('logout') if current_user.is_authenticated else None
+    }
 
 @app.route('/')
-def index():
-    """Page d'accueil avec redirection selon le rôle"""
+@app.route('/accueil')
+def home():
+    """PAGE D'ACCUEIL UNIQUE - accessible à tous"""
     if current_user.is_authenticated:
-        if current_user.role == 'viewer':
-            return redirect(url_for('viewer'))
-        elif current_user.role in ['analyst', 'admin']:
-            return redirect(url_for('dashboard'))
+        # Affiche un accueil personnalisé avec accès rapide
+        return render_template('index.html', user=current_user)
     return render_template('index.html')
 
-# Dans main.py
-@app.route('/accueil')
-def index():
-    """Page d'accueil"""
-    return render_template('index.html')
+@app.route('/mon-espace')
+@login_required
+def mon_espace():
+    """Redirection intelligente vers l'espace utilisateur"""
+    if current_user.role == 'viewer':
+        return redirect(url_for('viewer'))
+    elif current_user.role in ['analyst', 'admin']:
+        return redirect(url_for('dashboard'))
+    else:
+        flash("Rôle non reconnu.", "error")
+        return redirect(url_for('home'))
+
+@app.route('/logout')
+@login_required
+def logout():
+    """Déconnexion et retour à l'accueil"""
+    logout_user()
+    flash("Déconnexion réussie.", "success")
+    return redirect(url_for('home'))
 
 @app.errorhandler(403)
 def forbidden(error):
-    """Gérer les accès interdits"""
+    """Gestion des accès interdits avec redirection"""
     if current_user.is_authenticated and current_user.role == 'viewer':
-        flash("Accès réservé aux analystes et administrateurs. Redirection vers votre espace.", "warning")
+        flash("Accès réservé aux analystes et administrateurs.", "warning")
         return redirect(url_for('viewer'))
-    return jsonify({'error': 'Permissions insuffisantes'}), 403
+    flash("Permissions insuffisantes.", "error")
+    return redirect(url_for('home'))
 
+# ============================================
+# ROUTES DES DASHBOARDS (inchangées)
+# ============================================
 
 @app.route('/dashboard')
 @login_required
 @analyst_required
 def dashboard():
-    """Dashboard principal"""
+    """Dashboard principal avec lien vers accueil intégré dans le layout Dash"""
     return dash_app1.index()
 
 @app.route('/analytics')
@@ -153,7 +156,7 @@ def map_view():
 @app.route('/viewer')
 @login_required
 def viewer():
-    """Interface viewer - Recherche intelligente"""
+    """Interface viewer"""
     return dash_app5.index()
 
 @app.route('/admin')
@@ -163,21 +166,22 @@ def admin():
     """Panneau d'administration"""
     return dash_app4.index()
 
+# ============================================
+# API ROUTES (inchangées)
+# ============================================
+
 @app.route('/api/properties')
 @login_required
 def api_properties():
     """API pour récupérer les propriétés"""
     try:
-        # Récupérer les paramètres de filtrage
         source = request.args.get('source', 'all')
         city = request.args.get('city')
         property_type = request.args.get('type')
         min_price = request.args.get('min_price', type=float)
         max_price = request.args.get('max_price', type=float)
         
-        # Construire la requête
         properties = []
-        
         models_to_query = []
         if source == 'all' or source == 'coinafrique':
             models_to_query.append((CoinAfrique, 'coinafrique'))
@@ -205,30 +209,21 @@ def api_properties():
                 prop_data['source'] = source_name
                 properties.append(prop_data)
         
-        return jsonify({
-            'success': True,
-            'count': len(properties),
-            'properties': properties
-        })
+        return jsonify({'success': True, 'count': len(properties), 'properties': properties})
     
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/stats')
 @login_required
 def api_stats():
     """API pour récupérer les statistiques"""
     try:
-        # Statistiques des propriétés
         coinafrique_count = CoinAfrique.query.count()
         expat_count = ExpatDakarProperty.query.count()
         loger_count = LogerDakarProperty.query.count()
         total_properties = coinafrique_count + expat_count + loger_count
         
-        # Prix moyen
         all_prices = []
         for model in [CoinAfrique, ExpatDakarProperty, LogerDakarProperty]:
             prices = db.session.query(model.price).all()
@@ -248,10 +243,7 @@ def api_stats():
         })
     
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/search')
 @login_required
@@ -261,33 +253,19 @@ def api_search():
         query = request.args.get('q', '')
         
         if not query:
-            return jsonify({
-                'success': False,
-                'error': 'Paramètre de recherche manquant'
-            }), 400
+            return jsonify({'success': False, 'error': 'Paramètre de recherche manquant'}), 400
         
         results = []
         
-        # Rechercher dans toutes les tables
         for model, source_name in [
             (CoinAfrique, 'coinafrique'),
             (ExpatDakarProperty, 'expatdakar'),
             (LogerDakarProperty, 'logerdakar')
         ]:
-            # Recherche dans le titre et la description
-            title_results = model.query.filter(
-                model.title.ilike(f'%{query}%')
-            ).all()
+            title_results = model.query.filter(model.title.ilike(f'%{query}%')).all()
+            desc_results = model.query.filter(model.description.ilike(f'%{query}%')).all() if hasattr(model, 'description') else []
+            city_results = model.query.filter(model.city.ilike(f'%{query}%')).all()
             
-            desc_results = model.query.filter(
-                model.description.ilike(f'%{query}%')
-            ).all() if hasattr(model, 'description') else []
-            
-            city_results = model.query.filter(
-                model.city.ilike(f'%{query}%')
-            ).all()
-            
-            # Combiner et dédupliquer les résultats
             all_results = list(set(title_results + desc_results + city_results))
             
             for result in all_results:
@@ -295,18 +273,10 @@ def api_search():
                 result_data['source'] = source_name
                 results.append(result_data)
         
-        return jsonify({
-            'success': True,
-            'count': len(results),
-            'query': query,
-            'results': results
-        })
+        return jsonify({'success': True, 'count': len(results), 'query': query, 'results': results})
     
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/health')
 def health_check():
@@ -317,95 +287,74 @@ def health_check():
         'database': 'connected' if db.session.execute('SELECT 1').scalar() else 'disconnected'
     })
 
-# Créer les tables et l'utilisateur admin par défaut
+# ============================================
+# INITIALISATION
+# ============================================
+
 def create_tables():
-    """Créer seulement la table users - autres tables sont gérées par Airflow"""
+    """Créer les tables métier et utilisateurs par défaut"""
     try:
-        # IMPORTANT: Ne pas toucher aux tables créées par Airflow (coinafrique, expat_dakar_properties, loger_dakar_properties, etc)
-        # Créer seulement les tables que l'application gère directement
-
-        # Order matters for FK dependencies: create users first, then tables that reference it
-        tables_to_create = [
-            (User, 'users'),
-        ]
-
+        tables_to_create = [(User, 'users')]
+        
         for model, name in tables_to_create:
             try:
                 model.__table__.create(db.engine, checkfirst=True)
-                print(f"Table '{name}' ensured (created if missing)")
+                print(f"Table '{name}' vérifiée/créée")
             except Exception as e:
-                print(f"Erreur création table '{name}': {e}")
+                print(f"Erreur table '{name}': {e}")
         
-        # Vérifier si l'utilisateur admin existe déjà
-        admin_user = User.query.filter_by(username='admin').first()
-        if not admin_user:
-            # Créer l'utilisateur admin par défaut
-            admin_password = hash_password('admin123')
-            admin_user = User(
-                username='admin',
-                email='admin@immobilier.sn',
-                password_hash=admin_password,
-                first_name='Administrateur',
-                last_name='Système',
-                role='admin',
-                is_active=True
-            )
-            db.session.add(admin_user)
-            db.session.commit()
-            
-            print("Utilisateur admin créé avec succès")
-            print("Identifiants par défaut: admin / admin123")
+        # Création des utilisateurs par défaut
+        default_users = [
+            {
+                'username': 'admin',
+                'email': 'admin@immobilier.sn',
+                'password': 'admin123',
+                'first_name': 'Administrateur',
+                'last_name': 'Système',
+                'role': 'admin'
+            },
+            {
+                'username': 'analyst',
+                'email': 'analyst@immobilier.sn',
+                'password': 'analyst123',
+                'first_name': 'Analyste',
+                'last_name': 'Données',
+                'role': 'analyst'
+            },
+            {
+                'username': 'viewer',
+                'email': 'viewer@immobilier.sn',
+                'password': 'viewer123',
+                'first_name': 'Visiteur',
+                'last_name': 'Plateforme',
+                'role': 'viewer'
+            }
+        ]
         
-        # Créer un utilisateur analyste de démonstration
-        analyst_user = User.query.filter_by(username='analyst').first()
-        if not analyst_user:
-            analyst_password = hash_password('analyst123')
-            analyst_user = User(
-                username='analyst',
-                email='analyst@immobilier.sn',
-                password_hash=analyst_password,
-                first_name='Analyste',
-                last_name='Données',
-                role='analyst',
-                is_active=True
-            )
-            db.session.add(analyst_user)
-            db.session.commit()
-            
-            print("Utilisateur analyste créé avec succès")
-            print("Identifiants: analyst / analyst123")
+        for user_data in default_users:
+            if not User.query.filter_by(username=user_data['username']).first():
+                user = User(
+                    username=user_data['username'],
+                    email=user_data['email'],
+                    password_hash=hash_password(user_data['password']),
+                    first_name=user_data['first_name'],
+                    last_name=user_data['last_name'],
+                    role=user_data['role'],
+                    is_active=True
+                )
+                db.session.add(user)
+                db.session.commit()
+                print(f"Utilisateur '{user_data['username']}' créé ({user_data['role']})")
         
-        # Créer un utilisateur viewer de démonstration
-        viewer_user = User.query.filter_by(username='viewer').first()
-        if not viewer_user:
-            viewer_password = hash_password('viewer123')
-            viewer_user = User(
-                username='viewer',
-                email='viewer@immobilier.sn',
-                password_hash=viewer_password,
-                first_name='Visiteur',
-                last_name='Plateforme',
-                role='viewer',
-                is_active=True
-            )
-            db.session.add(viewer_user)
-            db.session.commit()
-            
-            print("Utilisateur viewer créé avec succès")
-            print("Identifiants: viewer / viewer123")
-    
     except Exception as e:
-        print(f"Erreur lors de la création des tables: {e}")
+        print(f"Erreur initialisation: {e}")
 
-# Initialiser les tables avec le contexte d'application
+# Initialisation avec contexte
 with app.app_context():
     create_tables()
 
-# Exposer l'application pour Gunicorn
+# Exposition pour Gunicorn
 server = app
 
 if __name__ == '__main__':
-    # Mode développement
-    with app.app_context():
-        init_dashboards_lazy()
     app.run(debug=True, host='0.0.0.0', port=int(os.environ.get("PORT", 8050)))
