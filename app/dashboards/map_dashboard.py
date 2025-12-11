@@ -276,6 +276,7 @@ class PremiumMapDashboard:
             
             df = pd.DataFrame(all_data)
             df['city'] = df['city'].apply(lambda x: x.lower().split(',')[0] if isinstance(x, str) else x)
+            df['city_display'] = df['city_display'].apply(lambda x: x.title() if isinstance(x, str) else x)
             # Enrichissement des données
             if not df.empty:
                 # Score de densité par ville (nombre d'annonces / population)
