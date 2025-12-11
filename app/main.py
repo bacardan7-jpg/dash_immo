@@ -5,6 +5,7 @@ from flask_caching import Cache
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from sqlalchemy.pool import NullPool
+from sqlalchemy import or_
 import redis
 import os
 from datetime import datetime
@@ -96,6 +97,75 @@ for dash_app in [dash_app1, dash_app2, dash_app3, dash_app4, dash_app5]:
 
 
 # =============================================================================
+# CONTEXT PROCESSORS - Variables globales pour les templates
+# =============================================================================
+
+@app.context_processor
+def inject_navigation():
+    """Injecte les URLs de navigation dans tous les templates"""
+    return {
+        'home_url': url_for('index'),
+        'logout_url': url_for('logout') if current_user.is_authenticated else None
+    }
+
+
+@app.context_processor
+def inject_user_capabilities():
+    """Injecte les capacités utilisateur dans tous les templates"""
+    
+    class UserCapabilities:
+        def __init__(self, user):
+            self.user = user
+            
+        @property
+        def can_view_dashboard(self):
+            """Peut voir les dashboards principaux"""
+            if not self.user or not self.user.is_authenticated:
+                return False
+            return self.user.role in ['analyst', 'admin']
+            
+        @property
+        def can_manage_users(self):
+            """Peut gérer les utilisateurs (admin)"""
+            if not self.user or not self.user.is_authenticated:
+                return False
+            return self.user.role == 'admin'
+            
+        @property
+        def can_view_analytics(self):
+            """Peut voir l'analytics avancé"""
+            if not self.user or not self.user.is_authenticated:
+                return False
+            return self.user.role in ['analyst', 'admin']
+            
+        @property
+        def can_view_map(self):
+            """Peut voir la carte interactive"""
+            if not self.user or not self.user.is_authenticated:
+                return False
+            return self.user.role in ['analyst', 'admin']
+            
+        @property
+        def can_view_viewer(self):
+            """Peut voir l'interface viewer"""
+            if not self.user or not self.user.is_authenticated:
+                return False
+            return True  # Tous les utilisateurs connectés peuvent accéder au viewer
+            
+        @property
+        def can_export_data(self):
+            """Peut exporter les données"""
+            if not self.user or not self.user.is_authenticated:
+                return False
+            return self.user.role in ['analyst', 'admin']
+    
+    return {
+        'user_capabilities': UserCapabilities(current_user),
+        'current_user': current_user
+    }
+
+
+# =============================================================================
 # ROUTES PRINCIPALES - Navigation vers l'accueil
 # =============================================================================
 
@@ -135,6 +205,7 @@ def logout():
     """
     try:
         logout_user()
+        session.clear()
         flash("Déconnexion réussie. À bientôt !", "success")
         return redirect(url_for('index'))
     except Exception as e:
@@ -348,7 +419,6 @@ def api_search():
                 search_filters.append(model.district.ilike(f'%{query}%'))
             
             # Combiner les filtres avec OR
-            from sqlalchemy import or_
             all_results = model.query.filter(or_(*search_filters)).limit(50).all()
             
             for result in all_results:
