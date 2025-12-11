@@ -1099,6 +1099,8 @@ class PremiumMapDashboard:
             'textAlign': 'center'
         }, className='stat-card')
 
+from ..components.dash_sidebar_component import create_sidebar_layout
+
 
 def create_premium_map_dashboard(server=None, routes_pathname_prefix="/map/", requests_pathname_prefix="/map/"):
     """Factory function pour créer le map dashboard"""
@@ -1108,6 +1110,8 @@ def create_premium_map_dashboard(server=None, routes_pathname_prefix="/map/", re
             routes_pathname_prefix=routes_pathname_prefix,
             requests_pathname_prefix=requests_pathname_prefix
         )
+        original_layout = dashboard.app.layout
+        dashboard.app.layout = create_sidebar_layout(original_layout)
         logger.info("✅ Map Dashboard créé avec succès")
         return dashboard.app
     except Exception as e:
