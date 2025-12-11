@@ -115,6 +115,10 @@ def index():
     return render_template('index.html')
 
 # Dans main.py
+@app.route('/accueil')
+def index():
+    """Page d'accueil"""
+    return render_template('index.html')
 
 @app.errorhandler(403)
 def forbidden(error):
