@@ -56,6 +56,7 @@ class ErrorManager:
             title=title,
             message=message,
             color="green",
+            action="show",
             autoClose=4000,
             icon=DashIconify(icon="mdi:check-circle", width=24)
         )
@@ -92,6 +93,7 @@ class ErrorManager:
             title=title,
             message=message,
             color="yellow",
+            action="show",
             autoClose=6000,
             icon=DashIconify(icon="mdi:alert", width=24)
         )
@@ -103,6 +105,7 @@ class ErrorManager:
             title=title,
             message=message,
             color="blue",
+            action="show",
             autoClose=3000,
             icon=DashIconify(icon="mdi:information", width=24)
         )
@@ -1142,6 +1145,25 @@ class AnalyticsDashboard:
                             ], style={'flex': '1', 'minWidth': '200px'}),
                             
                             html.Div([
+                                html.Label("Statut (🔴 CRITIQUE)", style={
+                                    'fontSize': '13px', 'fontWeight': '700',
+                                    'color': self.COLORS['warning'], 'marginBottom': '8px', 'display': 'block'
+                                }),
+                                dcc.Dropdown(
+                                    id='filter-status',
+                                    options=[
+                                        {'label': '🏘️ Tous', 'value': 'Tous'},
+                                        {'label': '💰 Vente', 'value': 'Vente'},
+                                        {'label': '🏠 Location', 'value': 'Location'}
+                                    ],
+                                    value='Tous',
+                                    clearable=False,
+                                    placeholder="Statut de l'annonce",
+                                    style={'borderRadius': '12px'}
+                                )
+                            ], style={'flex': '1', 'minWidth': '200px'}),
+                            
+                            html.Div([
                                 html.Label("Fourchette de prix", style={
                                     'fontSize': '13px', 'fontWeight': '600',
                                     'color': self.COLORS['text_secondary'], 'marginBottom': '8px', 'display': 'block'
@@ -1319,11 +1341,12 @@ class AnalyticsDashboard:
             [
                 State('filter-cities', 'value'),
                 State('filter-properties', 'value'),
-                State('filter-price-range', 'value')
+                State('filter-price-range', 'value'),
+                State('filter-status', 'value')
             ]
         )
-        def load_with_filters(n_clicks, path, cities, properties, price_range):
-            """Charger les données avec filtres"""
+        def load_with_filters(n_clicks, path, cities, properties, price_range, status):
+            """Charger les données avec filtres + FILTRE STATUT CRITIQUE"""
             try:
                 filters = {}
                 
@@ -1339,6 +1362,15 @@ class AnalyticsDashboard:
                 df = self.get_enriched_data(filters=filters if filters else None, limit=5000)
                 
                 if df.empty:
+                    return []
+                
+                # 🔴 CRITIQUE: FILTRER PAR STATUT AVANT TOUTE ANALYSE
+                if status and status != 'Tous' and 'status' in df.columns:
+                    df = df[df['status'] == status].copy()
+                    print(f"✅ Données filtrées par statut: {status} -> {len(df)} enregistrements")
+                
+                if df.empty:
+                    print(f"⚠️ Aucune donnée après filtre statut: {status}")
                     return []
                 
                 # Convertir en dict pour le store
@@ -1425,15 +1457,24 @@ class AnalyticsDashboard:
             Input('analytics-data-store', 'data')
         )
         def update_all_graphs(data):
-            """Mettre à jour tous les graphiques"""
+            """Mettre à jour tous les graphiques - DONNÉES DÉJÀ FILTRÉES PAR STATUT"""
             try:
                 if not data or len(data) == 0:
-                    empty = html.Div("Aucune donnée", style={
+                    empty = html.Div("Aucune donnée - Vérifiez les filtres (notamment le STATUT)", style={
                         'textAlign': 'center', 'padding': '40px',
                         'background': 'white', 'borderRadius': '20px',
-                        'boxShadow': '0 4px 20px rgba(0,0,0,0.06)'
+                        'boxShadow': '0 4px 20px rgba(0,0,0,0.06)',
+                        'color': self.COLORS['warning']
                     })
                     return [empty] * 8
+                
+                # Vérifier que les données ont bien le champ status
+                df_check = pd.DataFrame(data)
+                if 'status' in df_check.columns:
+                    status_counts = df_check['status'].value_counts().to_dict()
+                    print(f"✅ Graphiques avec données filtrées: {status_counts}")
+                else:
+                    print("⚠️ Champ 'status' manquant dans les données")
                 
                 graphs = [
                     html.Div([
