@@ -1520,19 +1520,41 @@ class AnalyticsDashboard:
                 return [error] * 8
 
 
+# analytics_dashboard.py - FIN DU FICHIER
+
 def create_ultra_dashboard(server=None, routes_pathname_prefix="/analytics/", requests_pathname_prefix="/analytics/"):
-    """Factory function pour créer le dashboard analytics"""
+    """Factory function pour créer le dashboard analytics avec sidebar"""
     try:
         dashboard = AnalyticsDashboard(
             server=server,
             routes_pathname_prefix=routes_pathname_prefix,
             requests_pathname_prefix=requests_pathname_prefix
         )
-        original_layout = dashboard.app.layout
-        dashboard.app.layout = create_sidebar_layout(original_layout)
-        print("✅ Analytics Dashboard créé avec succès")
+        
+        # 🔴 INTÉGRATION DU SIDEBAR COHÉRENT
+        from app.components.sidebar_factory import create_sidebar_component
+        
+        # Créer le layout avec sidebar
+        original_content = dashboard.app.layout
+        
+        # Ajouter le CSS du sidebar
+        sidebar_css = html.Link(
+            rel='stylesheet',
+            href='/static/css/sidebar.css'  # Chemin vers le CSS partagé
+        )
+        
+        # Nouveau layout avec sidebar
+        dashboard.app.layout = html.Div([
+            sidebar_css,
+            create_sidebar_component(current_path='/analytics'),  # Sidebar cohérent
+            html.Div(original_content, className="has-sidebar")  # Contenu avec marge
+        ])
+        
+        print("✅ Analytics Dashboard créé avec sidebar cohérent")
         return dashboard.app
+        
     except Exception as e:
         print(f"❌ ERREUR CRITIQUE création dashboard: {e}")
+        import traceback
         traceback.print_exc()
         raise
