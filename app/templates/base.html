@@ -311,11 +311,8 @@
     <aside class="glass-sidebar" id="mainSidebar" role="complementary" aria-label="Sidebar navigation">
         <!-- Sidebar Header -->
         <div class="sidebar-header">
-            <a href="{{ url_for('index') }}" class="sidebar-brand-horizontal">
-                <img src="{{ url_for('static', filename='/images/logo.png') }}" 
-                    alt="Logo" 
-                    class="sidebar-logo-img-horizontal"
-                    onerror="this.style.display='none';">
+            <a href="{{ url_for('index') }}" style="text-decoration: none;">
+                <i class="fas fa-home sidebar-logo"></i>
                 <h3 class="sidebar-title">Jotali Immo</h3>
             </a>
         </div>
