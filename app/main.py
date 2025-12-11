@@ -107,11 +107,7 @@ dash_app5.config.suppress_callback_exceptions = True
 @app.route('/')
 def index():
     """Page d'accueil avec redirection selon le rôle"""
-    if current_user.is_authenticated:
-        if current_user.role == 'viewer':
-            return redirect(url_for('viewer'))
-        elif current_user.role in ['analyst', 'admin']:
-            return redirect(url_for('dashboard'))
+        
     return render_template('index.html')
 
 # Dans main.py
