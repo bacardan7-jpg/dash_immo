@@ -797,7 +797,7 @@ class EnhancedMainDashboard:
                 return [styled_error] * 10  # 🔴 EXACTEMENT 10 valeurs
 
 
-def create_ultra_dashboard(server=None, routes_pathname_prefix="/dashboard/", requests_pathname_prefix="/dashboard/"):
+def create_observatoire_dashboard(server=None, routes_pathname_prefix="/dashboard/", requests_pathname_prefix="/dashboard/"):
     """Factory function"""
     dashboard = EnhancedMainDashboard(
         server=server,
@@ -806,5 +806,5 @@ def create_ultra_dashboard(server=None, routes_pathname_prefix="/dashboard/", re
     )
     original_layout = dashboard.app.layout
     dashboard.app.layout = create_sidebar_layout(original_layout)
-    print("✅ Main Dashboard créé (10 outputs, 9 graphes, status, surface max 450m²)")
+    print("✅ Main Dashboard créé (10 outputs, 9 graphes, status, surfaces max 450m²)")
     return dashboard.app
