@@ -109,9 +109,9 @@ def index():
     """Page d'accueil avec redirection selon le rôle"""
     if current_user.is_authenticated:
         if current_user.role == 'viewer':
-            return redirect(url_for('/'))
+            return redirect(url_for(''))
         elif current_user.role in ['analyst', 'admin']:
-            return redirect(url_for('/'))
+            return redirect(url_for(''))
     return render_template('index.html')
 
 # Dans main.py
