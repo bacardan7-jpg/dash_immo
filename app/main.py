@@ -63,6 +63,7 @@ app.register_blueprint(auth_bp, url_prefix='/auth')
 from .dashboards.modern_main_dashboard import  create_observatoire_dashboard
 from .dashboards.analytics_dashboard import   create_ultra_dashboard
 from .dashboards.map_dashboard import PremiumMapDashboard
+from .dashboards.viewer_dashboard import create_viewer_dashboard
 from .components.admin_panel import AdminPanel
 
 # Initialize Dash apps immediately (before first request)
@@ -79,6 +80,12 @@ map_dashboard = PremiumMapDashboard(server=app,
                              routes_pathname_prefix="/map/",
                              requests_pathname_prefix="/map/")
 dash_app3 = map_dashboard.app
+
+# viewer -> served at /viewer/ (NOUVEAU)
+dash_app5 = create_viewer_dashboard(server=app,
+                                    routes_pathname_prefix="/viewer/",
+                                    requests_pathname_prefix="/viewer/")
+
 # admin -> served at /admin/
 admin_panel = AdminPanel(server=app,
                          routes_pathname_prefix="/admin/",
@@ -90,6 +97,7 @@ dash_app1.config.suppress_callback_exceptions = True
 dash_app2.config.suppress_callback_exceptions = True
 dash_app3.config.suppress_callback_exceptions = True
 dash_app4.config.suppress_callback_exceptions = True
+dash_app5.config.suppress_callback_exceptions = True
 
 
 # Routes Flask principales
@@ -119,6 +127,12 @@ def analytics():
 def map_view():
     """Vue cartographique"""
     return dash_app3.index()
+
+@app.route('/viewer')
+@login_required
+def viewer():
+    """Interface viewer - Recherche intelligente"""
+    return dash_app5.index()
 
 @app.route('/admin')
 @login_required
