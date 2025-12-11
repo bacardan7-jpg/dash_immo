@@ -791,7 +791,7 @@ class EnhancedMainDashboard:
                 return [error_msg] + [html.Div()] * 10
 
 
-def create_enhanced_dashboard(server=None, routes_pathname_prefix="/dashboard/", requests_pathname_prefix="/dashboard/"):
+def create_observatoire_dashboard(server=None, routes_pathname_prefix="/dashboard/", requests_pathname_prefix="/dashboard/"):
     """Factory function avec sidebar cohérente"""
     dashboard = EnhancedMainDashboard(
         server=server,
