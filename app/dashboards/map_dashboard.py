@@ -1110,9 +1110,6 @@ def create_premium_map_dashboard(server=None, routes_pathname_prefix="/map/", re
             routes_pathname_prefix=routes_pathname_prefix,
             requests_pathname_prefix=requests_pathname_prefix
         )
-        original_layout = dashboard.app.layout
-        dashboard.app.layout = create_sidebar_layout(original_layout)
-        logger.info("✅ Map Dashboard créé avec succès")
         return dashboard.app
     except Exception as e:
         logger.error(f"❌ ERREUR création Map Dashboard: {e}")

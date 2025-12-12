@@ -1530,26 +1530,6 @@ def create_ultra_dashboard(server=None, routes_pathname_prefix="/analytics/", re
             routes_pathname_prefix=routes_pathname_prefix,
             requests_pathname_prefix=requests_pathname_prefix
         )
-        
-        # 🔴 INTÉGRATION DU SIDEBAR COHÉRENT
-        from app.components.sidebar_factory import create_sidebar_component
-        
-        # Créer le layout avec sidebar
-        original_content = dashboard.app.layout
-        
-        # Ajouter le CSS du sidebar
-        sidebar_css = html.Link(
-            rel='stylesheet',
-            href='/static/css/sidebar.css'  # Chemin vers le CSS partagé
-        )
-        
-        # Nouveau layout avec sidebar
-        dashboard.app.layout = html.Div([
-            sidebar_css,
-            create_sidebar_component(current_path='/analytics'),  # Sidebar cohérent
-            html.Div(original_content, className="has-sidebar")  # Contenu avec marge
-        ])
-        
         print("✅ Analytics Dashboard créé avec sidebar cohérent")
         return dashboard.app
         

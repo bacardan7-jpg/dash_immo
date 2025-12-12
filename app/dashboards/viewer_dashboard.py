@@ -1355,7 +1355,6 @@ def create_viewer_dashboard(server=None, routes_pathname_prefix="/viewer/", requ
             routes_pathname_prefix=routes_pathname_prefix,
             requests_pathname_prefix=requests_pathname_prefix
         )
-        dashboard.app.layout = create_sidebar_layout(dashboard.app.layout)
         print("✅ Viewer Dashboard créé avec succès")
         return dashboard.app
     except Exception as e:
