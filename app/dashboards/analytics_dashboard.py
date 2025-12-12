@@ -397,6 +397,7 @@ class AnalyticsDashboard:
                             age_days = None
                             if r.posted_time:
                                 age_days = (datetime.utcnow() - parse_french_datetime(r.posted_time)).days
+                                print(age_days)
                             
                             price = float(r.price) if r.price else 0
                             surface = float(r.surface_area) if r.surface_area and r.surface_area > 0 else None
