@@ -53,7 +53,7 @@ class PremiumMapDashboard:
         'teal': '#14B8A6',
         'bg_dark': '#0f172a',
         'bg_card': '#1e293b',
-        'text_primary': '#f1f5f9',
+        'text_primary': "#315579",
         'text_secondary': '#94a3b8',
         'border': '#334155'
     }
@@ -123,12 +123,12 @@ class PremiumMapDashboard:
     def safe_import_models(self):
         """Import sécurisé des modèles"""
         try:
-            from database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
-            return db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
+            from database.models import db,  ExpatDakarProperty, LogerDakarProperty
+            return db,  ExpatDakarProperty, LogerDakarProperty
         except ImportError:
             try:
-                from app.database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
-                return db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
+                from app.database.models import db,  ExpatDakarProperty, LogerDakarProperty
+                return db,  ExpatDakarProperty, LogerDakarProperty
             except Exception as e:
                 logger.error(f"Erreur import models: {e}")
                 return None, None, None, None
@@ -168,7 +168,7 @@ class PremiumMapDashboard:
         Avec nettoyage des villes et calculs avancés
         """
         try:
-            db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty = self.safe_import_models()
+            db,  ExpatDakarProperty, LogerDakarProperty = self.safe_import_models()
             
             if not db:
                 logger.error("DB non disponible")
@@ -178,8 +178,8 @@ class PremiumMapDashboard:
             
             # Définir les sources à interroger
             models_to_query = []
-           # if not sources or 'CoinAfrique' in sources:
-           #     models_to_query.append((CoinAfrique, 'CoinAfrique'))
+           # if not sources or '' in sources:
+           #     models_to_query.append(( ''))
             if not sources or 'ExpatDakar' in sources:
                 models_to_query.append((ExpatDakarProperty, 'ExpatDakar'))
             if not sources or 'LogerDakar' in sources:
@@ -344,14 +344,42 @@ class PremiumMapDashboard:
                 return self.create_empty_figure("Pas de données pour ce critère")
             
             # Agréger par ville pour la carte
+            # Dans la fonction create_interactive_map, remplacez cette partie :
+
             city_agg = df_map.groupby(['city', 'city_display', 'lat', 'lon', 'region']).agg({
                 'price': ['count', 'median', 'mean'],
                 'price_per_m2': 'median',
                 color_col: 'mean'
             }).reset_index()
-            
+
+            # FLATTEN les colonnes MultiIndex correctement
             city_agg.columns = ['city', 'city_display', 'lat', 'lon', 'region', 
-                               'count', 'median_price', 'mean_price', 'median_price_m2', 'color_value']
+                            'count', 'median_price', 'mean_price', 'median_price_m2', 'color_value']
+
+            # PAR :
+            city_agg = df_map.groupby(['city', 'city_display', 'lat', 'lon', 'region']).agg({
+                'price': ['count', 'median', 'mean'],
+                'price_per_m2': 'median',
+                color_col: 'mean'
+            }).reset_index()
+
+            # Flatten les noms de colonnes MultiIndex
+            city_agg.columns = ['_'.join(col).strip('_') if isinstance(col, tuple) else col 
+                            for col in city_agg.columns]
+
+            # Renommer explicitement chaque colonne
+            city_agg = city_agg.rename(columns={
+                'city': 'city',
+                'city_display': 'city_display', 
+                'lat': 'lat',
+                'lon': 'lon',
+                'region': 'region',
+                'price_count': 'count',
+                'price_median': 'median_price',
+                'price_mean': 'mean_price',
+                'price_per_m2_median': 'median_price_m2',
+                f'{color_col}_mean': 'color_value'
+            })
             
             # Créer le hover text
             city_agg['hover_text'] = city_agg.apply(
@@ -837,11 +865,10 @@ class PremiumMapDashboard:
                                 dcc.Dropdown(
                                     id='map-sources',
                                     options=[
-                                        {'label': '🟦 CoinAfrique', 'value': 'CoinAfrique'},
                                         {'label': '🟨 ExpatDakar', 'value': 'ExpatDakar'},
                                         {'label': '🟩 LogerDakar', 'value': 'LogerDakar'}
                                     ],
-                                    value=['CoinAfrique', 'ExpatDakar', 'LogerDakar'],
+                                    value=[ 'ExpatDakar', 'LogerDakar'],
                                     multi=True,
                                     style={'borderRadius': '12px'}
                                 )
