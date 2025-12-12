@@ -31,7 +31,7 @@ tmp_upload_dir = None
 # keyfile = "/path/to/keyfile"
 # certfile = "/path/to/certfile"
 
-# Preload app for performance
+# ✅ IMPORTANT : Preload app pour éviter duplication des dashboards
 preload_app = True
 
 # Environment variables
@@ -47,7 +47,7 @@ def when_ready(server):
 def worker_int(worker):
     worker.log.info("worker received INT or QUIT signal")
 
-# Application
+# ✅ CORRIGÉ : Retourne l'instance Flask avec les routes
 def app():
-    from app.main import server
-    return server
+    from app.main import app
+    return app
