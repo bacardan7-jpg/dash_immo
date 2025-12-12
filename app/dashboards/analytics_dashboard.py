@@ -742,6 +742,7 @@ class AnalyticsDashboard:
                 return self._create_empty_graph("Colonnes manquantes", " Tendances Temporelles")
             
             df_dated = df[df['posted_time'].notna()].copy()
+            df_dated['date'] = pd.to_datetime(df_dated['posted_time'], format='mixed').dt.date
             
             if df_dated.empty:
                 return self._create_empty_graph("Pas de dates disponibles", " Tendances Temporelles")
