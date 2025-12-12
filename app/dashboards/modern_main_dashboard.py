@@ -611,44 +611,40 @@ class DashboardUltimate:
     def setup_layout(self):
         """Layout ultime avec tous les composants"""
         
-        # CSS personnalisé pour les animations
-        custom_css = html.Style("""
-            .kpi-card:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
-            }
-            
-            .kpi-card {
-                cursor: pointer;
-            }
-            
-            /* Smooth transitions */
-            * {
-                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            }
-            
-            /* Scrollbar styling */
-            ::-webkit-scrollbar {
-                width: 10px;
-                height: 10px;
-            }
-            
-            ::-webkit-scrollbar-track {
-                background: #F1F5F9;
-            }
-            
-            ::-webkit-scrollbar-thumb {
-                background: #CBD5E1;
-                border-radius: 5px;
-            }
-            
-            ::-webkit-scrollbar-thumb:hover {
-                background: #94A3B8;
-            }
-        """)
-        
         self.app.layout = dbc.Container([
-            custom_css,
+            # CSS personnalisé injecté via html.Link avec data URI
+            html.Link(
+                rel='stylesheet',
+                href='data:text/css;base64,' + __import__('base64').b64encode("""
+                    .kpi-card:hover {
+                        transform: translateY(-5px) !important;
+                        box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
+                    }
+                    
+                    .kpi-card {
+                        cursor: pointer;
+                    }
+                    
+                    ::-webkit-scrollbar {
+                        width: 10px;
+                        height: 10px;
+                    }
+                    
+                    ::-webkit-scrollbar-track {
+                        background: #F1F5F9;
+                    }
+                    
+                    ::-webkit-scrollbar-thumb {
+                        background: #CBD5E1;
+                        border-radius: 5px;
+                    }
+                    
+                    ::-webkit-scrollbar-thumb:hover {
+                        background: #94A3B8;
+                    }
+                """.encode()).decode()
+            ),
+            
             dcc.Store(id='data-store', data=[]),
             
             # Header uniforme avec gradient
