@@ -33,6 +33,111 @@ import re
 import pandas as pd
 import traceback
 
+def parse_french_datetime(date_str):
+    """
+    Parse les dates françaises variées en objets datetime.
+    Retourne datetime.now() si null ou parsing échoue.
+    """
+    if pd.isna(date_str) or date_str is None or str(date_str).strip() == '':
+        return datetime.now()
+    
+    text = str(date_str).strip().lower()
+    now = datetime.now()
+    
+    # Mapping mois français
+    months = {
+        'janv': 1, 'jan': 1, 'janvier': 1,
+        'févr': 2, 'fevr': 2, 'février': 2, 'fevrier': 2,
+        'mars': 3, 'mar': 3,
+        'avr': 4, 'avril': 4,
+        'mai': 5,
+        'juin': 6,
+        'juil': 7, 'juillet': 7,
+        'août': 8, 'aout': 8,
+        'sept': 9, 'sep': 9, 'septembre': 9,
+        'oct': 10, 'octobre': 10,
+        'nov': 11, 'novembre': 11,
+        'déc': 12, 'dec': 12, 'décembre': 12, 'decembre': 12
+    }
+    
+    # Mapping jours français
+    days = {
+        'lundi': 0, 'mardi': 1, 'mercredi': 2, 'jeudi': 3, 
+        'vendredi': 4, 'samedi': 5, 'dimanche': 6
+    }
+    
+    try:
+        # 1. "Il y a X ans/jours/heures/minutes"
+        match = re.match(r'il y a (\d+) (an|mois|semaine|jour|heure|minute)s?', text)
+        if match:
+            amount = int(match.group(1))
+            unit = match.group(2)
+            if unit == 'an':
+                return now - relativedelta(years=amount)
+            elif unit == 'mois':
+                return now - relativedelta(months=amount)
+            elif unit == 'semaine':
+                return now - timedelta(weeks=amount)
+            elif unit == 'jour':
+                return now - timedelta(days=amount)
+            elif unit == 'heure':
+                return now - timedelta(hours=amount)
+            elif unit == 'minute':
+                return now - timedelta(minutes=amount)
+        
+        # 2. "Hier, 13:00"
+        if 'hier' in text:
+            time_match = re.search(r'(\d{1,2}):(\d{2})', text)
+            hier = now - timedelta(days=1)
+            if time_match:
+                hour, minute = map(int, time_match.groups())
+                return hier.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            return hier
+        
+        # 3. "Aujourd'hui, 15:30"
+        if "aujourd'hui" in text:
+            time_match = re.search(r'(\d{1,2}):(\d{2})', text)
+            if time_match:
+                hour, minute = map(int, time_match.groups())
+                return now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            return now
+        
+        # 4. "vendredi, 22:49"
+        for day_name, day_num in days.items():
+            if day_name in text:
+                time_match = re.search(r'(\d{1,2}):(\d{2})', text)
+                days_diff = (now.weekday() - day_num) % 7
+                if days_diff == 0:
+                    days_diff = 7
+                target_date = now - timedelta(days=days_diff)
+                if time_match:
+                    hour, minute = map(int, time_match.groups())
+                    return target_date.replace(hour=hour, minute=minute, second=0, microsecond=0)
+                return target_date
+        
+        # 5. "27. oct."
+        date_match = re.match(r'(\d{1,2})[\.\s]+(\w{3,})\.?', text)
+        if date_match:
+            day = int(date_match.group(1))
+            month_str = date_match.group(2).lower()
+            if month_str in months:
+                try:
+                    return now.replace(month=months[month_str], day=day, hour=0, minute=0, second=0, microsecond=0)
+                except ValueError:
+                    pass
+        
+        # 6. "10:07" (heure seule)
+        time_match = re.match(r'(\d{1,2}):(\d{2})', text)
+        if time_match:
+            hour, minute = map(int, time_match.groups())
+            return now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        
+        # 7. Fallback standard
+        return pd.to_datetime(date_str)
+        
+    except Exception as e:
+        print(f"⚠️ Erreur parsing '{date_str}': {e}")
+        return now
 
 class DashboardUltimate:
     """Dashboard Ultimate - Fusion des 3 dashboards avec tous les meilleurs graphiques"""
