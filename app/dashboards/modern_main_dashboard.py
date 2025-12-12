@@ -147,7 +147,7 @@ class DashboardUltimate:
                 return pd.DataFrame()
             
             df = pd.DataFrame(all_data).copy()
-            df['city'] = df['city'].apply(lambda x: x.lower().strip().split(',')[0] if isinstance(x, str) else x)
+            df['city'] = df['city'].apply(lambda x: x.lower().split(',')[0] if isinstance(x, str) else x)
             
             # Prix/m²
             if 'surface_area' in df.columns:
@@ -237,6 +237,7 @@ class DashboardUltimate:
                 kpis['price_trend'] = round(np.random.uniform(3, 8), 1)
                 kpis['volatility_trend'] = round(np.random.uniform(-2, 1), 1)
             
+            print(f"✅ KPIs calculés: {kpis}")
             return kpis
             
         except Exception as e:
