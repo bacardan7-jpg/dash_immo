@@ -543,9 +543,63 @@ with app.app_context():
 # EXPOSITION POUR GUNICORN
 # =============================================================================
 
-server = app
+def create_flask_app():
+    app = Flask(__name__, 
+                template_folder='templates',
+                static_folder='static')
 
-if __name__ == '__main__':
-    # Mode développement
-    print("🚀 Démarrage en mode développement...")
-    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get("PORT", 8050)))
+    # Config
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'secret')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'jwt-secret')
+
+    # Extensions
+    CORS(app)
+    db.init_app(app)
+    login_manager.init_app(app)
+    jwt = JWTManager(app)
+
+    # Blueprints
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+
+    return app
+
+def create_dashboards(app):
+    from .dashboards.modern_main_dashboard import create_observatoire_dashboard
+    from .dashboards.analytics_dashboard import create_ultra_dashboard
+    from .dashboards.map_dashboard import PremiumMapDashboard
+    from .dashboards.viewer_dashboard import create_viewer_dashboard
+    from .components.admin_panel import AdminPanel
+
+    dash_app1 = create_observatoire_dashboard(app, "/dashboard/", "/dashboard/")
+    dash_app2 = create_ultra_dashboard(app, "/analytics/", "/analytics/")
+    map_dashboard = PremiumMapDashboard(app, "/map/", "/map/")
+    dash_app3 = map_dashboard.app
+    dash_app5 = create_viewer_dashboard(app, "/viewer/", "/viewer/")
+    admin_panel = AdminPanel(app, "/admin/", "/admin/")
+    dash_app4 = admin_panel.app
+
+    # Config
+    for dash_app in [dash_app1, dash_app2, dash_app3, dash_app4, dash_app5]:
+        dash_app.config.suppress_callback_exceptions = True
+        dash_app.css.append_css({'external_url': '/static/css/sidebar.css'})
+
+    return dash_app1, dash_app2, dash_app3, dash_app4, dash_app5
+
+def create_full_app():
+    app = create_flask_app()
+
+    with app.app_context():
+        create_tables_and_default_users()
+
+    global dash_app1, dash_app2, dash_app3, dash_app4, dash_app5
+    dash_app1, dash_app2, dash_app3, dash_app4, dash_app5 = create_dashboards(app)
+
+    return app
+
+server = create_full_app()
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8050))
+    server.run(host="0.0.0.0", port=port)
