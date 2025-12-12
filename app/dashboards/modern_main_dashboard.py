@@ -197,7 +197,11 @@ class DashboardUltimate:
                 'location': int((df['status'] == 'Location').sum()) if 'status' in df.columns else 0,
                 'market_volatility': float(df['price'].std() / df['price'].mean() * 100) if df['price'].mean() > 0 else 0
             }
-            
+            print(f"📊 DEBUG: df.shape = {df.shape}")  # Devrait être > 0
+            print(f"📊 DEBUG: df['price'].dtype = {df['price'].dtype}")  # Devrait être float64
+            print(f"📊 DEBUG: df['price'].mean() = {df['price'].mean()}")  # Si NaN → c'est le problème
+            print(f"📊 DEBUG: df['price'].describe() = \n{df['price'].describe()}")        
+                    
             # ✅ Calculer les trends basés sur scraped_at
             if 'scraped_at' in df.columns and df['scraped_at'].notna().sum() > 0:
                 week_ago = datetime.utcnow() - timedelta(days=7)
