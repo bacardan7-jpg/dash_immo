@@ -737,8 +737,6 @@ class AnalyticsDashboard:
             
             df = pd.DataFrame(data) if isinstance(data, list) else data
             
-            if 'posted_time' not in df.columns or 'property_type' not in df.columns:
-                return self._create_empty_graph("Colonnes manquantes", " Tendances Temporelles")
             
             df_dated = df[df['posted_time'].notna()].copy()
             
