@@ -343,53 +343,53 @@ class PremiumMapDashboard:
             if df_map.empty:
                 return self.create_empty_figure("Pas de données pour ce critère")
             
-            # Agréger par ville pour la carte
-            # Dans la fonction create_interactive_map, remplacez cette partie :
-
-            city_agg = df_map.groupby(['city', 'city_display', 'lat', 'lon', 'region']).agg({
-                'price': ['count', 'median', 'mean'],
-                'price_per_m2': 'median',
-                color_col: 'mean'
-            }).reset_index()
-
-            # FLATTEN les colonnes MultiIndex correctement
-            city_agg.columns = ['city', 'city_display', 'lat', 'lon', 'region', 
-                            'count', 'median_price', 'mean_price', 'median_price_m2', 'color_value']
-
-            # PAR :
-            city_agg = df_map.groupby(['city', 'city_display', 'lat', 'lon', 'region']).agg({
-                'price': ['count', 'median', 'mean'],
-                'price_per_m2': 'median',
-                color_col: 'mean'
-            }).reset_index()
-
-            # Flatten les noms de colonnes MultiIndex
-            city_agg.columns = ['_'.join(col).strip('_') if isinstance(col, tuple) else col 
-                            for col in city_agg.columns]
-
-            # Renommer explicitement chaque colonne
-            city_agg = city_agg.rename(columns={
-                'city': 'city',
-                'city_display': 'city_display', 
-                'lat': 'lat',
-                'lon': 'lon',
-                'region': 'region',
-                'price_count': 'count',
-                'price_median': 'median_price',
-                'price_mean': 'mean_price',
-                'price_per_m2_median': 'median_price_m2',
-                f'{color_col}_mean': 'color_value'
-            })
+            # ======= CORRECTION ROBUSTE ICI =======
             
-            # Créer le hover text
-            city_agg['hover_text'] = city_agg.apply(
-                lambda x: f"<b>{x['city_display']}</b><br>" +
-                         f"Région: {x['region']}<br>" +
-                         f"Annonces: {int(x['count'])}<br>" +
-                         f"Prix médian: {x['median_price']/1_000_000:.1f}M FCFA<br>" +
-                         f"Prix/m²: {x['median_price_m2']:.0f} FCFA" if pd.notna(x['median_price_m2']) else "",
-                axis=1
-            )
+            # Agréger par ville avec une approche plus sûre
+            group_cols = ['city', 'city_display', 'lat', 'lon', 'region']
+            
+            # Calculer les agrégations séparément pour plus de contrôle
+            city_counts = df_map.groupby(group_cols).size().reset_index(name='count')
+            city_price_median = df_map.groupby(group_cols)['price'].median().reset_index(name='median_price')
+            city_price_mean = df_map.groupby(group_cols)['price'].mean().reset_index(name='mean_price')
+            
+            # Agrégation conditionnelle pour price_per_m2
+            if 'price_per_m2' in df_map.columns and df_map['price_per_m2'].notna().any():
+                city_price_m2 = df_map.groupby(group_cols)['price_per_m2'].median().reset_index(name='median_price_m2')
+            else:
+                city_price_m2 = pd.DataFrame(columns=group_cols + ['median_price_m2'])
+            
+            # Agrégation pour la colonne de couleur
+            city_color = df_map.groupby(group_cols)[color_col].mean().reset_index(name='color_value')
+            
+            # Fusionner tous les DataFrames
+            city_agg = city_counts
+            for df_merge in [city_price_median, city_price_mean, city_price_m2, city_color]:
+                if not df_merge.empty:
+                    city_agg = pd.merge(city_agg, df_merge, on=group_cols, how='left')
+            
+            # S'assurer que toutes les colonnes nécessaires existent
+            required_cols = ['count', 'median_price', 'mean_price', 'color_value']
+            for col in required_cols:
+                if col not in city_agg.columns:
+                    city_agg[col] = np.nan
+            
+            # ======= FIN DE LA CORRECTION =======
+            
+            # Créer le hover text de manière robuste
+            def create_hover_text(row):
+                text = f"<b>{row['city_display']}</b><br>"
+                text += f"Région: {row['region']}<br>"
+                text += f"Annonces: {int(row['count'])}<br>"
+                text += f"Prix médian: {row['median_price']/1_000_000:.1f}M FCFA"
+                
+                # Ajouter prix/m² seulement si disponible
+                if 'median_price_m2' in row and pd.notna(row['median_price_m2']):
+                    text += f"<br>Prix/m²: {row['median_price_m2']:.0f} FCFA"
+                
+                return text
+            
+            city_agg['hover_text'] = city_agg.apply(create_hover_text, axis=1)
             
             # Créer la carte
             fig = go.Figure()
@@ -439,6 +439,7 @@ class PremiumMapDashboard:
             
         except Exception as e:
             logger.error(f"Erreur création carte: {e}")
+            traceback.print_exc()
             return self.create_empty_figure(f"Erreur: {str(e)}")
     
     def create_heatmap_density(self, df):
