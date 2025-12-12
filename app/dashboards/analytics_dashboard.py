@@ -747,7 +747,7 @@ class AnalyticsDashboard:
             if df_dated.empty:
                 return self._create_empty_graph("Pas de dates disponibles", " Tendances Temporelles")
             
-            df_dated['date'] = pd.to_datetime(df_dated['posted_time']).dt.date
+            df_dated['date'] = pd.to_datetime(df_dated['posted_time'], format='ISO8601', errors='coerce').dt.date
             
             # Compter par type et date
             trend = df_dated.groupby(['date', 'property_type']).size().reset_index(name='count')
