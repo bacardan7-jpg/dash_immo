@@ -1,5 +1,5 @@
 """
-📊 ANALYTICS DASHBOARD ULTRA-AVANCÉ - VERSION COMPLÈTE CORRIGÉE
+ ANALYTICS DASHBOARD ULTRA-AVANCÉ - VERSION COMPLÈTE CORRIGÉE
 Dashboard avec analyses statistiques avancées, ML et visualisations 3D
 Auteur: Cos - ENSAE Dakar
 Version: 2.0 - Fixed
@@ -368,7 +368,7 @@ class AnalyticsDashboard:
                         model.surface_area,
                         model.bedrooms,
                         model.bathrooms,
-                        model.scraped_at
+                        model.posted_time,
                     ).filter(
                         model.price.isnot(None),
                         model.price > 10000,
@@ -395,8 +395,8 @@ class AnalyticsDashboard:
                     for r in records:
                         try:
                             age_days = None
-                            if r.scraped_at:
-                                age_days = (datetime.utcnow() - r.scraped_at).days
+                            if r.posted_time:
+                                age_days = (datetime.utcnow() - parse_french_datetime(r.posted_time)).days
                             
                             price = float(r.price) if r.price else 0
                             surface = float(r.surface_area) if r.surface_area and r.surface_area > 0 else None
@@ -439,8 +439,8 @@ class AnalyticsDashboard:
             
             df = pd.DataFrame(all_data)
             df['city'] = df['city'].apply(lambda x: x.lower().split(',')[0] if isinstance(x, str) else x)
-            if 'scraped_at' in df.columns:
-                df['scraped_at'] = df['scraped_at'].apply(parse_french_datetime)            
+            if 'posted_time' in df.columns:
+                df['posted_time'] = df['posted_time'].apply(parse_french_datetime)            
             
             # Enrichissement des données
             if not df.empty:
@@ -627,18 +627,18 @@ class AnalyticsDashboard:
         """Surface 3D empilée prix/surface/localisation"""
         try:
             if data is None or len(data) == 0:
-                return self._create_empty_graph("Aucune donnée disponible", "📊 Surface 3D")
+                return self._create_empty_graph("Aucune donnée disponible", " Surface 3D")
             
             df = pd.DataFrame(data) if isinstance(data, list) else data
             
             required_cols = ['price', 'surface_area', 'city']
             if not all(col in df.columns for col in required_cols):
-                return self._create_empty_graph("Colonnes manquantes", "📊 Surface 3D")
+                return self._create_empty_graph("Colonnes manquantes", " Surface 3D")
             
             df_clean = df[df['surface_area'].notna() & (df['surface_area'] > 0)].copy()
             
             if df_clean.empty:
-                return self._create_empty_graph("Pas assez de données", "📊 Surface 3D")
+                return self._create_empty_graph("Pas assez de données", " Surface 3D")
             
             # Agréger par ville et tranche de surface
             df_clean['surface_bin'] = pd.cut(df_clean['surface_area'], bins=10)
@@ -655,7 +655,7 @@ class AnalyticsDashboard:
             
             fig.update_layout(
                 title=dict(
-                    text='📊 Surface 3D: Prix × Surface × Ville',
+                    text=' Surface 3D: Prix × Surface × Ville',
                     font=dict(size=20, family='Outfit, sans-serif'),
                     x=0
                 ),
@@ -674,7 +674,7 @@ class AnalyticsDashboard:
             
         except Exception as e:
             print(f"Erreur 3D surface: {e}")
-            return self._create_empty_graph(f"Erreur: {str(e)}", "📊 Surface 3D")
+            return self._create_empty_graph(f"Erreur: {str(e)}", " Surface 3D")
     
     def create_multi_layer_heatmap(self, data):
         """Heatmap multi-couches corrélations avancées"""
@@ -732,19 +732,19 @@ class AnalyticsDashboard:
         """Graphique en aires empilées - tendances temporelles"""
         try:
             if data is None or len(data) == 0:
-                return self._create_empty_graph("Aucune donnée disponible", "📈 Tendances Temporelles")
+                return self._create_empty_graph("Aucune donnée disponible", " Tendances Temporelles")
             
             df = pd.DataFrame(data) if isinstance(data, list) else data
             
-            if 'scraped_at' not in df.columns or 'property_type' not in df.columns:
-                return self._create_empty_graph("Colonnes manquantes", "📈 Tendances Temporelles")
+            if 'posted_time' not in df.columns or 'property_type' not in df.columns:
+                return self._create_empty_graph("Colonnes manquantes", " Tendances Temporelles")
             
-            df_dated = df[df['scraped_at'].notna()].copy()
+            df_dated = df[df['posted_time'].notna()].copy()
             
             if df_dated.empty:
-                return self._create_empty_graph("Pas de dates disponibles", "📈 Tendances Temporelles")
+                return self._create_empty_graph("Pas de dates disponibles", " Tendances Temporelles")
             
-            df_dated['date'] = pd.to_datetime(df_dated['scraped_at']).dt.date
+            df_dated['date'] = pd.to_datetime(df_dated['posted_time']).dt.date
             
             # Compter par type et date
             trend = df_dated.groupby(['date', 'property_type']).size().reset_index(name='count')
@@ -753,7 +753,7 @@ class AnalyticsDashboard:
             trend = trend[trend['count'] > 0]
             
             if trend.empty:
-                return self._create_empty_graph("Pas assez de données", "📈 Tendances Temporelles")
+                return self._create_empty_graph("Pas assez de données", " Tendances Temporelles")
             
             fig = go.Figure()
             
@@ -773,7 +773,7 @@ class AnalyticsDashboard:
             
             fig.update_layout(
                 title=dict(
-                    text='📈 Évolution Temporelle des Annonces',
+                    text=' Évolution Temporelle des Annonces',
                     font=dict(size=20, family='Outfit, sans-serif'),
                     x=0
                 ),
@@ -791,13 +791,13 @@ class AnalyticsDashboard:
         except Exception as e:
             print(f"Erreur stacked area: {e}")
             traceback.print_exc()
-            return self._create_empty_graph(f"Erreur: {str(e)}", "📈 Tendances Temporelles")
+            return self._create_empty_graph(f"Erreur: {str(e)}", " Tendances Temporelles")
     
     def create_parallel_coords_advanced(self, data):
         """Coordonnées parallèles avancées"""
         try:
             if data is None or len(data) == 0:
-                return self._create_empty_graph("Aucune donnée disponible", "🔀 Coordonnées Parallèles")
+                return self._create_empty_graph("Aucune donnée disponible", " Coordonnées Parallèles")
             
             df = pd.DataFrame(data) if isinstance(data, list) else data
             
@@ -805,12 +805,12 @@ class AnalyticsDashboard:
             available_cols = [col for col in required_cols if col in df.columns]
             
             if len(available_cols) < 3:
-                return self._create_empty_graph("Pas assez de variables", "🔀 Coordonnées Parallèles")
+                return self._create_empty_graph("Pas assez de variables", " Coordonnées Parallèles")
             
             df_clean = df[available_cols].dropna()
             
             if df_clean.empty or len(df_clean) < 10:
-                return self._create_empty_graph("Pas assez de données", "🔀 Coordonnées Parallèles")
+                return self._create_empty_graph("Pas assez de données", " Coordonnées Parallèles")
             
             # Échantillonner pour performance
             df_sample = df_clean.sample(min(500, len(df_clean)))
@@ -836,7 +836,7 @@ class AnalyticsDashboard:
             
             fig.update_layout(
                 title=dict(
-                    text='🔀 Coordonnées Parallèles Multi-Variables',
+                    text=' Coordonnées Parallèles Multi-Variables',
                     font=dict(size=20, family='Outfit, sans-serif'),
                     x=0
                 ),
@@ -849,7 +849,7 @@ class AnalyticsDashboard:
             
         except Exception as e:
             print(f"Erreur parallel coords: {e}")
-            return self._create_empty_graph(f"Erreur: {str(e)}", "🔀 Coordonnées Parallèles")
+            return self._create_empty_graph(f"Erreur: {str(e)}", " Coordonnées Parallèles")
     
     def create_treemap_sunburst_combo(self, data):
         """Combo Treemap + Sunburst hiérarchique"""
@@ -994,7 +994,7 @@ class AnalyticsDashboard:
         """Clustering K-Means 3D avec ML"""
         try:
             if data is None or len(data) == 0:
-                return self._create_empty_graph("Aucune donnée disponible", "🎯 Clustering ML 3D")
+                return self._create_empty_graph("Aucune donnée disponible", " Clustering ML 3D")
             
             df = pd.DataFrame(data) if isinstance(data, list) else data
             
@@ -1002,12 +1002,12 @@ class AnalyticsDashboard:
             available_cols = [col for col in required_cols if col in df.columns]
             
             if len(available_cols) < 3:
-                return self._create_empty_graph("Pas assez de variables", "🎯 Clustering ML 3D")
+                return self._create_empty_graph("Pas assez de variables", " Clustering ML 3D")
             
             df_clean = df[available_cols].dropna()
             
             if df_clean.empty or len(df_clean) < 20:
-                return self._create_empty_graph("Pas assez de données pour clustering", "🎯 Clustering ML 3D")
+                return self._create_empty_graph("Pas assez de données pour clustering", " Clustering ML 3D")
             
             # Préparer les données pour K-Means
             X = df_clean[available_cols].values
@@ -1047,7 +1047,7 @@ class AnalyticsDashboard:
             
             fig.update_layout(
                 title=dict(
-                    text='🎯 Clustering K-Means 3D (ML)',
+                    text=' Clustering K-Means 3D (ML)',
                     font=dict(size=20, family='Outfit, sans-serif'),
                     x=0
                 ),
@@ -1067,7 +1067,7 @@ class AnalyticsDashboard:
         except Exception as e:
             print(f"Erreur clustering: {e}")
             traceback.print_exc()
-            return self._create_empty_graph(f"Erreur: {str(e)}", "🎯 Clustering ML 3D")
+            return self._create_empty_graph(f"Erreur: {str(e)}", " Clustering ML 3D")
     
     # ========================================================
     #              COMPOSANTS UI
