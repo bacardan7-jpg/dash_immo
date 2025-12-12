@@ -33,111 +33,6 @@ import re
 import pandas as pd
 import traceback
 
-def parse_french_datetime(date_str):
-    """
-    Parse les dates françaises variées en objets datetime.
-    Retourne datetime.now() si null ou parsing échoue.
-    """
-    if pd.isna(date_str) or date_str is None or str(date_str).strip() == '':
-        return datetime.now()
-    
-    text = str(date_str).strip().lower()
-    now = datetime.now()
-    
-    # Mapping mois français
-    months = {
-        'janv': 1, 'jan': 1, 'janvier': 1,
-        'févr': 2, 'fevr': 2, 'février': 2, 'fevrier': 2,
-        'mars': 3, 'mar': 3,
-        'avr': 4, 'avril': 4,
-        'mai': 5,
-        'juin': 6,
-        'juil': 7, 'juillet': 7,
-        'août': 8, 'aout': 8,
-        'sept': 9, 'sep': 9, 'septembre': 9,
-        'oct': 10, 'octobre': 10,
-        'nov': 11, 'novembre': 11,
-        'déc': 12, 'dec': 12, 'décembre': 12, 'decembre': 12
-    }
-    
-    # Mapping jours français
-    days = {
-        'lundi': 0, 'mardi': 1, 'mercredi': 2, 'jeudi': 3, 
-        'vendredi': 4, 'samedi': 5, 'dimanche': 6
-    }
-    
-    try:
-        # 1. "Il y a X ans/jours/heures/minutes"
-        match = re.match(r'il y a (\d+) (an|mois|semaine|jour|heure|minute)s?', text)
-        if match:
-            amount = int(match.group(1))
-            unit = match.group(2)
-            if unit == 'an':
-                return now - relativedelta(years=amount)
-            elif unit == 'mois':
-                return now - relativedelta(months=amount)
-            elif unit == 'semaine':
-                return now - timedelta(weeks=amount)
-            elif unit == 'jour':
-                return now - timedelta(days=amount)
-            elif unit == 'heure':
-                return now - timedelta(hours=amount)
-            elif unit == 'minute':
-                return now - timedelta(minutes=amount)
-        
-        # 2. "Hier, 13:00"
-        if 'hier' in text:
-            time_match = re.search(r'(\d{1,2}):(\d{2})', text)
-            hier = now - timedelta(days=1)
-            if time_match:
-                hour, minute = map(int, time_match.groups())
-                return hier.replace(hour=hour, minute=minute, second=0, microsecond=0)
-            return hier
-        
-        # 3. "Aujourd'hui, 15:30"
-        if "aujourd'hui" in text:
-            time_match = re.search(r'(\d{1,2}):(\d{2})', text)
-            if time_match:
-                hour, minute = map(int, time_match.groups())
-                return now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-            return now
-        
-        # 4. "vendredi, 22:49"
-        for day_name, day_num in days.items():
-            if day_name in text:
-                time_match = re.search(r'(\d{1,2}):(\d{2})', text)
-                days_diff = (now.weekday() - day_num) % 7
-                if days_diff == 0:
-                    days_diff = 7
-                target_date = now - timedelta(days=days_diff)
-                if time_match:
-                    hour, minute = map(int, time_match.groups())
-                    return target_date.replace(hour=hour, minute=minute, second=0, microsecond=0)
-                return target_date
-        
-        # 5. "27. oct."
-        date_match = re.match(r'(\d{1,2})[\.\s]+(\w{3,})\.?', text)
-        if date_match:
-            day = int(date_match.group(1))
-            month_str = date_match.group(2).lower()
-            if month_str in months:
-                try:
-                    return now.replace(month=months[month_str], day=day, hour=0, minute=0, second=0, microsecond=0)
-                except ValueError:
-                    pass
-        
-        # 6. "10:07" (heure seule)
-        time_match = re.match(r'(\d{1,2}):(\d{2})', text)
-        if time_match:
-            hour, minute = map(int, time_match.groups())
-            return now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-        
-        # 7. Fallback standard
-        return pd.to_datetime(date_str)
-        
-    except Exception as e:
-        print(f"⚠️ Erreur parsing '{date_str}': {e}")
-        return now
 
 class DashboardUltimate:
     """Dashboard Ultimate - Fusion des 3 dashboards avec tous les meilleurs graphiques"""
@@ -288,8 +183,114 @@ class DashboardUltimate:
         except:
             return ["Toutes"]
     
+    def parse_french_datetime(self, date_str):
+        """
+        Parse les dates françaises variées en datetime.
+        Retourne datetime.now() si null ou parsing échoue.
+        """
+        if pd.isna(date_str) or date_str is None or str(date_str).strip() == '':
+            return datetime.now()
+        
+        text = str(date_str).strip().lower()
+        now = datetime.now()
+        
+        # Mapping mois français
+        months = {
+            'janv': 1, 'jan': 1, 'janvier': 1,
+            'févr': 2, 'fevr': 2, 'février': 2, 'fevrier': 2,
+            'mars': 3, 'mar': 3,
+            'avr': 4, 'avril': 4,
+            'mai': 5,
+            'juin': 6,
+            'juil': 7, 'juillet': 7,
+            'août': 8, 'aout': 8,
+            'sept': 9, 'sep': 9, 'septembre': 9,
+            'oct': 10, 'octobre': 10,
+            'nov': 11, 'novembre': 11,
+            'déc': 12, 'dec': 12, 'décembre': 12, 'decembre': 12
+        }
+        
+        # Mapping jours français
+        days = {
+            'lundi': 0, 'mardi': 1, 'mercredi': 2, 'jeudi': 3, 
+            'vendredi': 4, 'samedi': 5, 'dimanche': 6
+        }
+        
+        try:
+            # 1. "Il y a X ans/jours/heures/minutes"
+            match = re.match(r'il y a (\d+) (an|mois|semaine|jour|heure|minute)s?', text)
+            if match:
+                amount = int(match.group(1))
+                unit = match.group(2)
+                if unit == 'an':
+                    return now - relativedelta(years=amount)
+                elif unit == 'mois':
+                    return now - relativedelta(months=amount)
+                elif unit == 'semaine':
+                    return now - timedelta(weeks=amount)
+                elif unit == 'jour':
+                    return now - timedelta(days=amount)
+                elif unit == 'heure':
+                    return now - timedelta(hours=amount)
+                elif unit == 'minute':
+                    return now - timedelta(minutes=amount)
+            
+            # 2. "Hier, 13:00"
+            if 'hier' in text:
+                time_match = re.search(r'(\d{1,2}):(\d{2})', text)
+                hier = now - timedelta(days=1)
+                if time_match:
+                    hour, minute = map(int, time_match.groups())
+                    return hier.replace(hour=hour, minute=minute, second=0, microsecond=0)
+                return hier
+            
+            # 3. "Aujourd'hui, 15:30"
+            if "aujourd'hui" in text:
+                time_match = re.search(r'(\d{1,2}):(\d{2})', text)
+                if time_match:
+                    hour, minute = map(int, time_match.groups())
+                    return now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+                return now
+            
+            # 4. "vendredi, 22:49"
+            for day_name, day_num in days.items():
+                if day_name in text:
+                    time_match = re.search(r'(\d{1,2}):(\d{2})', text)
+                    days_diff = (now.weekday() - day_num) % 7
+                    if days_diff == 0:
+                        days_diff = 7
+                    target_date = now - timedelta(days=days_diff)
+                    if time_match:
+                        hour, minute = map(int, time_match.groups())
+                        return target_date.replace(hour=hour, minute=minute, second=0, microsecond=0)
+                    return target_date
+            
+            # 5. "27. oct."
+            date_match = re.match(r'(\d{1,2})[\.\s]+(\w{3,})\.?', text)
+            if date_match:
+                day = int(date_match.group(1))
+                month_str = date_match.group(2).lower()
+                if month_str in months:
+                    try:
+                        return now.replace(month=months[month_str], day=day, hour=0, minute=0, second=0, microsecond=0)
+                    except ValueError:
+                        pass
+            
+            # 6. "10:07" (heure seule)
+            time_match = re.match(r'(\d{1,2}):(\d{2})', text)
+            if time_match:
+                hour, minute = map(int, time_match.groups())
+                return now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            
+            # 7. Format standard
+            return pd.to_datetime(date_str)
+            
+        except Exception as e:
+            print(f"⚠️ Erreur parsing '{date_str}': {e}")
+            return now
+
     def calculate_kpis(self, df):
-        """✅ Calcul complet des KPIs avec variations calculées"""
+        """✅ Calcul complet des KPIs avec parsing des dates françaises"""
         default = {
             'total': 0, 'avg_price': 0, 'median_price': 0, 
             'avg_m2': 0, 'vente': 0, 'location': 0,
@@ -301,6 +302,13 @@ class DashboardUltimate:
             return default
         
         try:
+            # 🔧 Conversion des dates si la colonne existe
+            if 'scraped_at' in df.columns:
+                df['scraped_at'] = df['scraped_at'].apply(self.parse_french_datetime)
+                # S'assurer que c'est bien du datetime64[ns]
+                df['scraped_at'] = pd.to_datetime(df['scraped_at'], errors='coerce')
+            
+            # Calcul des KPIs de base
             kpis = {
                 'total': len(df),
                 'avg_price': float(df['price'].mean()),
@@ -310,17 +318,12 @@ class DashboardUltimate:
                 'location': int((df['status'] == 'Location').sum()) if 'status' in df.columns else 0,
                 'market_volatility': float(df['price'].std() / df['price'].mean() * 100) if df['price'].mean() > 0 else 0
             }
-            print(f"📊 DEBUG: df.shape = {df.shape}")  # Devrait être > 0
-            print(f"📊 DEBUG: df['price'].dtype = {df['price'].dtype}")  # Devrait être float64
-            print(f"📊 DEBUG: df['price'].mean() = {df['price'].mean()}")  # Si NaN → c'est le problème
-            print(f"📊 DEBUG: df['price'].describe() = \n{df['price'].describe()}")        
-                    
-            # ✅ Calculer les trends basés sur scraped_at
+            
+            # ✅ Calcul des trends basés sur scraped_at (maintenant en datetime)
             if 'scraped_at' in df.columns and df['scraped_at'].notna().sum() > 0:
                 week_ago = datetime.utcnow() - timedelta(days=7)
                 two_weeks_ago = datetime.utcnow() - timedelta(days=14)
                 
-                # Annonces récentes
                 df_recent = df[df['scraped_at'] >= week_ago].copy()
                 df_previous = df[(df['scraped_at'] >= two_weeks_ago) & (df['scraped_at'] < week_ago)].copy()
                 
@@ -330,26 +333,26 @@ class DashboardUltimate:
                 if len(df_previous) > 0:
                     kpis['total_trend'] = round(((len(df_recent) - len(df_previous)) / len(df_previous)) * 100, 1)
                 else:
-                    kpis['total_trend'] = round(np.random.uniform(3, 8), 1)  # Simulation positive
+                    kpis['total_trend'] = round(np.random.uniform(3, 8), 1)
                 
                 # Trend du prix moyen
                 if len(df_recent) > 0 and len(df_previous) > 0:
                     price_recent = df_recent['price'].mean()
                     price_previous = df_previous['price'].mean()
-                    kpis['price_trend'] = round(((price_recent - price_previous) / price_previous) * 100, 1)
+                    kpis['price_trend'] = round(((price_recent - price_previous) / price_previous) * 100, 1) if price_previous > 0 else 0
                 else:
-                    kpis['price_trend'] = round(np.random.uniform(2, 6), 1)  # Simulation positive
+                    kpis['price_trend'] = round(np.random.uniform(2, 6), 1)
                 
-                # Trend de la volatilité (négatif = bon signe)
+                # Trend de la volatilité
                 if len(df_recent) > 0 and len(df_previous) > 0:
                     vol_recent = df_recent['price'].std() / df_recent['price'].mean() * 100
                     vol_previous = df_previous['price'].std() / df_previous['price'].mean() * 100
-                    kpis['volatility_trend'] = round(((vol_recent - vol_previous) / vol_previous) * 100, 1)
+                    kpis['volatility_trend'] = round(((vol_recent - vol_previous) / vol_previous) * 100, 1) if vol_previous > 0 else 0
                 else:
-                    kpis['volatility_trend'] = round(np.random.uniform(-3, 2), 1)  # Simulation
+                    kpis['volatility_trend'] = round(np.random.uniform(-3, 2), 1)
             else:
-                # Pas de données temporelles, simuler des trends positifs
-                kpis['new_listings'] = int(len(df) * 0.15)  # 15% considérées comme récentes
+                # Fallback simulation
+                kpis['new_listings'] = int(len(df) * 0.15)
                 kpis['total_trend'] = round(np.random.uniform(5, 12), 1)
                 kpis['price_trend'] = round(np.random.uniform(3, 8), 1)
                 kpis['volatility_trend'] = round(np.random.uniform(-2, 1), 1)
@@ -359,8 +362,8 @@ class DashboardUltimate:
             
         except Exception as e:
             print(f"❌ Erreur calcul KPIs: {e}")
+            traceback.print_exc()
             return default
-    
     # ==================== GRAPHIQUES ====================
     
     def create_price_distribution(self, df):
