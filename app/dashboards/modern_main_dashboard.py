@@ -71,26 +71,26 @@ class DashboardUltimate:
     
     def safe_import_models(self):
         try:
-            from database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
-            return db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
+            from database.models import db,   ExpatDakarProperty, LogerDakarProperty
+            return db,   ExpatDakarProperty, LogerDakarProperty
         except ImportError:
             try:
-                from app.database.models import db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
-                return db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty
+                from app.database.models import db,   ExpatDakarProperty, LogerDakarProperty
+                return db,   ExpatDakarProperty, LogerDakarProperty
             except:
                 return None, None, None, None
     
     def safe_get_data(self, property_type=None, city=None, status_filter=None, limit=1000):
         """✅ Récupération ROBUSTE avec TOUS les filtres"""
         try:
-            db, CoinAfrique, ExpatDakarProperty, LogerDakarProperty = self.safe_import_models()
+            db,   ExpatDakarProperty, LogerDakarProperty = self.safe_import_models()
             
             if not db:
                 return pd.DataFrame()
             
             all_data = []
             
-            for model in [CoinAfrique, ExpatDakarProperty, LogerDakarProperty]:
+            for model in [  ExpatDakarProperty, LogerDakarProperty]:
                 try:
                     query = db.session.query(model).filter(
                         model.price.isnot(None),
